@@ -1,0 +1,57 @@
+version: "3.9"
+
+services:
+  # =========================================================================
+  # 1. APP-KANTECHRH: Frontend Corporativo + BFF (Next.js 15 + React 19)
+  # Exposto publicamente via Traefik (app.kantechrh.com.br)
+  # =========================================================================
+  app-kantechrh:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app-kantechrh
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-https://wfenlrmsiyndtpxwfgxs.supabase.co}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - MAM_ENGINE_URL=http://mam-kantechrh:8000
+      - MAM_INTERNAL_SECRET=${MAM_INTERNAL_SECRET:-kantech-mam-secret-key-2026-isolated}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      - mam-kantechrh
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.app-kantechrh.rule=Host(`app.kantechrh.com.br`)
+      - traefik.http.routers.app-kantechrh.entrypoints=websecure
+      - traefik.http.routers.app-kantechrh.tls.certresolver=letsencrypt
+      - traefik.http.services.app-kantechrh.loadbalancer.server.port=3000
+    networks:
+      - traefik-proxy
+      - kantech-internal-net
+
+  # =========================================================================
+  # 2. MAM-KANTECHRH: Motor Isolado de Cálculos KAN (FastAPI Python)
+  # SEM EXPOSIÇÃO PÚBLICA (Sem Traefik e sem ports mapeadas para o Host VPS)
+  # Acessível exclusivamente por app-kantechrh via kantech-internal-net
+  # =========================================================================
+  mam-kantechrh:
+    build:
+      context: ./mam-kantechrh
+      dockerfile: Dockerfile
+    container_name: mam-kantechrh
+    restart: always
+    environment:
+      - PORT=8000
+      - MAM_INTERNAL_SECRET=${MAM_INTERNAL_SECRET:-kantech-mam-secret-key-2026-isolated}
+    networks:
+      - kantech-internal-net
+
+networks:
+  traefik-proxy:
+    external: true
+  kantech-internal-net:
+    driver: bridge
+    internal: true
