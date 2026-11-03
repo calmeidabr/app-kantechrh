@@ -33,6 +33,7 @@ import {
   BrainCircuit,
   SlidersHorizontal,
   UploadCloud,
+  Menu,
 } from "lucide-react";
 import {
   BarChart,
@@ -53,6 +54,20 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table";
 import {
   TALENTOS_MOCK,
   EMPRESAS_TENANT,
@@ -222,236 +237,287 @@ export default function KantechApp() {
     [5, 5, 5, 5, 5, 5],
   ];
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navigateTo = (route: RouteKey) => {
+    setActiveRoute(route);
+    setMobileMenuOpen(false);
+  };
+
+  const renderSidebarNavigationContent = (isCollapsed: boolean) => (
+    <>
+      {/* Top Brand + Search */}
+      <div className="p-4 space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#510851] text-white font-bold shadow-xs shrink-0">
+              <span className="text-sm tracking-tighter">◇</span>
+            </div>
+            {!isCollapsed && (
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-[15px] tracking-tight text-slate-900 dark:text-white">
+                    Kantech<span className="text-[#ea580c]">RH</span>
+                  </span>
+                  <span className="rounded bg-[#510851]/10 dark:bg-[#8b5cf6]/20 px-1.5 py-0.5 text-[10px] font-semibold text-[#510851] dark:text-[#a78bfa]">
+                    PRO
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400 leading-none">
+                  Soft Skills & People Analytics
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {!isCollapsed && (
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar talento..."
+              className="h-9 w-full rounded-lg border border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 pl-8 pr-10 text-xs text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#510851]/20 focus:border-[#510851]"
+            />
+            <kbd className="pointer-events-none absolute right-2 top-2 inline-flex h-5 items-center gap-0.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-1.5 font-mono text-[10px] font-medium text-slate-400">
+              ⌘K
+            </kbd>
+          </div>
+        )}
+      </div>
+
+      {/* Navigation Menu */}
+      <div className="flex-1 overflow-y-auto px-3 space-y-5">
+        {/* Group 1: Dashboards */}
+        <div>
+          {!isCollapsed && (
+            <div className="px-2.5 pb-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500">
+              Dashboards
+            </div>
+          )}
+          <nav className="space-y-0.5">
+            <SidebarItem
+              icon={<LayoutDashboard className="h-4 w-4" />}
+              label="HR Overview (Home)"
+              active={activeRoute === "Home"}
+              collapsed={isCollapsed}
+              badge="Ativo"
+              badgeVariant="emerald"
+              onClick={() => navigateTo("Home")}
+            />
+            <SidebarItem
+              icon={<Compass className="h-4 w-4" />}
+              label="Diagnósticos KAN"
+              active={activeRoute === "Diagnósticos"}
+              collapsed={isCollapsed}
+              badge="IA"
+              badgeVariant="orange"
+              onClick={() => navigateTo("Diagnósticos")}
+            />
+            <SidebarItem
+              icon={<BarChart3 className="h-4 w-4" />}
+              label="People Analytics"
+              active={activeRoute === "Analytics"}
+              collapsed={isCollapsed}
+              onClick={() => navigateTo("Analytics")}
+            />
+          </nav>
+        </div>
+
+        {/* Group 2: Cadastros & Análises */}
+        <div>
+          {!isCollapsed && (
+            <button
+              onClick={() => toggleGroup("CADASTROS")}
+              className="flex w-full items-center justify-between px-2.5 pb-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500 hover:text-slate-600"
+            >
+              <span>Cadastros & Seleção</span>
+              {openGroups.CADASTROS ? (
+                <ChevronDown className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronRight className="h-3.5 w-3.5" />
+              )}
+            </button>
+          )}
+          {(openGroups.CADASTROS || isCollapsed) && (
+            <nav className="space-y-0.5">
+              <SidebarItem
+                icon={<Users className="h-4 w-4" />}
+                label="Talentos & OCR"
+                active={activeRoute === "Talentos"}
+                collapsed={isCollapsed}
+                hasChevron
+                onClick={() => navigateTo("Talentos")}
+              />
+              <SidebarItem
+                icon={<UsersRound className="h-4 w-4" />}
+                label="Equipes & Harmonia"
+                active={activeRoute === "Equipes"}
+                collapsed={isCollapsed}
+                hasChevron
+                onClick={() => navigateTo("Equipes")}
+              />
+              <SidebarItem
+                icon={<UserCheck className="h-4 w-4" />}
+                label="Processo Seletivo"
+                active={activeRoute === "Processo seletivo"}
+                collapsed={isCollapsed}
+                badge="Match"
+                badgeVariant="orange"
+                onClick={() => navigateTo("Processo seletivo")}
+              />
+              <SidebarItem
+                icon={<Briefcase className="h-4 w-4" />}
+                label="Vagas"
+                active={activeRoute === "Vagas"}
+                collapsed={isCollapsed}
+                hasChevron
+                onClick={() => navigateTo("Vagas")}
+              />
+              <SidebarItem
+                icon={<Network className="h-4 w-4" />}
+                label="Organograma"
+                active={activeRoute === "Empresa e Organograma"}
+                collapsed={isCollapsed}
+                hasChevron
+                onClick={() => navigateTo("Empresa e Organograma")}
+              />
+            </nav>
+          )}
+        </div>
+
+        {/* Group 3: Governança & Admin Master */}
+        <div>
+          {!isCollapsed && (
+            <div className="px-2.5 pb-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500">
+              Governança & SaaS
+            </div>
+          )}
+          <nav className="space-y-0.5">
+            <SidebarItem
+              icon={<Layers className="h-4 w-4" />}
+              label="SaaS Multi-Tenant"
+              active={activeRoute === "SaaS Multi-Tenant"}
+              collapsed={isCollapsed}
+              hasChevron
+              onClick={() => navigateTo("SaaS Multi-Tenant")}
+            />
+            <SidebarItem
+              icon={<ShieldCheck className="h-4 w-4" />}
+              label="Painel de Controle"
+              active={activeRoute === "Painel de Controle"}
+              collapsed={isCollapsed}
+              onClick={() => navigateTo("Painel de Controle")}
+            />
+          </nav>
+        </div>
+      </div>
+
+      {/* Bottom Card: Motor MAM Isolado */}
+      <div className="p-3">
+        {!isCollapsed ? (
+          <div className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                Motor MAM Isolado
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Seguro
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              Cálculos protegidos via container interno{" "}
+              <code className="text-[#510851] dark:text-[#a78bfa] font-semibold">
+                mam-kantechrh
+              </code>{" "}
+              + Supabase RLS.
+            </p>
+            <Button
+              onClick={() => navigateTo("Talentos")}
+              className="w-full h-8 text-xs font-semibold bg-slate-900 hover:bg-[#510851] dark:bg-[#8b5cf6] text-white rounded-lg"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Cadastrar Talento
+            </Button>
+          </div>
+        ) : (
+          <Button
+            size="icon"
+            onClick={() => navigateTo("Talentos")}
+            className="w-full h-9 bg-[#510851] text-white"
+            title="Cadastrar Talento"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[#f8fafc] dark:bg-[#090d16] text-slate-900 dark:text-slate-100">
       {/* =====================================================================
-          SIDEBAR (Shadcn UI Kit Style adapted to KantechRH)
+          DESKTOP SIDEBAR (hidden on mobile, flex on md+)
       ====================================================================== */}
       <aside
         className={`${
-          sidebarCollapsed ? "w-[72px]" : "w-[260px]"
-        } flex flex-col justify-between border-r border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-[#0d111d] transition-all duration-200 shrink-0 select-none z-20`}
+          sidebarCollapsed ? "md:w-[72px]" : "md:w-[260px]"
+        } hidden md:flex flex-col justify-between border-r border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-[#0d111d] transition-all duration-200 shrink-0 select-none z-20`}
       >
-        {/* Top Brand + Search */}
-        <div className="p-4 space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#510851] text-white font-bold shadow-xs">
-                <span className="text-sm tracking-tighter">◇</span>
-              </div>
-              {!sidebarCollapsed && (
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-[15px] tracking-tight text-slate-900 dark:text-white">
-                      Kantech<span className="text-[#ea580c]">RH</span>
-                    </span>
-                    <span className="rounded bg-[#510851]/10 dark:bg-[#8b5cf6]/20 px-1.5 py-0.5 text-[10px] font-semibold text-[#510851] dark:text-[#a78bfa]">
-                      PRO
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-slate-400 leading-none">
-                    Soft Skills & People Analytics
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {!sidebarCollapsed && (
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar talento..."
-                className="h-9 w-full rounded-lg border border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 pl-8 pr-10 text-xs text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#510851]/20 focus:border-[#510851]"
-              />
-              <kbd className="pointer-events-none absolute right-2 top-2 inline-flex h-5 items-center gap-0.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-1.5 font-mono text-[10px] font-medium text-slate-400">
-                ⌘K
-              </kbd>
-            </div>
-          )}
-        </div>
-
-        {/* Navigation Menu */}
-        <div className="flex-1 overflow-y-auto px-3 space-y-5">
-          {/* Group 1: Dashboards */}
-          <div>
-            {!sidebarCollapsed && (
-              <div className="px-2.5 pb-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500">
-                Dashboards
-              </div>
-            )}
-            <nav className="space-y-0.5">
-              <SidebarItem
-                icon={<LayoutDashboard className="h-4 w-4" />}
-                label="HR Overview (Home)"
-                active={activeRoute === "Home"}
-                collapsed={sidebarCollapsed}
-                badge="Ativo"
-                badgeVariant="emerald"
-                onClick={() => setActiveRoute("Home")}
-              />
-              <SidebarItem
-                icon={<Compass className="h-4 w-4" />}
-                label="Diagnósticos KAN"
-                active={activeRoute === "Diagnósticos"}
-                collapsed={sidebarCollapsed}
-                badge="IA"
-                badgeVariant="orange"
-                onClick={() => setActiveRoute("Diagnósticos")}
-              />
-              <SidebarItem
-                icon={<BarChart3 className="h-4 w-4" />}
-                label="People Analytics"
-                active={activeRoute === "Analytics"}
-                collapsed={sidebarCollapsed}
-                onClick={() => setActiveRoute("Analytics")}
-              />
-            </nav>
-          </div>
-
-          {/* Group 2: Cadastros & Análises */}
-          <div>
-            {!sidebarCollapsed && (
-              <button
-                onClick={() => toggleGroup("CADASTROS")}
-                className="flex w-full items-center justify-between px-2.5 pb-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500 hover:text-slate-600"
-              >
-                <span>Cadastros & Seleção</span>
-                {openGroups.CADASTROS ? (
-                  <ChevronDown className="h-3.5 w-3.5" />
-                ) : (
-                  <ChevronRight className="h-3.5 w-3.5" />
-                )}
-              </button>
-            )}
-            {(openGroups.CADASTROS || sidebarCollapsed) && (
-              <nav className="space-y-0.5">
-                <SidebarItem
-                  icon={<Users className="h-4 w-4" />}
-                  label="Talentos & OCR"
-                  active={activeRoute === "Talentos"}
-                  collapsed={sidebarCollapsed}
-                  hasChevron
-                  onClick={() => setActiveRoute("Talentos")}
-                />
-                <SidebarItem
-                  icon={<UsersRound className="h-4 w-4" />}
-                  label="Equipes & Harmonia"
-                  active={activeRoute === "Equipes"}
-                  collapsed={sidebarCollapsed}
-                  hasChevron
-                  onClick={() => setActiveRoute("Equipes")}
-                />
-                <SidebarItem
-                  icon={<UserCheck className="h-4 w-4" />}
-                  label="Processo Seletivo"
-                  active={activeRoute === "Processo seletivo"}
-                  collapsed={sidebarCollapsed}
-                  badge="Match"
-                  badgeVariant="orange"
-                  onClick={() => setActiveRoute("Processo seletivo")}
-                />
-                <SidebarItem
-                  icon={<Briefcase className="h-4 w-4" />}
-                  label="Vagas"
-                  active={activeRoute === "Vagas"}
-                  collapsed={sidebarCollapsed}
-                  hasChevron
-                  onClick={() => setActiveRoute("Vagas")}
-                />
-                <SidebarItem
-                  icon={<Network className="h-4 w-4" />}
-                  label="Organograma"
-                  active={activeRoute === "Empresa e Organograma"}
-                  collapsed={sidebarCollapsed}
-                  hasChevron
-                  onClick={() => setActiveRoute("Empresa e Organograma")}
-                />
-              </nav>
-            )}
-          </div>
-
-          {/* Group 3: Governança & Admin Master */}
-          <div>
-            {!sidebarCollapsed && (
-              <div className="px-2.5 pb-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500">
-                Governança & SaaS
-              </div>
-            )}
-            <nav className="space-y-0.5">
-              <SidebarItem
-                icon={<Layers className="h-4 w-4" />}
-                label="SaaS Multi-Tenant"
-                active={activeRoute === "SaaS Multi-Tenant"}
-                collapsed={sidebarCollapsed}
-                hasChevron
-                onClick={() => setActiveRoute("SaaS Multi-Tenant")}
-              />
-              <SidebarItem
-                icon={<ShieldCheck className="h-4 w-4" />}
-                label="Painel de Controle"
-                active={activeRoute === "Painel de Controle"}
-                collapsed={sidebarCollapsed}
-                onClick={() => setActiveRoute("Painel de Controle")}
-              />
-            </nav>
-          </div>
-        </div>
-
-        {/* Bottom Card: Motor MAM Isolado */}
-        <div className="p-3">
-          {!sidebarCollapsed ? (
-            <div className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 p-3.5 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                  Motor MAM Isolado
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Seguro
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                Cálculos protegidos via container interno{" "}
-                <code className="text-[#510851] dark:text-[#a78bfa] font-semibold">
-                  mam-kantechrh
-                </code>{" "}
-                + Supabase RLS.
-              </p>
-              <Button
-                onClick={() => setActiveRoute("Talentos")}
-                className="w-full h-8 text-xs font-semibold bg-slate-900 hover:bg-[#510851] dark:bg-[#8b5cf6] text-white rounded-lg"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Cadastrar Talento
-              </Button>
-            </div>
-          ) : (
-            <Button
-              size="icon"
-              onClick={() => setActiveRoute("Talentos")}
-              className="w-full h-9 bg-[#510851] text-white"
-              title="Cadastrar Talento"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
+        {renderSidebarNavigationContent(sidebarCollapsed)}
       </aside>
 
       {/* =====================================================================
-          MAIN WORKSPACE (Topbar + Scrollable Content)
+          MOBILE NAVIGATION SHEET (Shadcn UI Sheet sliding from Left)
       ====================================================================== */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* TOPBAR */}
-        <header className="flex h-14 items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-[#0d111d] px-6 shrink-0">
-          <div className="flex items-center gap-3">
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent
+          side="left"
+          className="flex flex-col justify-between p-0 w-[280px] max-w-[85vw]"
+        >
+          <SheetTitle className="sr-only">
+            Menu de Navegação KantechRH
+          </SheetTitle>
+          <SheetDescription className="sr-only">
+            Navegue pelas seções de RH, Talentos, Equipes, Vagas e Analytics
+          </SheetDescription>
+          {renderSidebarNavigationContent(false)}
+        </SheetContent>
+      </Sheet>
+
+      {/* =====================================================================
+          MAIN WORKSPACE (Mobile Navbar + Desktop Topbar + Scrollable Content)
+      ====================================================================== */}
+      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+        {/* TOPBAR / MOBILE NAVBAR */}
+        <header className="flex h-14 items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-[#0d111d] px-4 md:px-6 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {/* Mobile Hamburger Button (triggers Sheet) */}
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="flex md:hidden h-9 w-9 items-center justify-center rounded-lg border border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+              aria-label="Abrir menu de navegação"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
+            {/* Mobile Brand Logo */}
+            <div className="flex md:hidden items-center gap-2 truncate">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#510851] text-white font-bold text-xs shrink-0">
+                ◇
+              </div>
+              <span className="font-bold text-sm tracking-tight text-slate-900 dark:text-white truncate">
+                Kantech<span className="text-[#ea580c]">RH</span>
+              </span>
+            </div>
+
+            {/* Desktop Sidebar Collapse Toggle */}
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="hidden md:flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
               title="Alternar barra lateral"
             >
               {sidebarCollapsed ? (
@@ -461,20 +527,23 @@ export default function KantechApp() {
               )}
             </button>
 
-            <div className="relative">
+            {/* Tenant Selector */}
+            <div className="relative hidden sm:block">
               <button
                 onClick={() => setTenantMenuOpen(!tenantMenuOpen)}
-                className="flex items-center gap-2.5 rounded-lg border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100/80 transition-colors"
+                className="flex items-center gap-2 rounded-lg border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900 px-2.5 md:px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100/80 transition-colors"
               >
                 <span
                   className="h-2.5 w-2.5 rounded-full shrink-0"
                   style={{ backgroundColor: selectedTenant.cor }}
                 />
-                <span className="font-semibold">{selectedTenant.nome}</span>
-                <span className="text-[10px] text-slate-400">
+                <span className="font-semibold truncate max-w-[140px] md:max-w-none">
+                  {selectedTenant.nome}
+                </span>
+                <span className="hidden lg:inline text-[10px] text-slate-400">
                   • {selectedTenant.plano}
                 </span>
-                <SlidersHorizontal className="h-3 w-3 text-slate-400 ml-1" />
+                <SlidersHorizontal className="h-3 w-3 text-slate-400 ml-1 shrink-0" />
               </button>
 
               {tenantMenuOpen && (
@@ -508,9 +577,9 @@ export default function KantechApp() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 shrink-0">
             <div
-              className="hidden md:flex items-center gap-2 rounded-full border border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80 px-2.5 py-1 text-[10px] font-medium text-slate-600 dark:text-slate-300"
+              className="hidden lg:flex items-center gap-2 rounded-full border border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80 px-2.5 py-1 text-[10px] font-medium text-slate-600 dark:text-slate-300"
               title="Status em tempo real da camada BFF (Supabase + Container mam-kantechrh)"
             >
               <span className="flex items-center gap-1">
@@ -565,19 +634,19 @@ export default function KantechApp() {
             </button>
 
             <button
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               title="Identidade KantechRH (#510851 & #ea580c)"
             >
               <Palette className="h-4 w-4 text-[#510851] dark:text-[#a78bfa]" />
             </button>
 
-            <div className="h-5 w-[1px] bg-slate-200 dark:bg-slate-800 mx-0.5" />
+            <div className="hidden sm:block h-5 w-[1px] bg-slate-200 dark:bg-slate-800 mx-0.5" />
 
-            <div className="flex items-center gap-2.5 pl-1">
+            <div className="flex items-center gap-2.5 pl-0.5">
               <img
                 src={talentos[0].avatar}
                 alt="Admin Master"
-                className="h-8 w-8 rounded-full object-cover ring-2 ring-[#510851]/20"
+                className="h-8 w-8 rounded-full object-cover ring-2 ring-[#510851]/20 shrink-0"
               />
               <div className="hidden md:flex flex-col text-left">
                 <span className="text-xs font-semibold leading-none">
@@ -594,7 +663,7 @@ export default function KantechApp() {
         {/* ===================================================================
             MAIN SCROLLABLE CONTENT AREA
         ==================================================================== */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="mx-auto max-w-[1440px] space-y-6">
             {/* VIEW 1: HOME (Shadcn UI Kit HR Dashboard) */}
             {activeRoute === "Home" && (
@@ -638,9 +707,9 @@ export default function KantechApp() {
 
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
                   {/* LEFT 8 COLUMNS */}
-                  <div className="xl:col-span-8 space-y-6">
+                  <div className="xl:col-span-8 space-y-6 min-w-0">
                     <Card>
-                      <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-2">
                         <div>
                           <CardTitle className="text-base font-semibold">
                             Fluxo de Diagnósticos & Mapeamentos Comportamentais
@@ -652,7 +721,7 @@ export default function KantechApp() {
                             </span>
                           </CardDescription>
                         </div>
-                        <div className="flex items-center gap-4 text-xs">
+                        <div className="flex flex-wrap items-center gap-3 text-xs">
                           <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
                             <span className="h-2.5 w-2.5 rounded-xs bg-slate-200 dark:bg-slate-700" />
                             Mapeados
@@ -668,11 +737,11 @@ export default function KantechApp() {
                         </div>
                       </CardHeader>
                       <CardContent className="pt-4">
-                        <div className="h-[230px] w-full">
+                        <div className="h-[220px] sm:h-[230px] w-full">
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart
                               data={WEEKLY_DIAGNOSTICS_CHART}
-                              barSize={38}
+                              barSize={34}
                               margin={{
                                 top: 10,
                                 right: 10,
@@ -730,38 +799,44 @@ export default function KantechApp() {
                       </CardContent>
                     </Card>
 
-                    {/* Talentos Table Card */}
+                    {/* Talentos Responsive Card (Table on md+, Stacked Cards on mobile) */}
                     <Card>
                       <CardHeader className="pb-4">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <CardTitle className="text-base font-semibold">
                             Todos os Talentos Mapeados
                           </CardTitle>
-                          <div className="flex items-center gap-2">
+                          <div className="grid grid-cols-2 sm:flex items-center gap-2">
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => setActiveRoute("Talentos")}
+                              className="w-full sm:w-auto"
                             >
                               <Plus className="h-3.5 w-3.5 text-[#510851]" />
                               Cadastrar Talento
                             </Button>
-                            <Button variant="outline" size="sm">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full sm:w-auto"
+                            >
                               <Download className="h-3.5 w-3.5" />
                               Exportar
                             </Button>
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center justify-between gap-3 pt-3">
-                          <div className="flex items-center gap-2 flex-1 min-w-[240px]">
-                            <div className="relative flex-1 max-w-xs">
+                        {/* Search Input and Filter Button: 100% width stacked vertically on mobile, side-by-side on md+ */}
+                        <div className="flex flex-col gap-3 pt-3 md:flex-row md:items-center md:justify-between">
+                          <div className="flex flex-col gap-2.5 w-full md:flex-row md:items-center md:w-auto md:flex-1">
+                            <div className="relative w-full md:max-w-xs">
                               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                               <Input
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Buscar talento, cargo ou ID..."
-                                className="pl-9 h-9 text-xs"
+                                placeholder="Buscar talento, cargo ou ID KAN..."
+                                className="w-full pl-9 h-9 text-xs"
                               />
                             </div>
                             <Button
@@ -774,10 +849,11 @@ export default function KantechApp() {
                                     : "Todos"
                                 )
                               }
+                              className="w-full md:w-auto h-9 justify-center"
                             >
                               <Filter className="h-3.5 w-3.5" />
                               {departmentFilter === "Todos"
-                                ? "Filtros"
+                                ? "Filtrar Departamento"
                                 : departmentFilter}
                             </Button>
                           </div>
@@ -788,43 +864,109 @@ export default function KantechApp() {
                         </div>
                       </CardHeader>
 
-                      <CardContent className="px-0 pb-2">
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left border-collapse">
-                            <thead>
-                              <tr className="border-y border-slate-200/80 dark:border-slate-800 text-[11px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-900/40">
-                                <th className="py-3 pl-6 pr-3 w-8">
+                      <CardContent className="px-4 md:px-0 pb-4 md:pb-2">
+                        {/* MOBILE VIEW: Vertical Stacked Shadcn UI Cards (block md:hidden) */}
+                        <div className="block md:hidden space-y-3">
+                          {filteredTalentos.slice(0, 25).map((t) => (
+                            <Card
+                              key={t.id}
+                              onClick={() => handleInspectTalento(t)}
+                              className="p-4 border-slate-200/90 dark:border-slate-800 hover:border-[#510851]/40 transition-all cursor-pointer shadow-2xs"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <img
+                                    src={t.avatar}
+                                    alt={t.nome}
+                                    className="h-11 w-11 rounded-full object-cover ring-2 ring-[#510851]/15 dark:ring-[#8b5cf6]/25 shrink-0"
+                                  />
+                                  <div className="min-w-0">
+                                    <div className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">
+                                      {t.nome}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                      <span className="inline-flex items-center rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                                        ID KAN #{t.codigo}
+                                      </span>
+                                      <span className="text-[11px] text-slate-400 truncate">
+                                        • {t.cargo}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleInspectTalento(t);
+                                  }}
+                                  className="rounded-lg p-1.5 text-slate-500 hover:bg-[#510851]/10 hover:text-[#510851] dark:hover:text-[#a78bfa] shrink-0"
+                                  title="Abrir Diagnóstico Comportamental"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                              </div>
+
+                              <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
+                                <Badge
+                                  variant="secondary"
+                                  className="font-normal text-[10px]"
+                                >
+                                  {t.departamento}
+                                </Badge>
+                                <Badge
+                                  variant={
+                                    t.status === "Ativo"
+                                      ? "success"
+                                      : t.status === "Em Avaliação"
+                                      ? "orange"
+                                      : "purple"
+                                  }
+                                  className="text-[10px]"
+                                >
+                                  <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                                  KAN {t.kan_numero} •{" "}
+                                  {t.perfil_dominante.split(" ")[0]}
+                                </Badge>
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+
+                        {/* DESKTOP VIEW: Shadcn UI Table (hidden md:block) */}
+                        <div className="hidden md:block">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="pl-6 pr-3 w-8">
                                   <input
                                     type="checkbox"
                                     className="rounded border-slate-300"
                                   />
-                                </th>
-                                <th className="py-3 px-3">ID KAN</th>
-                                <th className="py-3 px-3">Talento</th>
-                                <th className="py-3 px-3">Cargo / Função</th>
-                                <th className="py-3 px-3">Departamento</th>
-                                <th className="py-3 px-3">Perfil KAN</th>
-                                <th className="py-3 pl-3 pr-6 text-right">
+                                </TableHead>
+                                <TableHead>ID KAN</TableHead>
+                                <TableHead>Talento</TableHead>
+                                <TableHead>Cargo / Função</TableHead>
+                                <TableHead>Departamento</TableHead>
+                                <TableHead>Perfil KAN</TableHead>
+                                <TableHead className="pl-3 pr-6 text-right">
                                   Ações
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/60 text-xs">
-                              {filteredTalentos.map((t) => (
-                                <tr
-                                  key={t.id}
-                                  className="hover:bg-slate-50/90 dark:hover:bg-slate-900/40 transition-colors group"
-                                >
-                                  <td className="py-3.5 pl-6 pr-3">
+                                </TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {filteredTalentos.slice(0, 50).map((t) => (
+                                <TableRow key={t.id} className="group">
+                                  <TableCell className="pl-6 pr-3">
                                     <input
                                       type="checkbox"
                                       className="rounded border-slate-300"
                                     />
-                                  </td>
-                                  <td className="py-3.5 px-3 font-mono text-slate-500">
+                                  </TableCell>
+                                  <TableCell className="font-mono text-slate-500">
                                     {t.codigo}
-                                  </td>
-                                  <td className="py-3.5 px-3">
+                                  </TableCell>
+                                  <TableCell>
                                     <div className="flex items-center gap-3">
                                       <img
                                         src={t.avatar}
@@ -845,19 +987,19 @@ export default function KantechApp() {
                                         </div>
                                       </div>
                                     </div>
-                                  </td>
-                                  <td className="py-3.5 px-3 font-medium text-slate-700 dark:text-slate-300">
+                                  </TableCell>
+                                  <TableCell className="font-medium text-slate-700 dark:text-slate-300">
                                     {t.cargo}
-                                  </td>
-                                  <td className="py-3.5 px-3">
+                                  </TableCell>
+                                  <TableCell>
                                     <Badge
                                       variant="secondary"
                                       className="font-normal"
                                     >
                                       {t.departamento}
                                     </Badge>
-                                  </td>
-                                  <td className="py-3.5 px-3">
+                                  </TableCell>
+                                  <TableCell>
                                     <Badge
                                       variant={
                                         t.status === "Ativo"
@@ -871,8 +1013,8 @@ export default function KantechApp() {
                                       KAN {t.kan_numero} •{" "}
                                       {t.perfil_dominante.split(" ")[0]}
                                     </Badge>
-                                  </td>
-                                  <td className="py-3.5 pl-3 pr-6 text-right">
+                                  </TableCell>
+                                  <TableCell className="pl-3 pr-6 text-right">
                                     <div className="inline-flex items-center gap-1">
                                       <button
                                         onClick={() => handleInspectTalento(t)}
@@ -891,11 +1033,11 @@ export default function KantechApp() {
                                         <MoreVertical className="h-4 w-4" />
                                       </button>
                                     </div>
-                                  </td>
-                                </tr>
+                                  </TableCell>
+                                </TableRow>
                               ))}
-                            </tbody>
-                          </table>
+                            </TableBody>
+                          </Table>
                         </div>
                       </CardContent>
                     </Card>
