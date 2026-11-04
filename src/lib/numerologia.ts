@@ -1,28 +1,19 @@
 /**
- * Motor Numerológico e Geométrico KAN (Port 1:1 de PROG/services/numerologia.py, perfil.py e harmonia.py)
+ * Motor Numerológico Cabalístico e Geométrico KAN
+ * Port 1:1 exato de PROG/services/numerologia.py, PROG/services/perfil.py e PROG/services/harmonia.py
  */
 
+// Tabela Cabalística oficial de PROG/services/numerologia.py (linhas 7-12)
 export const LETTER_VALUES: Record<string, number> = {
-  A: 1, J: 1, S: 1, I: 1, Q: 1, Y: 1,
-  B: 2, K: 2, T: 2, R: 2,
-  C: 3, G: 3, L: 3,
-  D: 4, M: 4,
-  E: 5, H: 5, N: 5, X: 5,
-  U: 6, V: 6, W: 6,
-  O: 7, Z: 7,
-  F: 8, P: 8,
-  // Vogais Acentuadas
-  Ê: 3, É: 7, Í: 3, Ó: 9, Á: 3, Ú: 8, Â: 8, Õ: 1, Ô: 5, À: 2, Ä: 2, Ë: 7, Ï: 3, Ö: 5, Ü: 4,
-  // Consoantes/Outros Acentuados
-  Ã: 4, Ç: 6, Ñ: 8,
+  A: 1, B: 2, C: 3, D: 4, E: 5, F: 8, G: 3, H: 5, I: 1, J: 1, K: 2,
+  L: 3, M: 4, N: 5, O: 7, P: 8, Q: 1, R: 2, S: 3, T: 4, U: 6, V: 6,
+  W: 6, X: 6, Y: 1, Z: 7, Ç: 6, Ê: 3, É: 7, Í: 3, Ó: 9, Á: 3, Ú: 8,
+  Ã: 4, Å: 8, Ñ: 8, Ù: 3, Û: 4, À: 2, Ö: 5, Ô: 5, È: 1, Â: 8, Ì: 2, Ï: 2,
 };
 
-export const VOWELS = new Set([
-  "A", "E", "I", "O", "U", "Y",
-  "Á", "É", "Í", "Ó", "Ú",
-  "Â", "Ê", "Ô", "Ã", "Õ",
-  "À", "Ä", "Ë", "Ï", "Ö", "Ü",
-]);
+export const VOWELS = new Set(
+  "AEIOUYÀÁÂÃÄÅÆÉÈÊËÍÎÏÓÒÔÕÖÚÙÛÜ".split("")
+);
 
 export function sumDigits(n: number): number {
   return Math.abs(n)
@@ -48,139 +39,175 @@ export function reduceSingleDigit(n: number): number {
 }
 
 export function parseBirthDateTuple(rawDate: string): [number, number, number] {
-  const s = String(rawDate || "").trim();
-  const slashParts = s.split("/");
-  if (slashParts.length === 3) {
-    const d = parseInt(slashParts[0], 10);
-    const m = parseInt(slashParts[1], 10);
-    const y = parseInt(slashParts[2], 10);
-    if (!isNaN(d) && !isNaN(m) && !isNaN(y)) return [d, m, y];
+  const s = String(rawDate || "")
+    .trim()
+    .split("T")[0]
+    .split(" ")[0];
+  if (s.includes("/")) {
+    const parts = s.split("/");
+    if (parts.length === 3) {
+      const d = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      const y = parseInt(parts[2], 10);
+      if (!isNaN(d) && !isNaN(m) && !isNaN(y)) return [d, m, y];
+    }
   }
-  const dashParts = s.split("-");
-  if (dashParts.length === 3) {
-    const y = parseInt(dashParts[0], 10);
-    const m = parseInt(dashParts[1], 10);
-    const d = parseInt(dashParts[2], 10);
-    if (!isNaN(d) && !isNaN(m) && !isNaN(y)) return [d, m, y];
+  if (s.includes("-")) {
+    const parts = s.split("-");
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const d = parseInt(parts[2], 10);
+        if (!isNaN(d) && !isNaN(m) && !isNaN(y)) return [d, m, y];
+      } else {
+        const d = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const y = parseInt(parts[2], 10);
+        if (!isNaN(d) && !isNaN(m) && !isNaN(y)) return [d, m, y];
+      }
+    }
   }
   return [1, 1, 1990];
 }
 
+// Port exato de calcular_numeros_nome em PROG/services/numerologia.py (linhas 24-36)
 export function calcularNumerosNome(nomeCompleto: string): {
   expressao: number;
   motivacao: number;
   impressao: number;
 } {
-  const nome = String(nomeCompleto || "").toUpperCase();
-  let somaVogais = 0;
-  let somaConsoantes = 0;
-  for (const letra of nome) {
-    if (letra in LETTER_VALUES) {
-      const val = LETTER_VALUES[letra];
-      if (VOWELS.has(letra)) {
-        somaVogais += val;
-      } else {
-        somaConsoantes += val;
-      }
+  const nome = String(nomeCompleto || "")
+    .toUpperCase()
+    .replace(/ /g, "");
+  let expressaoTotal = 0;
+  let motivacaoTotal = 0;
+  let consoantesTotal = 0;
+
+  for (const ch of nome) {
+    const val = LETTER_VALUES[ch] ?? 0;
+    expressaoTotal += val;
+    if (VOWELS.has(ch)) {
+      motivacaoTotal += val;
+    } else {
+      consoantesTotal += val;
     }
   }
-  const motivacao = reduceNumber(somaVogais);
-  const impressao = reduceNumber(somaConsoantes);
-  const expressao = reduceNumber(somaVogais + somaConsoantes);
-  return { expressao, motivacao, impressao };
+
+  let impressaoReduzida = reduceNumber(consoantesTotal);
+  while (impressaoReduzida > 9) {
+    impressaoReduzida = sumDigits(impressaoReduzida);
+  }
+
+  return {
+    expressao: reduceNumber(expressaoTotal),
+    motivacao: reduceNumber(motivacaoTotal),
+    impressao: impressaoReduzida,
+  };
 }
 
+// Port exato de calcular_triangulo_vida em PROG/services/numerologia.py (linhas 202-215)
 export function calcularTrianguloVidaBase(nomeCompleto: string): number {
-  const letras = String(nomeCompleto || "")
+  const nome = String(nomeCompleto || "")
     .toUpperCase()
-    .split("")
-    .filter((ch) => ch in LETTER_VALUES);
-  if (letras.length === 0) return 0;
-  let linha = letras.map((ch) => LETTER_VALUES[ch]);
-  while (linha.length > 1) {
-    const novaLinha: number[] = [];
-    for (let i = 0; i < linha.length - 1; i++) {
-      let s = linha[i] + linha[i + 1];
+    .replace(/ /g, "");
+  let arr = Array.from(nome).map((ch) => LETTER_VALUES[ch] ?? 0);
+  while (arr.length > 1) {
+    const newArr: number[] = [];
+    for (let i = 0; i < arr.length - 1; i++) {
+      let s = arr[i] + arr[i + 1];
       while (s > 9) {
         s = sumDigits(s);
       }
-      novaLinha.push(s);
+      newArr.push(s);
     }
-    linha = novaLinha;
+    arr = newArr;
   }
-  return linha[0] || 0;
+  return arr[0] ?? 0;
 }
 
+// Port exato de calcular_desafios em PROG/services/numerologia.py (linhas 138-145)
 export function calcularDesafios(dia: number, mes: number, ano: number) {
-  const dRed = reduceSingleDigit(dia);
-  const mRed = reduceSingleDigit(mes);
-  const aRed = reduceSingleDigit(ano);
-  const desafio1 = Math.abs(dRed - mRed);
-  const desafio2 = Math.abs(dRed - aRed);
+  const d1 = reduceNumber(dia);
+  const m1 = reduceNumber(mes);
+  const a1 = reduceNumber(ano);
+  const desafio1 = Math.abs(d1 - m1);
+  const desafio2 = Math.abs(d1 - a1);
   const desafioPrincipal = Math.abs(desafio1 - desafio2);
   return { desafio1, desafio2, desafioPrincipal };
 }
 
+// Port exato de calcular_ciclos_vida em PROG/services/numerologia.py (linhas 70-94)
 export function calcularCiclosVida(
   dia: number,
   mes: number,
   ano: number,
   destino: number
 ) {
-  const duracaoCiclo1 = 37 - destino;
-  const fimCiclo1 = ano + duracaoCiclo1;
-  const ciclo1Num = mes !== 11 ? sumDigits(mes) : 11;
+  let ciclo1Num = mes;
+  while (ciclo1Num > 9) {
+    ciclo1Num = sumDigits(ciclo1Num);
+  }
+  const ciclo1AnoInicio = ano;
+  const ciclo1AnoFim = ciclo1AnoInicio + (37 - destino);
 
-  const inicioCiclo2 = fimCiclo1;
-  const fimCiclo2 = inicioCiclo2 + 27;
-  const ciclo2Num =
-    dia !== 11 && dia !== 22 ? reduceSingleDigit(dia) : dia;
+  let ciclo2Num = dia;
+  while (ciclo2Num > 9) {
+    ciclo2Num = sumDigits(ciclo2Num);
+  }
+  const ciclo2AnoInicio = ciclo1AnoFim;
+  const ciclo2AnoFim = ciclo2AnoInicio + 27;
 
-  const inicioCiclo3 = fimCiclo2;
   const ciclo3Num = reduceNumber(ano);
+  const ciclo3AnoInicio = ciclo2AnoFim;
 
   return {
-    ciclo1: { numero: reduceNumber(ciclo1Num), inicio: ano, fim: fimCiclo1 },
-    ciclo2: {
-      numero: reduceNumber(ciclo2Num),
-      inicio: inicioCiclo2,
-      fim: fimCiclo2,
-    },
-    ciclo3: {
-      numero: reduceNumber(ciclo3Num),
-      inicio: inicioCiclo3,
-      fim: "Resto da vida",
-    },
+    ciclo1: { numero: ciclo1Num, inicio: ciclo1AnoInicio, fim: ciclo1AnoFim },
+    ciclo2: { numero: ciclo2Num, inicio: ciclo2AnoInicio, fim: ciclo2AnoFim },
+    ciclo3: { numero: ciclo3Num, inicio: ciclo3AnoInicio, fim: null },
   };
 }
 
+function calcularMomentoDecisivo(a: number, b: number): number {
+  const soma = a + b;
+  if (soma === 11 || soma === 22) return soma;
+  return reduceNumber(soma);
+}
+
+// Port exato de calcular_momentos_decisivos em PROG/services/numerologia.py (linhas 43-68)
 export function calcularMomentosDecisivos(
   dia: number,
   mes: number,
   ano: number,
-  ciclos: ReturnType<typeof calcularCiclosVida>
+  ciclosVida: ReturnType<typeof calcularCiclosVida>
 ) {
-  const dRed = reduceNumber(dia);
-  const mRed = reduceNumber(mes);
-  const aRed = reduceNumber(ano);
+  const momento1 = calcularMomentoDecisivo(dia, mes);
+  const inicio1 = ciclosVida.ciclo1.inicio;
+  const fim1 = ciclosVida.ciclo1.fim;
 
-  const m1 = reduceNumber(dRed + mRed);
-  const m2 = reduceNumber(dRed + aRed);
-  const m3 = reduceNumber(m1 + m2);
-  const m4 = reduceNumber(mRed + aRed);
+  const anoReduzido = reduceNumber(ano);
+  const momento2 = calcularMomentoDecisivo(dia, anoReduzido);
+  const inicio2 = fim1;
+  const fim2 = inicio2 + 9;
 
-  const fimM1 = ciclos.ciclo1.fim;
-  const fimM2 = fimM1 + 9;
-  const fimM3 = fimM2 + 9;
+  const soma12 = momento1 + momento2;
+  const momento3 =
+    soma12 === 11 || soma12 === 22 ? soma12 : reduceNumber(soma12);
+  const inicio3 = fim2;
+  const fim3 = inicio3 + 9;
+
+  const momento4 = calcularMomentoDecisivo(mes, anoReduzido);
+  const inicio4 = fim3;
 
   return {
-    momento1: { numero: m1, inicio: ano, fim: fimM1 },
-    momento2: { numero: m2, inicio: fimM1, fim: fimM2 },
-    momento3: { numero: m3, inicio: fimM2, fim: fimM3 },
-    momento4: { numero: m4, inicio: fimM3, fim: "Resto da vida" },
+    momento1: { numero: momento1, inicio: inicio1, fim: fim1 },
+    momento2: { numero: momento2, inicio: inicio2, fim: fim2 },
+    momento3: { numero: momento3, inicio: inicio3, fim: fim3 },
+    momento4: { numero: momento4, inicio: inicio4, fim: null },
   };
 }
 
+// Port exato de calcular_perfil_comportamental em PROG/services/perfil.py (linhas 16-42)
 export function calcularPerfilComportamentalNumeros(
   expressao: number,
   motivacao: number,
@@ -227,7 +254,7 @@ export function calcularPerfilComportamentalNumeros(
 }
 
 /**
- * Port 1:1 de `obter_vertices_triangulo(nome_comp, data_nasc_str)` em `PROG/services/harmonia.py`
+ * Port 1:1 exato de `obter_vertices_triangulo(nome_comp, data_nasc_str)` em `PROG/services/harmonia.py` (linhas 20-108)
  */
 export function obterVerticesTriangulo(
   nomeComp: string,
@@ -247,7 +274,7 @@ export function obterVerticesTriangulo(
       .split("")
       .reduce((acc, d) => acc + (parseInt(d, 10) || 0), 0);
     const destino = reduceNumber(destinoTotal);
-    const missao = reduceNumber(expressao + destino);
+    const missao = reduceNumber(destino + expressao);
     const trianguloBase = calcularTrianguloVidaBase(nomeComp);
 
     const ciclosVida = calcularCiclosVida(day, month, year, destino);
@@ -271,6 +298,7 @@ export function obterVerticesTriangulo(
         trianguloBase
       );
 
+    // Exatamente como em PROG/services/harmonia.py linhas 50-75:
     const todosNum: number[] = [
       expressao,
       motivacao,
@@ -299,18 +327,18 @@ export function obterVerticesTriangulo(
       b[1] !== a[1] ? b[1] - a[1] : a[0] - b[0]
     );
 
-    const r2V = rTot.length > 0 ? rTot[0][0] : null;
-    const r3V = rTot.length > 1 ? rTot[1][0] : null;
-    const r4V = rTot.length > 2 ? rTot[2][0] : null;
+    const r2V = rTot.length > 0 ? rTot[0][0] : 0;
+    const r3V = rTot.length > 1 ? rTot[1][0] : 0;
+    const r4V = rTot.length > 2 ? rTot[2][0] : 0;
 
     const todosComp: Array<number | null> = [
       kan > 0 ? kan : null,
       estrutural > 0 ? estrutural : null,
       direcionamento > 0 ? direcionamento : null,
       rep1Num && rep1Num > 0 ? rep1Num : null,
-      r2V && r2V > 0 ? r2V : null,
-      r3V && r3V > 0 ? r3V : null,
-      r4V && r4V > 0 ? r4V : null,
+      r2V > 0 ? r2V : null,
+      r3V > 0 ? r3V : null,
+      r4V > 0 ? r4V : null,
     ];
 
     const verts: number[] = [];
