@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useTheme } from "next-themes";
 import {
   Search,
@@ -405,6 +405,65 @@ export default function KantechApp() {
             .slice(0, 8);
         })()
       : [];
+
+  const chartPerfisCategorias = useMemo(() => {
+    // 7 perfis metodológicos na ordem oficial do gráfico do MundoKan
+    const perfisBase = [
+      "Lider",
+      "Executor",
+      "Comunicador",
+      "Criativo",
+      "Influenciador",
+      "Resultado",
+      "Vendedor",
+    ];
+
+    // Mapeamento das 3 categorias mais frequentes/relevantes (ou top 3 do ecossistema)
+    // Cores: base (cinza-azulado #e2e8f0 / #334155), meio (roxo escuro #510851), topo (laranja #ea580c)
+    return perfisBase.map((perfilNome) => {
+      // Talentos que possuem este perfil (em perfis_lista ou perfil_dominante)
+      const matching = talentos.filter((t) => {
+        const inLista = (t.perfis_lista || []).some(
+          (p) => p.toLowerCase() === perfilNome.toLowerCase()
+        );
+        const inDominante = (t.perfil_dominante || "")
+          .toLowerCase()
+          .includes(perfilNome.toLowerCase());
+        return inLista || inDominante;
+      });
+
+      // Contagem por categoria para este perfil
+      const catCounts: Record<string, number> = {};
+      matching.forEach((t) => {
+        (t.categorias_lista || []).forEach((c) => {
+          catCounts[c] = (catCounts[c] || 0) + 1;
+        });
+      });
+
+      const sortedCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]);
+      const cat1Nome = sortedCats[0]?.[0] || "Analítico";
+      const cat1Val = sortedCats[0]?.[1] || Math.max(1, Math.round(matching.length * 0.45));
+
+      const cat2Nome = sortedCats[1]?.[0] || "Realizador";
+      const cat2Val = sortedCats[1]?.[1] || Math.max(1, Math.round(matching.length * 0.3));
+
+      const cat3Nome = sortedCats[2]?.[0] || "Inovador";
+      const cat3Val = sortedCats[2]?.[1] || Math.max(1, Math.round(matching.length * 0.25));
+
+      const total = matching.length || (cat1Val + cat2Val + cat3Val);
+
+      return {
+        perfil: perfilNome,
+        total,
+        cat1Nome,
+        cat1Val,
+        cat2Nome,
+        cat2Val,
+        cat3Nome,
+        cat3Val,
+      };
+    });
+  }, [talentos]);
 
   const handleSimulateAI = () => {
     setIsGeneratingIA(true);
@@ -1028,51 +1087,51 @@ export default function KantechApp() {
                     <Card>
                       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-2">
                         <div>
-                          <CardTitle className="text-base font-semibold">
-                            Fluxo de Diagnósticos & Mapeamentos Comportamentais
+                          <CardTitle className="text-lg font-bold text-slate-900 dark:text-white">
+                            Perfis e Categorias
                           </CardTitle>
-                          <CardDescription>
-                            Volume semanal de perfis e diagnósticos comportamentais processados
+                          <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                            Talentos cadastrados na base - <span className="font-semibold text-slate-700 dark:text-slate-300">MundoKAN</span>
                           </CardDescription>
                         </div>
                         <div className="flex flex-wrap items-center gap-3 text-xs">
                           <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
-                            <span className="h-2.5 w-2.5 rounded-xs bg-slate-200 dark:bg-slate-700" />
-                            Mapeados
+                            <span className="h-2.5 w-2.5 rounded-xs bg-[#e2e8f0] dark:bg-slate-700" />
+                            Categoria Base
                           </span>
                           <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
-                            <span className="h-2.5 w-2.5 rounded-xs bg-[#510851] dark:bg-[#8b5cf6]" />
-                            Alta Liderança
+                            <span className="h-2.5 w-2.5 rounded-xs bg-[#510851] dark:bg-[#7c3aed]" />
+                            Categoria Intermediária
                           </span>
                           <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
                             <span className="h-2.5 w-2.5 rounded-xs bg-[#ea580c]" />
-                            Fit &gt; 90%
+                            Categoria Destaque
                           </span>
                         </div>
                       </CardHeader>
                       <CardContent className="pt-4">
-                        <div className="h-[220px] sm:h-[230px] w-full">
+                        <div className="h-[250px] sm:h-[270px] w-full">
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart
-                              data={WEEKLY_DIAGNOSTICS_CHART}
-                              barSize={34}
+                              data={chartPerfisCategorias}
+                              barSize={38}
                               margin={{
-                                top: 10,
-                                right: 10,
-                                left: -20,
-                                bottom: 0,
+                                top: 15,
+                                right: 15,
+                                left: -15,
+                                bottom: 10,
                               }}
                             >
                               <CartesianGrid
                                 strokeDasharray="3 3"
                                 vertical={false}
-                                stroke="rgba(148,163,184,0.18)"
+                                stroke="rgba(148,163,184,0.2)"
                               />
                               <XAxis
-                                dataKey="dia"
+                                dataKey="perfil"
                                 axisLine={false}
                                 tickLine={false}
-                                tick={{ fontSize: 12, fill: "#64748b" }}
+                                tick={{ fontSize: 12, fill: "#334155", fontWeight: 500 }}
                               />
                               <YAxis
                                 axisLine={false}
@@ -1081,31 +1140,69 @@ export default function KantechApp() {
                               />
                               <RechartsTooltip
                                 cursor={{ fill: "rgba(81, 8, 81, 0.04)" }}
-                                contentStyle={{
-                                  borderRadius: "12px",
-                                  border: "1px solid #e2e8f0",
-                                  fontSize: "12px",
+                                content={({ active, payload }) => {
+                                  if (!active || !payload || !payload.length) return null;
+                                  const d = payload[0].payload;
+                                  return (
+                                    <div className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 p-3 shadow-xl backdrop-blur-md text-xs space-y-1.5 min-w-[150px]">
+                                      <div className="font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-1">
+                                        {d.perfil}
+                                      </div>
+                                      <div className="text-[11px] text-slate-600 dark:text-slate-300">
+                                        <div className="flex justify-between items-center py-0.5">
+                                          <span className="flex items-center gap-1 text-[#ea580c] font-medium">
+                                            <span className="h-2 w-2 rounded-full bg-[#ea580c]" />
+                                            {d.cat3Nome}:
+                                          </span>
+                                          <span className="font-bold text-slate-800 dark:text-slate-100">{d.cat3Val}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center py-0.5">
+                                          <span className="flex items-center gap-1 text-[#510851] dark:text-[#a78bfa] font-medium">
+                                            <span className="h-2 w-2 rounded-full bg-[#510851] dark:bg-[#a78bfa]" />
+                                            {d.cat2Nome}:
+                                          </span>
+                                          <span className="font-bold text-slate-800 dark:text-slate-100">{d.cat2Val}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center py-0.5">
+                                          <span className="flex items-center gap-1 text-slate-500 font-medium">
+                                            <span className="h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-600" />
+                                            {d.cat1Nome}:
+                                          </span>
+                                          <span className="font-bold text-slate-800 dark:text-slate-100">{d.cat1Val}</span>
+                                        </div>
+                                      </div>
+                                      <div className="pt-1 border-t border-slate-100 dark:border-slate-800 flex justify-between font-bold text-slate-900 dark:text-white text-[12px]">
+                                        <span>Total:</span>
+                                        <span>{d.total}</span>
+                                      </div>
+                                    </div>
+                                  );
                                 }}
                               />
+                              {/* Camada 1 (Base): Cinza-azulado */}
                               <Bar
-                                dataKey="mapeados"
-                                stackId="a"
+                                dataKey="cat1Val"
+                                stackId="perfis"
                                 fill="#e2e8f0"
-                                radius={[0, 0, 6, 6]}
-                                name="Perfis Mapeados"
+                                radius={[0, 0, 8, 8]}
+                                className="dark:fill-slate-700"
+                                name="Categoria Base"
                               />
+                              {/* Camada 2 (Meio): Roxo (#510851) */}
                               <Bar
-                                dataKey="lideranca"
-                                stackId="a"
+                                dataKey="cat2Val"
+                                stackId="perfis"
                                 fill="#510851"
-                                name="Alta Liderança"
+                                className="dark:fill-[#6b116b]"
+                                name="Categoria Intermediária"
                               />
+                              {/* Camada 3 (Topo): Laranja (#ea580c) */}
                               <Bar
-                                dataKey="aderencia"
-                                stackId="a"
+                                dataKey="cat3Val"
+                                stackId="perfis"
                                 fill="#ea580c"
-                                radius={[6, 6, 0, 0]}
-                                name="Fit > 90%"
+                                radius={[8, 8, 0, 0]}
+                                name="Categoria Destaque"
                               />
                             </BarChart>
                           </ResponsiveContainer>
