@@ -156,7 +156,7 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
     codigo: "58386974",
     nome: "Cristiano Corrêa de Almeida",
     email: "cristiano@kantechrh.com.br",
-    data_nascimento: "14/08/1982",
+    data_nascimento: "07/09/1973",
     profissao: "Diretor Executivo & Estrategista RH",
     cargo: "CEO / Founder",
     grupo: "Board Executivo",
@@ -167,15 +167,15 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
     linkedin_url: "https://linkedin.com/in/cristiano-almeida",
     experiencias:
       "Mais de 18 anos liderando transformação organizacional, arquitetura comportamental e gestão de talentos de alta performance.",
-    kan_numero: 8,
+    kan_numero: 9,
     kan_nome: "Finalidade",
-    estrutural: 1,
-    direcionamento: 7,
+    estrutural: 9,
+    direcionamento: 9,
     perfil_dominante: "Líder Estrategista",
     perfis_lista: ["Lider", "Resultado", "Executor"],
     categorias_lista: ["Realizador", "Visionário", "Analítico"],
     qualidades_lista: ["Execução", "Análise", "Praticidade e disciplina", "Organização"],
-    vertices_triangulo: [8, 1, 7],
+    vertices_triangulo: [9, 7, 1],
     aderencia_vaga: 96,
     indicadores_perfil: [
       {

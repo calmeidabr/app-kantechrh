@@ -34,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { TalentoProfile, EquipeData } from "@/lib/mock-data";
 import { KanTrianglesSvg } from "@/components/kan-triangles-svg";
+import { obterVerticesTriangulo } from "@/lib/numerologia";
 
 const CARGOS_OPCOES = [
   "CEO / Founder",
@@ -1190,7 +1191,15 @@ export function OrganogramaView({
                 const eq = equipes.find((e) => e.id === openTeamTrianglesId);
                 if (!eq) return null;
                 const eqTalentos = eq.membros
-                  .map((m) => talentos.find((t) => t.nome === m.nome))
+                  .map(
+                    (m) =>
+                      talentos.find((t) => t.nome === m.nome) ||
+                      talentos.find(
+                        (t) =>
+                          t.nome.trim().toLowerCase() ===
+                          m.nome.trim().toLowerCase()
+                      )
+                  )
                   .filter((t): t is TalentoProfile => Boolean(t));
 
                 return (
@@ -1207,7 +1216,9 @@ export function OrganogramaView({
                       <div className="space-y-2 pt-1">
                         {eqTalentos.map((t) => {
                           const isLid = eq.membros.find(
-                            (m) => m.nome === t.nome
+                            (m) =>
+                              m.nome.trim().toLowerCase() ===
+                              t.nome.trim().toLowerCase()
                           )?.lider;
                           return (
                             <div
@@ -1229,8 +1240,8 @@ export function OrganogramaView({
                                   </div>
                                 </div>
                               </div>
-                              <Badge variant="outline" className="font-mono">
-                                {t.vertices_triangulo.join(" - ")}
+                              <Badge variant="outline">
+                                KAN: {t.kan_nome}
                               </Badge>
                             </div>
                           );
@@ -1241,9 +1252,15 @@ export function OrganogramaView({
                       <KanTrianglesSvg
                         membros={eqTalentos.map((t) => ({
                           nome: t.nome,
-                          vertices: t.vertices_triangulo,
-                          isLider: eq.membros.find((m) => m.nome === t.nome)
-                            ?.lider,
+                          vertices: t.data_nascimento
+                            ? obterVerticesTriangulo(t.nome, t.data_nascimento)
+                                .vertices
+                            : t.vertices_triangulo,
+                          isLider: eq.membros.find(
+                            (m) =>
+                              m.nome.trim().toLowerCase() ===
+                              t.nome.trim().toLowerCase()
+                          )?.lider,
                         }))}
                       />
                     </div>

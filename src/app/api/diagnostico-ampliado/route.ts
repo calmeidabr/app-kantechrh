@@ -675,7 +675,7 @@ function calcularDiagnosticoMembro(
     Estrutural: String(estrutural),
     Direcionamento: String(direcionamento),
     "REPETIÇÃO 1": rep1Str,
-    "REPETIÇÃO 2": rep2Str,
+    "REPETIÇÃO 2": "",
   };
 
   // Initialize score matrices

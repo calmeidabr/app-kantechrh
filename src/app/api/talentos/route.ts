@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin, callMamEngine, normalizeKey } from "@/lib/supabase";
 import { TALENTOS_MOCK, TalentoProfile, KanType } from "@/lib/mock-data";
+import { obterVerticesTriangulo } from "@/lib/numerologia";
 
 export const dynamic = "force-dynamic";
 
@@ -30,8 +31,9 @@ function mapKanName(kanVal: unknown): KanType {
   if (s.includes("CRIA") || s.includes("CRIACAO")) return "Criação";
   if (s.includes("FINALIDADE")) return "Finalidade";
   const num = parseInt(s, 10);
-  if ([3, 5].includes(num)) return "Movimento";
-  if ([4, 7, 22].includes(num)) return "Criação";
+  if (num === 3) return "Criação";
+  if (num === 6) return "Movimento";
+  if (num === 9) return "Finalidade";
   return "Finalidade";
 }
 
@@ -42,9 +44,9 @@ function mapKanNumberFromName(kanName: string, rawVal?: unknown): number {
     const n = parseInt(match[0], 10);
     if (n >= 1 && n <= 22) return n;
   }
-  if (kanName === "Movimento") return 5;
-  if (kanName === "Criação") return 4;
-  return 8;
+  if (kanName === "Criação") return 3;
+  if (kanName === "Movimento") return 6;
+  return 9;
 }
 
 function normalizeProfileLabel(p: string): string {
@@ -240,24 +242,14 @@ function mapSupabaseRowToTalento(
     );
   }
 
-  let v1 = kanNumero > 9 ? (kanNumero === 11 ? 2 : 4) : kanNumero || 8;
-  let v2 = estrutural > 9 ? (estrutural === 11 ? 2 : 4) : estrutural || 1;
-  let v3 = direcionamento > 9 ? (direcionamento === 11 ? 2 : 4) : direcionamento || 7;
-
-  if (valoresRow) {
-    const vt1 = parseInt(cleanStr(valoresRow.vertice_triangulo_1), 10);
-    const vt2 = parseInt(cleanStr(valoresRow.vertice_triangulo_2), 10);
-    const vt3 = parseInt(cleanStr(valoresRow.vertice_triangulo_3), 10);
-    if (!isNaN(vt1) && vt1 >= 1 && vt1 <= 9) v1 = vt1;
-    if (!isNaN(vt2) && vt2 >= 1 && vt2 <= 9) v2 = vt2;
-    if (!isNaN(vt3) && vt3 >= 1 && vt3 <= 9) v3 = vt3;
-  }
-
-  // Ensure 3 distinct vertices 1..9 for the triangle projection
-  const distinct = Array.from(new Set([v1, v2, v3].filter((n) => n >= 1 && n <= 9)));
-  for (const fb of [8, 4, 1, 5, 7, 3, 6, 2, 9]) {
-    if (distinct.length >= 3) break;
-    if (!distinct.includes(fb)) distinct.push(fb);
+  const dataNascClean = cleanStr(row.data_nascimento, "01/01/1990");
+  const calcTri = obterVerticesTriangulo(nome, dataNascClean);
+  const distinct = calcTri.vertices;
+  const v1 = calcTri.kanNumero || distinct[0];
+  estrutural = calcTri.estrutural || estrutural;
+  direcionamento = calcTri.direcionamento || direcionamento;
+  if ([3, 6, 9].includes(calcTri.kanNumero)) {
+    kanNome = mapKanName(calcTri.kanNumero);
   }
 
   const allSevenProfiles = [
@@ -339,8 +331,8 @@ function mapSupabaseRowToTalento(
     experiencias: cleanStr(row.experiencias),
     kan_numero: v1,
     kan_nome: kanNome,
-    estrutural: estrutural || v2,
-    direcionamento: direcionamento || v3,
+    estrutural: estrutural || distinct[1],
+    direcionamento: direcionamento || distinct[2],
     perfil_dominante: `${perfisLista[0] || "Líder"} ${categoriasLista[0] || "Realizador"}`,
     perfis_lista: perfisLista,
     categorias_lista: categoriasLista,
