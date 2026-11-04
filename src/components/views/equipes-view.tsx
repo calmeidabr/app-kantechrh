@@ -1080,7 +1080,7 @@ export function EquipesView({
                                   {
                                     label: "KAN",
                                     render: (m: TalentoProfile) =>
-                                      `${m.kan_nome.toUpperCase()} (Vértices ${m.vertices_triangulo.join("-")})`,
+                                      m.kan_nome.toUpperCase(),
                                     isPrimary: false,
                                     isKan: true,
                                   },
