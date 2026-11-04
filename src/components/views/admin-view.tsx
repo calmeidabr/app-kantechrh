@@ -340,9 +340,14 @@ export function PainelControleView({
         const res = await fetch("/api/usuarios", { cache: "no-store" });
         const json = await res.json();
         if (!active) return;
-        if (Array.isArray(json?.data) && json.data.length > 0) {
+        const userRows = Array.isArray(json?.usuarios)
+          ? json.usuarios
+          : Array.isArray(json?.data)
+          ? json.data
+          : [];
+        if (userRows.length > 0) {
           setUsuariosMock(
-            json.data.map((u: Record<string, unknown>) => ({
+            userRows.map((u: Record<string, unknown>) => ({
               id: String(u.id || ""),
               usuario: String(u.usuario || ""),
               nome: String(u.nome_completo || u.usuario || ""),
@@ -355,7 +360,16 @@ export function PainelControleView({
           );
         }
         if (Array.isArray(json?.tenants)) {
-          setTenantsReal(json.tenants);
+          setTenantsReal(
+            json.tenants.map((t: Record<string, unknown>) => ({
+              id: String(t.id || ""),
+              nome_empresa: String(t.name || t.nome_empresa || "Mundo Kan"),
+              plan_tier: String(t.tier || t.plan_tier || "alta_performance"),
+              max_users: Number(t.max_users ?? 50),
+              max_maps: Number(t.max_maps ?? 1000),
+              subscription_status: String(t.status || t.subscription_status || "active"),
+            }))
+          );
         }
       } catch {
         // fallback already set
