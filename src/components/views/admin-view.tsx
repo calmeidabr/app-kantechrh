@@ -41,6 +41,7 @@ import {
   PERFIS_OPCOES,
 } from "@/lib/mock-data";
 import { KanTrianglesSvg } from "@/components/kan-triangles-svg";
+import { DiagnosticoAmpliadoView } from "@/components/views/diagnostico-ampliado-view";
 
 interface PainelControleViewProps {
   talentos: TalentoProfile[];
@@ -214,7 +215,7 @@ export function PainelControleView({
   }, [initialTab]);
 
   // State: Diagnóstico Ampliado & Heatmap Style
-  const [diagMode, setDiagMode] = useState<"equipe" | "talento">("equipe");
+  const [diagMode, setDiagMode] = useState<"equipe" | "talento">("talento");
   const [selectedEquipeId, setSelectedEquipeId] = useState<string>(
     equipes[0]?.id || ""
   );
@@ -1182,81 +1183,15 @@ export function PainelControleView({
               </div>
             </>
           ) : (
-            /* INDIVIDUAL TALENT EXPANDED DIAGNOSIS */
+            /* INDIVIDUAL TALENT EXPANDED DIAGNOSIS (COMPLETE WITH ADMIN SECTIONS) */
             selectedDiagTalento && (
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-                <Card className="lg:col-span-7">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-base">
-                          Diagnóstico Ampliado Individual —{" "}
-                          {selectedDiagTalento.nome}
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          {selectedDiagTalento.cargo} • Nascimento:{" "}
-                          {selectedDiagTalento.data_nascimento} • KAN:{" "}
-                          {selectedDiagTalento.kan_nome}
-                        </CardDescription>
-                      </div>
-                      <Badge className="bg-[#ea580c] text-white">
-                        Vértices{" "}
-                        {selectedDiagTalento.vertices_triangulo.join("-")}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {EIXOS_COMPORTAMENTAIS.map((eixo) => {
-                      const pts =
-                        calcularScoresEixos(selectedDiagTalento)[eixo] || 0;
-                      const pct = Math.min(100, Math.round((pts / 800) * 100));
-                      const style = getHeatmapCellStyle(pts);
-                      return (
-                        <div key={eixo} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-bold">{eixo}</span>
-                            <span className="font-mono font-semibold text-muted-foreground">
-                              {pts} pts • {style.label}
-                            </span>
-                          </div>
-                          <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full transition-all"
-                              style={{
-                                width: `${pct}%`,
-                                backgroundColor: style.bg,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
-
-                <Card className="lg:col-span-5">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">
-                      Geometria Sagrada Individual
-                    </CardTitle>
-                    <CardDescription className="text-xs">
-                      Projeção do Triângulo Harmônico de{" "}
-                      {selectedDiagTalento.nome}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <KanTrianglesSvg
-                      membros={[
-                        {
-                          nome: selectedDiagTalento.nome,
-                          vertices: selectedDiagTalento.vertices_triangulo,
-                          isLider: true,
-                        },
-                      ]}
-                    />
-                  </CardContent>
-                </Card>
-              </div>
+              <DiagnosticoAmpliadoView
+                talentos={talentos}
+                equipes={equipes}
+                selectedTalento={selectedDiagTalento}
+                onSelectTalento={(t) => setSelectedTalentoId(t.id)}
+                showAdminSections={true}
+              />
             )
           )}
         </div>

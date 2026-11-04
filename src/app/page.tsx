@@ -90,6 +90,7 @@ import {
 import { PainelControleView } from "@/components/views/admin-view";
 import { OrganogramaView } from "@/components/views/organograma-view";
 import { PeopleAnalyticsView } from "@/components/views/analytics-view";
+import { DiagnosticoAmpliadoView } from "@/components/views/diagnostico-ampliado-view";
 
 type RouteKey =
   | "Home"
@@ -1580,197 +1581,15 @@ export default function KantechApp() {
               />
             )}
 
-            {/* VIEW 6: DIAGNÓSTICOS COMPORTAMENTAIS */}
+            {/* VIEW 6: DIAGNÓSTICOS COMPORTAMENTAIS (DIAGNÓSTICO AMPLIADO) */}
             {activeRoute === "Diagnósticos" && (
-              <div className="space-y-6">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="purple">Motor mam-kantechrh</Badge>
-                      <span className="text-xs text-slate-400">
-                        Diagnóstico Comportamental Instantâneo • Sem Manipulação
-                      </span>
-                    </div>
-                    <h1 className="text-2xl font-bold tracking-tight mt-1">
-                      Diagnóstico Comportamental KAN
-                    </h1>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    <select
-                      value={selectedTalento.id}
-                      onChange={(e) => {
-                        const found = talentos.find(
-                          (t) => t.id === e.target.value
-                        );
-                        if (found) setSelectedTalento(found);
-                      }}
-                      className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#510851]"
-                    >
-                      {talentos.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.nome} ({t.cargo})
-                        </option>
-                      ))}
-                    </select>
-
-                    <Button variant="outline" size="sm">
-                      <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
-                      Exportar CSV
-                    </Button>
-                    <Button size="sm">
-                      <FileText className="h-3.5 w-3.5" />
-                      Baixar Relatório PDF
-                    </Button>
-                  </div>
-                </div>
-
-                <Card className="p-6">
-                  <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-5">
-                      <img
-                        src={selectedTalento.avatar}
-                        alt={selectedTalento.nome}
-                        className="h-20 w-20 rounded-2xl object-cover ring-4 ring-[#510851]/10 dark:ring-[#8b5cf6]/20"
-                      />
-                      <div className="space-y-1.5">
-                        <div className="flex flex-wrap items-center gap-2.5">
-                          <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                            {selectedTalento.nome}
-                          </h2>
-                          <Badge variant="success">
-                            KAN: {selectedTalento.kan_nome}
-                          </Badge>
-                          <Badge variant="secondary">
-                            ID #{selectedTalento.codigo}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          {selectedTalento.data_nascimento} •{" "}
-                          <span className="font-medium text-slate-700 dark:text-slate-200">
-                            {selectedTalento.profissao}
-                          </span>{" "}
-                          • {selectedTalento.departamento} (
-                          {selectedTalento.empresa})
-                        </p>
-                        {selectedTalento.experiencias && (
-                          <p className="text-xs text-slate-500 max-w-2xl pt-1">
-                            {selectedTalento.experiencias}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-                  <Card className="lg:col-span-7">
-                    <CardHeader>
-                      <CardTitle>
-                        Mapeamento de Competências & Indicadores KAN
-                      </CardTitle>
-                      <CardDescription>
-                        Leitura técnica gerada pelas matrizes proprietárias
-                        KantechRH
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {selectedTalento.indicadores_perfil.map((ind, idx) => (
-                        <div
-                          key={idx}
-                          className="rounded-xl border border-slate-200/80 dark:border-slate-800 p-4 hover:border-[#510851]/30 transition-colors"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                            <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                              {ind.Campo}
-                            </span>
-                            <span className="inline-flex items-center rounded-lg bg-gradient-to-r from-[#510851] to-[#6c0e6c] px-3 py-1 text-xs font-bold text-white shadow-2xs">
-                              {ind.Valor}
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                            {ind.Descricao}
-                          </p>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-
-                  <div className="lg:col-span-5 space-y-6">
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle>
-                          Distribuição dos 7 Vetores de Soft Skills
-                        </CardTitle>
-                        <CardDescription>
-                          Pontuação ponderada (`MATRIZ_DB` × `PESO_DB`)
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-3.5">
-                        {selectedTalento.soft_skills.map((sk) => (
-                          <div key={sk.perfil} className="space-y-1.5">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="font-semibold text-slate-700 dark:text-slate-200">
-                                {sk.perfil}
-                              </span>
-                              <span className="font-bold text-slate-900 dark:text-white">
-                                {sk.score}%
-                              </span>
-                            </div>
-                            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                              <div
-                                className="h-full rounded-full transition-all duration-500"
-                                style={{
-                                  width: `${sk.score}%`,
-                                  backgroundColor: sk.cor,
-                                }}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </CardContent>
-                    </Card>
-
-                    <Card className="border-[#510851]/25 dark:border-[#8b5cf6]/30">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#510851] text-white">
-                              <Sparkles className="h-4 w-4 text-[#ea580c]" />
-                            </div>
-                            <div>
-                              <CardTitle className="text-sm">
-                                Parecer Executivo com IA (Gemini 2.5)
-                              </CardTitle>
-                              <CardDescription>
-                                Linguagem 100% corporativa focada em RH e Gestão
-                              </CardDescription>
-                            </div>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleSimulateAI}
-                            disabled={isGeneratingIA}
-                          >
-                            {isGeneratingIA ? "Analisando..." : "Regerar IA"}
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-3 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                        {selectedTalento.ai_diagnosis.map((paragraph, i) => (
-                          <p
-                            key={i}
-                            className="rounded-lg bg-slate-50/90 dark:bg-slate-900/60 p-3 border border-slate-200/60 dark:border-slate-800"
-                          >
-                            {paragraph}
-                          </p>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
-              </div>
+              <DiagnosticoAmpliadoView
+                talentos={talentos}
+                equipes={equipes}
+                selectedTalento={selectedTalento}
+                onSelectTalento={(t) => setSelectedTalento(t)}
+                showAdminSections={false}
+              />
             )}
 
             {/* VIEW: PAINEL DE CONTROLE ADMINISTRATIVO & SAAS MULTI-TENANT */}
