@@ -265,10 +265,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          err instanceof Error
-            ? err.message
-            : "Erro interno ao autenticar no Supabase.",
+        error: "Erro interno ao autenticar. Tente novamente.",
       },
       { status: 500 }
     );

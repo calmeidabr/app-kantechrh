@@ -36,7 +36,6 @@ import {
   Menu,
   LogOut,
   Lock,
-  KeyRound,
 } from "lucide-react";
 import {
   BarChart,
@@ -737,7 +736,7 @@ export default function KantechApp() {
                 type="text"
                 value={loginInput}
                 onChange={(e) => setLoginInput(e.target.value)}
-                placeholder="Ex: adminkan ou cristiano.correabr7@gmail.com"
+                placeholder="Digite seu usuário ou e-mail"
                 className="h-10 border-slate-700 bg-slate-950/80 text-sm text-white placeholder:text-slate-500"
                 autoComplete="username"
               />
@@ -773,85 +772,6 @@ export default function KantechApp() {
             </Button>
           </form>
 
-          <div className="mt-6 border-t border-slate-800 pt-4">
-            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
-              <KeyRound className="h-3.5 w-3.5 text-[#ea580c]" />
-              Contas de Acesso Rápido:
-            </div>
-            <div className="grid grid-cols-1 gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setLoginInput("adminkan");
-                  setLoginPassword("K@nAdmin#2026*");
-                  handleLoginSubmit(undefined, "adminkan", "K@nAdmin#2026*");
-                }}
-                className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-left text-xs transition hover:border-[#ea580c]/50 hover:bg-slate-800/70"
-              >
-                <div>
-                  <span className="font-bold text-white">adminkan</span>
-                  <span className="ml-1.5 text-[11px] text-slate-400">
-                    (adminkan@mundokan.com.br)
-                  </span>
-                </div>
-                <Badge className="bg-[#510851] text-[10px] text-white">
-                  admin master
-                </Badge>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setLoginInput("cristiano.correabr7");
-                  setLoginPassword("kan2026");
-                  handleLoginSubmit(
-                    undefined,
-                    "cristiano.correabr7",
-                    "kan2026"
-                  );
-                }}
-                className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-left text-xs transition hover:border-[#ea580c]/50 hover:bg-slate-800/70"
-              >
-                <div>
-                  <span className="font-bold text-white">
-                    cristiano.correabr7
-                  </span>
-                  <span className="ml-1.5 text-[11px] text-slate-400">
-                    (Mundo Kan)
-                  </span>
-                </div>
-                <Badge variant="outline" className="border-slate-700 text-[10px] text-slate-300">
-                  Editor
-                </Badge>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setLoginInput("cristiano.almeidabr");
-                  setLoginPassword("kan2026");
-                  handleLoginSubmit(
-                    undefined,
-                    "cristiano.almeidabr",
-                    "kan2026"
-                  );
-                }}
-                className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-left text-xs transition hover:border-[#ea580c]/50 hover:bg-slate-800/70"
-              >
-                <div>
-                  <span className="font-bold text-white">
-                    cristiano.almeidabr
-                  </span>
-                  <span className="ml-1.5 text-[11px] text-slate-400">
-                    (Cristiano Teste)
-                  </span>
-                </div>
-                <Badge variant="outline" className="border-slate-700 text-[10px] text-slate-300">
-                  Comum
-                </Badge>
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     );
