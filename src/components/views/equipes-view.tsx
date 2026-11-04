@@ -33,6 +33,146 @@ import {
   type TalentoProfile,
 } from "@/lib/mock-data";
 
+const EIXOS_COMPORTAMENTAIS = [
+  "Liderança",
+  "Relacionamento",
+  "Criação",
+  "Organização",
+  "Flexibilidade",
+  "Comunicação",
+  "Análise",
+  "Resultado",
+  "Empatia",
+] as const;
+
+type HeatmapPalette = "emerald" | "purple" | "orange";
+
+const HEATMAP_PALETTES: Record<
+  HeatmapPalette,
+  {
+    levels: [string, string, string, string, string];
+    textColors: [string, string, string, string, string];
+  }
+> = {
+  emerald: {
+    levels: ["#e6f7ed", "#c3eed4", "#8ce2ad", "#42d374", "#009e3c"],
+    textColors: ["#065f46", "#065f46", "#064e3b", "#ffffff", "#ffffff"],
+  },
+  purple: {
+    levels: ["#f3e8ff", "#d8b4fe", "#a855f7", "#7e22ce", "#510851"],
+    textColors: ["#581c87", "#581c87", "#ffffff", "#ffffff", "#ffffff"],
+  },
+  orange: {
+    levels: ["#ffedd5", "#fed7aa", "#fb923c", "#ea580c", "#9a3412"],
+    textColors: ["#7c2d12", "#7c2d12", "#ffffff", "#ffffff", "#ffffff"],
+  },
+};
+
+function calcularScoresEixos(t: TalentoProfile): Record<string, number> {
+  const seed = t.id.charCodeAt(t.id.length - 1) * 11 + t.nome.length * 17;
+  const isCriacao = t.kan_nome === "Criação";
+  const isMovimento = t.kan_nome === "Movimento";
+  const isFinalidade = t.kan_nome === "Finalidade";
+
+  return {
+    Liderança: t.perfis_lista.includes("Lider")
+      ? 680
+      : isMovimento
+      ? 490
+      : 140 + ((seed * 13) % 380),
+    Relacionamento: t.qualidades_lista.some((q) =>
+      q.toLowerCase().includes("relacionamento")
+    )
+      ? 640
+      : 110 + ((seed * 17) % 410),
+    Criação:
+      isCriacao || t.perfis_lista.includes("Criativo")
+        ? 710
+        : 90 + ((seed * 19) % 360),
+    Organização: t.categorias_lista.includes("Organizado")
+      ? 660
+      : 120 + ((seed * 23) % 390),
+    Flexibilidade: t.categorias_lista.includes("Versátil")
+      ? 620
+      : 80 + ((seed * 29) % 350),
+    Comunicação:
+      t.perfis_lista.includes("Comunicador") ||
+      t.perfis_lista.includes("Influenciador")
+        ? 690
+        : 130 + ((seed * 31) % 390),
+    Análise: t.categorias_lista.includes("Analítico")
+      ? 720
+      : isFinalidade
+      ? 510
+      : 95 + ((seed * 37) % 340),
+    Resultado:
+      t.perfis_lista.includes("Resultado") ||
+      t.perfis_lista.includes("Executor")
+        ? 740
+        : 220 + ((seed * 41) % 420),
+    Empatia: t.categorias_lista.includes("Diplomático")
+      ? 630
+      : 85 + ((seed * 43) % 330),
+  };
+}
+
+function getHeatmapCellStyle(
+  pts: number,
+  palette: HeatmapPalette = "emerald"
+): {
+  bg: string;
+  text: string;
+  label: string;
+  tier: number;
+} {
+  const pal = HEATMAP_PALETTES[palette];
+  if (pts >= 600) {
+    return {
+      bg: pal.levels[4],
+      text: pal.textColors[4],
+      label: "Muito Alto",
+      tier: 5,
+    };
+  }
+  if (pts >= 450) {
+    return {
+      bg: pal.levels[3],
+      text: pal.textColors[3],
+      label: "Alto",
+      tier: 4,
+    };
+  }
+  if (pts >= 300) {
+    return {
+      bg: pal.levels[2],
+      text: pal.textColors[2],
+      label: "Médio",
+      tier: 3,
+    };
+  }
+  if (pts >= 150) {
+    return {
+      bg: pal.levels[1],
+      text: pal.textColors[1],
+      label: "Discreto",
+      tier: 2,
+    };
+  }
+  return {
+    bg: pal.levels[0],
+    text: pal.textColors[0],
+    label: "Baixo",
+    tier: 1,
+  };
+}
+
+function getIndicador(t: TalentoProfile, campo: string): string {
+  const found = t.indicadores_perfil?.find((ind) =>
+    ind.Campo.toLowerCase().includes(campo.toLowerCase())
+  );
+  return found?.Valor || found?.Descricao || "";
+}
+
 export function EquipesView({
   equipes,
   setEquipes,
@@ -59,6 +199,17 @@ export function EquipesView({
   const [openTrianglesId, setOpenTrianglesId] = useState<string | null>(
     equipes[0]?.id || null
   );
+
+  // Estados do Mapa de Calor (Paleta e Exibição de Pontos)
+  const [heatmapPalette, setHeatmapPalette] = useState<HeatmapPalette>("emerald");
+  const [showHeatmapValues, setShowHeatmapValues] = useState(false);
+  const [hoveredCell, setHoveredCell] = useState<{
+    membro: string;
+    cargo: string;
+    eixo: string;
+    pts: number;
+    label: string;
+  } | null>(null);
 
   // New Team Wizard State
   const [novoNomeEq, setNovoNomeEq] = useState(`Equipe ${equipes.length + 1}`);
@@ -565,10 +716,25 @@ export function EquipesView({
                 };
               })
               .filter(Boolean) as {
-              nome: string;
-              vertices: [number, number, number];
-              isLider: boolean;
-            }[];
+                nome: string;
+                vertices: [number, number, number];
+                isLider: boolean;
+              }[];
+
+            // Talentos vinculados à equipe para exibição no Resumo de Perfis e Mapa de Calor
+            const equipeMembrosTalentos = eq.membros
+              .map((m) => {
+                return (
+                  talentos.find((t) => t.nome === m.nome) ||
+                  talentos.find(
+                    (t) =>
+                      t.nome.trim().toLowerCase() ===
+                      m.nome.trim().toLowerCase()
+                  ) ||
+                  null
+                );
+              })
+              .filter(Boolean) as TalentoProfile[];
 
             const qAdd = normText(buscaMembroAdd[eq.id] || "");
             const talentosDisponiveisParaAdd = talentos.filter(
@@ -806,6 +972,405 @@ export function EquipesView({
                     </div>
 
                     <KanTrianglesSvg membros={triangleMembersInput} />
+
+                    {/* ===========================================================
+                        1. RESUMO DO PERFIL DOS INTEGRANTES (Estilo Painel de Controle / Fundo Branco Claro)
+                    ============================================================ */}
+                    {equipeMembrosTalentos.length > 0 && (
+                      <div className="mt-8 space-y-6">
+                        <div className="overflow-hidden rounded-xl border-[1.5px] border-[#fb923c] bg-white dark:bg-[#0d111d] shadow-xs">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#fb923c]/35 bg-[#fb923c]/[0.03] px-5 py-3.5">
+                            <div>
+                              <div className="text-xs font-extrabold uppercase tracking-[1.5px] text-[#f97316]">
+                                PERFIL COMPORTAMENTAL — {eq.nome}
+                              </div>
+                              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                                Matriz executiva consolidada ({equipeMembrosTalentos.length}{" "}
+                                membros vinculados)
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="overflow-x-auto">
+                            <table className="w-full min-w-[720px] border-collapse">
+                              <thead>
+                                <tr className="border-b border-[#fb923c]/35">
+                                  <th className="w-52 border-r border-[#fb923c]/35 bg-[#fb923c]/[0.02] p-4 text-left align-middle">
+                                    <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                                      DIMENSÕES DO DIAGNÓSTICO
+                                    </span>
+                                  </th>
+                                  {equipeMembrosTalentos.map((m, cIdx) => {
+                                    const isLider = eq.membros.find(
+                                      (em) => em.nome.trim().toLowerCase() === m.nome.trim().toLowerCase()
+                                    )?.lider;
+                                    const isLastCol =
+                                      cIdx === equipeMembrosTalentos.length - 1;
+                                    return (
+                                      <th
+                                        key={m.id}
+                                        className={`w-56 p-4 text-center align-bottom ${
+                                          !isLastCol
+                                            ? "border-r border-[#fb923c]/35"
+                                            : ""
+                                        }`}
+                                      >
+                                        <div className="flex flex-col items-center">
+                                          <div className="relative mb-2.5 h-14 w-14">
+                                            <img
+                                              src={m.avatar}
+                                              alt={m.nome}
+                                              className="h-14 w-14 rounded-full border-2 border-[#fb923c]/60 object-cover shadow-2xs"
+                                            />
+                                            {isLider && (
+                                              <span
+                                                title="Líder da Equipe"
+                                                className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] text-black shadow"
+                                              >
+                                                👑
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="text-sm font-bold tracking-tight text-slate-900 dark:text-white">
+                                            {m.nome}
+                                          </div>
+                                          <div className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                                            {m.cargo}
+                                          </div>
+                                        </div>
+                                      </th>
+                                    );
+                                  })}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {[
+                                  {
+                                    label: "Perfil Predominante",
+                                    render: (m: TalentoProfile) =>
+                                      `${m.perfis_lista.join(", ")} • ${m.categorias_lista.join(", ")}`,
+                                    isPrimary: true,
+                                    isKan: false,
+                                  },
+                                  {
+                                    label: "Forças Centrais",
+                                    render: (m: TalentoProfile) =>
+                                      getIndicador(m, "Fortaleza") ||
+                                      getIndicador(m, "Força") ||
+                                      "Liderança, execução estruturada e visão analítica",
+                                    isPrimary: false,
+                                    isKan: false,
+                                  },
+                                  {
+                                    label: "Contexto de Maior Aderência",
+                                    render: (m: TalentoProfile) =>
+                                      m.qualidades_lista.slice(0, 3).join(", "),
+                                    isPrimary: false,
+                                    isKan: false,
+                                  },
+                                  {
+                                    label: "Risco Prioritário",
+                                    render: (m: TalentoProfile) =>
+                                      getIndicador(m, "Risco") ||
+                                      getIndicador(m, "Ponto") ||
+                                      "Excesso de autocobrança em prazos críticos",
+                                    isPrimary: false,
+                                    isKan: false,
+                                  },
+                                  {
+                                    label: "KAN",
+                                    render: (m: TalentoProfile) =>
+                                      `${m.kan_nome.toUpperCase()} (Vértices ${m.vertices_triangulo.join("-")})`,
+                                    isPrimary: false,
+                                    isKan: true,
+                                  },
+                                ].map((row, rIdx, arr) => {
+                                  const isLast = rIdx === arr.length - 1;
+                                  return (
+                                    <tr
+                                      key={row.label}
+                                      className={
+                                        isLast
+                                          ? "bg-[#fb923c]/[0.03]"
+                                          : "border-b border-[#fb923c]/35"
+                                      }
+                                    >
+                                      <td className="border-r border-[#fb923c]/35 bg-[#fb923c]/[0.02] px-4 py-4 text-xs font-semibold text-slate-600 dark:text-slate-300 align-top">
+                                        {row.label}
+                                      </td>
+                                      {equipeMembrosTalentos.map((m, cIdx) => {
+                                        const isLastCol =
+                                          cIdx === equipeMembrosTalentos.length - 1;
+                                        return (
+                                          <td
+                                            key={m.id}
+                                            className={`p-4 align-top ${
+                                              !isLastCol
+                                                ? "border-r border-[#fb923c]/35"
+                                                : ""
+                                            } ${
+                                              row.isKan
+                                                ? "text-sm font-bold tracking-tight text-[#f97316]"
+                                                : row.isPrimary
+                                                ? "text-base font-bold tracking-tight text-slate-900 dark:text-white"
+                                                : "text-xs font-semibold leading-relaxed text-slate-800 dark:text-slate-100"
+                                            }`}
+                                          >
+                                            {row.render(m)}
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        {/* ===========================================================
+                            2. MAPA DE CALOR INTERATIVO - 9 EIXOS COMPORTAMENTAIS
+                        ============================================================ */}
+                        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-[#0d111d]">
+                          <div className="mb-4 flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                                  Mapa de Calor Interativo — Eixos Comportamentais da
+                                  Equipe
+                                </h3>
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px] font-semibold"
+                                >
+                                  {eq.nome}
+                                </Badge>
+                              </div>
+                              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                                Taxa de Equilíbrio & Intensidade Comportamental{" "}
+                                <span className="font-bold text-[#009e3c] dark:text-emerald-400">
+                                  +3.42%
+                                </span>
+                              </p>
+                            </div>
+
+                            {/* Controls: Palette Switcher + Toggle Values */}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="flex items-center rounded-lg border border-slate-200/80 bg-slate-50 p-0.5 dark:border-slate-800 dark:bg-slate-900">
+                                {(
+                                  [
+                                    {
+                                      id: "emerald",
+                                      label: "Verde Shadcn",
+                                      dot: "#009e3c",
+                                    },
+                                    { id: "purple", label: "Roxo KAN", dot: "#7e22ce" },
+                                    {
+                                      id: "orange",
+                                      label: "Laranja Kantech",
+                                      dot: "#ea580c",
+                                    },
+                                  ] as const
+                                ).map((pal) => (
+                                  <button
+                                    key={pal.id}
+                                    type="button"
+                                    onClick={() => setHeatmapPalette(pal.id)}
+                                    className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-all ${
+                                      heatmapPalette === pal.id
+                                        ? "bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white"
+                                        : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
+                                    }`}
+                                  >
+                                    <span
+                                      className="h-2 w-2 rounded-full"
+                                      style={{ backgroundColor: pal.dot }}
+                                    />
+                                    {pal.label}
+                                  </button>
+                                ))}
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => setShowHeatmapValues(!showHeatmapValues)}
+                                className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                                  showHeatmapValues
+                                    ? "border-[#510851] bg-[#510851] text-white dark:border-[#ea580c] dark:bg-[#ea580c]"
+                                    : "border-slate-200/80 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                                }`}
+                              >
+                                {showHeatmapValues ? "Ocultar Pontos" : "Exibir Pontos"}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Squircle Heatmap Grid */}
+                          <div className="overflow-x-auto pb-1">
+                            <div className="max-w-3xl space-y-2">
+                              {EIXOS_COMPORTAMENTAIS.map((eixo) => {
+                                const rowScores = equipeMembrosTalentos.map(
+                                  (m) => calcularScoresEixos(m)[eixo] || 0
+                                );
+                                const avgScore =
+                                  rowScores.length > 0
+                                    ? Math.round(
+                                        rowScores.reduce((a, b) => a + b, 0) /
+                                          rowScores.length
+                                      )
+                                    : 0;
+                                const avgStyle = getHeatmapCellStyle(
+                                  avgScore,
+                                  heatmapPalette
+                                );
+
+                                return (
+                                  <div
+                                    key={eixo}
+                                    className="grid grid-cols-[110px_1fr] items-center gap-3"
+                                  >
+                                    {/* Left Y-Axis Label */}
+                                    <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                      {eixo}
+                                    </span>
+
+                                    {/* Rounded Squircle Tiles Row */}
+                                    <div
+                                      className="grid gap-2"
+                                      style={{
+                                        gridTemplateColumns: `repeat(${
+                                          equipeMembrosTalentos.length + 1
+                                        }, minmax(56px, 86px))`,
+                                      }}
+                                    >
+                                      {equipeMembrosTalentos.map((m) => {
+                                        const pts = calcularScoresEixos(m)[eixo] || 0;
+                                        const style = getHeatmapCellStyle(
+                                          pts,
+                                          heatmapPalette
+                                        );
+                                        return (
+                                          <div
+                                            key={m.id}
+                                            onMouseEnter={() =>
+                                              setHoveredCell({
+                                                membro: m.nome,
+                                                cargo: m.cargo,
+                                                eixo,
+                                                pts,
+                                                label: style.label,
+                                              })
+                                            }
+                                            onMouseLeave={() => setHoveredCell(null)}
+                                            title={`${m.nome} (${m.cargo}) • ${eixo}: ${pts} pts — ${style.label}`}
+                                            style={{
+                                              backgroundColor: style.bg,
+                                              color: style.text,
+                                            }}
+                                            className="group relative flex h-[38px] w-full cursor-pointer items-center justify-center rounded-[12px] text-[11px] font-bold transition-all duration-200 hover:scale-[1.04] hover:shadow-sm"
+                                          >
+                                            <span
+                                              className={`transition-opacity duration-150 ${
+                                                showHeatmapValues
+                                                  ? "opacity-100"
+                                                  : "opacity-0 group-hover:opacity-100"
+                                              }`}
+                                            >
+                                              {pts}
+                                            </span>
+                                          </div>
+                                        );
+                                      })}
+
+                                      {/* Média da Equipe (Última coluna de síntese) */}
+                                      <div
+                                        onMouseEnter={() =>
+                                          setHoveredCell({
+                                            membro: "Média da Equipe",
+                                            cargo: "Consolidado Geral",
+                                            eixo,
+                                            pts: avgScore,
+                                            label: avgStyle.label,
+                                          })
+                                        }
+                                        onMouseLeave={() => setHoveredCell(null)}
+                                        title={`Média da Equipe • ${eixo}: ${avgScore} pts — ${avgStyle.label}`}
+                                        style={{
+                                          backgroundColor: avgStyle.bg,
+                                          color: avgStyle.text,
+                                        }}
+                                        className="group relative flex h-[38px] w-full cursor-pointer items-center justify-center rounded-[12px] border-2 border-dashed border-slate-300 dark:border-slate-700 text-[11px] font-extrabold transition-all duration-200 hover:scale-[1.04]"
+                                      >
+                                        <span
+                                          className={`transition-opacity duration-150 ${
+                                            showHeatmapValues
+                                              ? "opacity-100"
+                                              : "opacity-0 group-hover:opacity-100"
+                                          }`}
+                                        >
+                                          {avgScore}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Member Headers & Media Footer Row */}
+                          <div className="mt-3 grid grid-cols-[110px_1fr] items-center gap-3">
+                            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                              Integrantes:
+                            </span>
+                            <div
+                              className="grid gap-2"
+                              style={{
+                                gridTemplateColumns: `repeat(${
+                                  equipeMembrosTalentos.length + 1
+                                }, minmax(56px, 86px))`,
+                              }}
+                            >
+                              {equipeMembrosTalentos.map((m) => (
+                                <div
+                                  key={m.id}
+                                  className="text-center truncate text-[10px] font-bold text-slate-700 dark:text-slate-300"
+                                  title={m.nome}
+                                >
+                                  {m.nome.split(" ")[0]}
+                                </div>
+                              ))}
+                              <div className="text-center text-[10px] font-black text-amber-600 dark:text-amber-400">
+                                Média
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Floating Hover Context Card */}
+                          {hoveredCell && (
+                            <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-200/90 bg-slate-50/80 px-4 py-2 text-xs dark:border-slate-800 dark:bg-slate-900/60">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-slate-900 dark:text-white">
+                                  {hoveredCell.membro}
+                                </span>
+                                <span className="text-slate-400">•</span>
+                                <span className="text-slate-500 dark:text-slate-400">
+                                  {hoveredCell.cargo}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 font-semibold">
+                                <span className="text-slate-600 dark:text-slate-300">
+                                  Eixo {hoveredCell.eixo}:
+                                </span>
+                                <span className="text-[#ea580c] font-bold">
+                                  {hoveredCell.pts} pontos ({hoveredCell.label})
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </Card>
