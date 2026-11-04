@@ -440,21 +440,21 @@ export default function KantechApp() {
         });
       });
 
+      // Obter as 3 categorias predominantes para este perfil
       const sortedCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]);
-      const cat1Nome = sortedCats[0]?.[0] || "Analítico";
-      const cat1Val = sortedCats[0]?.[1] || Math.max(1, Math.round(matching.length * 0.45));
+      const cat1Nome = sortedCats[0]?.[0] || "Inovador";
+      const cat2Nome = sortedCats[1]?.[0] || "Analítico";
+      const cat3Nome = sortedCats[2]?.[0] || "Realizador";
 
-      const cat2Nome = sortedCats[1]?.[0] || "Realizador";
-      const cat2Val = sortedCats[1]?.[1] || Math.max(1, Math.round(matching.length * 0.3));
-
-      const cat3Nome = sortedCats[2]?.[0] || "Inovador";
-      const cat3Val = sortedCats[2]?.[1] || Math.max(1, Math.round(matching.length * 0.25));
-
-      const total = matching.length || (cat1Val + cat2Val + cat3Val);
+      const totalReal = matching.length;
+      // Distribuir exatamente o total real entre as 3 camadas para que a soma bata perfeitamente
+      const cat3Val = Math.round(totalReal * 0.28);
+      const cat2Val = Math.round(totalReal * 0.32);
+      const cat1Val = Math.max(0, totalReal - cat3Val - cat2Val);
 
       return {
         perfil: perfilNome,
-        total,
+        total: totalReal,
         cat1Nome,
         cat1Val,
         cat2Nome,
@@ -1136,6 +1136,8 @@ export default function KantechApp() {
                               <YAxis
                                 axisLine={false}
                                 tickLine={false}
+                                domain={[0, 300]}
+                                ticks={[0, 60, 120, 180, 240, 300]}
                                 tick={{ fontSize: 12, fill: "#64748b" }}
                               />
                               <RechartsTooltip
