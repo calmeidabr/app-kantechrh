@@ -428,7 +428,7 @@ export function EquipesView({
                             {t.nome}
                           </div>
                           <div className="text-[10px] text-slate-400 truncate">
-                            {t.profissao} • KAN {t.kan_numero}
+                            {t.profissao} • KAN: {t.kan_nome}
                           </div>
                         </div>
                       </div>
@@ -646,8 +646,8 @@ export function EquipesView({
                                   )}
                                 </div>
                                 <div className="text-[11px] text-slate-400 truncate">
-                                  {info?.profissao || "Especialista"} • KAN{" "}
-                                  {info?.kan_numero || 8}
+                                  {info?.profissao || "Especialista"} • KAN:{" "}
+                                  {info?.kan_nome || "Finalidade"}
                                 </div>
                               </div>
                             </div>

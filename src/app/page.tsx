@@ -925,7 +925,7 @@ export default function KantechApp() {
                                   className="text-[10px]"
                                 >
                                   <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                                  KAN {t.kan_numero} •{" "}
+                                  KAN {t.kan_nome} •{" "}
                                   {t.perfil_dominante.split(" ")[0]}
                                 </Badge>
                               </div>
@@ -1010,7 +1010,7 @@ export default function KantechApp() {
                                       }
                                     >
                                       <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                                      KAN {t.kan_numero} •{" "}
+                                      KAN {t.kan_nome} •{" "}
                                       {t.perfil_dominante.split(" ")[0]}
                                     </Badge>
                                   </TableCell>
@@ -1343,42 +1343,6 @@ export default function KantechApp() {
                             {selectedTalento.experiencias}
                           </p>
                         )}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-3 shrink-0">
-                      <div className="rounded-xl border border-[#510851]/20 bg-[#510851]/5 dark:bg-[#8b5cf6]/10 px-4 py-3 text-center">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#510851] dark:text-[#a78bfa]">
-                          Índice KAN
-                        </div>
-                        <div className="text-2xl font-black text-[#510851] dark:text-white mt-0.5">
-                          {selectedTalento.kan_numero}
-                        </div>
-                        <div className="text-[10px] text-slate-500">
-                          {selectedTalento.kan_nome}
-                        </div>
-                      </div>
-                      <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 px-4 py-3 text-center">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#ea580c]">
-                          Estrutural
-                        </div>
-                        <div className="text-2xl font-black text-[#ea580c] mt-0.5">
-                          {selectedTalento.estrutural}
-                        </div>
-                        <div className="text-[10px] text-slate-500">
-                          Base Inata
-                        </div>
-                      </div>
-                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-center">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">
-                          Direcionamento
-                        </div>
-                        <div className="text-2xl font-black text-emerald-600 mt-0.5">
-                          {selectedTalento.direcionamento}
-                        </div>
-                        <div className="text-[10px] text-slate-500">
-                          Missão/Fluxo
-                        </div>
                       </div>
                     </div>
                   </div>

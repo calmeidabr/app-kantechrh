@@ -167,20 +167,20 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
     aderencia_vaga: 96,
     indicadores_perfil: [
       {
-        Campo: "Índice KAN Central",
-        Valor: "8 — Finalidade (Realizador Executivo)",
+        Campo: "Força Central KAN",
+        Valor: "Finalidade (Realizador Executivo)",
         Descricao:
           "Forte orientação para resultados concretos, governança, visão sistêmica de negócios e capacidade natural de estruturar operações escaláveis com alto padrão de exigência.",
       },
       {
-        Campo: "Base Estrutural",
-        Valor: "1 — Pioneirismo & Autonomia",
+        Campo: "Estilo de Atuação",
+        Valor: "Pioneirismo & Autonomia",
         Descricao:
           "Iniciativa proativa, independência intelectual e tração para abrir novos mercados. Atua melhor quando possui liberdade decisória para inovar em processos.",
       },
       {
-        Campo: "Vetor de Direcionamento",
-        Valor: "7 — Especialista Analítico",
+        Campo: "Foco Estratégico",
+        Valor: "Especialista Analítico",
         Descricao:
           "Busca constante por profundidade técnica, método científico e precisão estratégica. Não toma decisões por impulso; valida cenários com dados e indicadores.",
       },
@@ -240,20 +240,20 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
     aderencia_vaga: 92,
     indicadores_perfil: [
       {
-        Campo: "Índice KAN Central",
-        Valor: "5 — Movimento (Agente de Transformação)",
+        Campo: "Força Central KAN",
+        Valor: "Movimento (Agente de Transformação)",
         Descricao:
           "Versatilidade cognitiva, adaptabilidade rápida a mudanças de mercado e facilidade para conectar diferentes áreas da empresa.",
       },
       {
-        Campo: "Base Estrutural",
-        Valor: "3 — Expressão & Criatividade",
+        Campo: "Estilo de Atuação",
+        Valor: "Expressão & Criatividade",
         Descricao:
           "Alta fluência comunicativa, poder de síntese visual e habilidade para engajar stakeholders em apresentações executivas.",
       },
       {
-        Campo: "Vetor de Direcionamento",
-        Valor: "2 — Diplomacia & Sinergia",
+        Campo: "Foco Estratégico",
+        Valor: "Diplomacia & Sinergia",
         Descricao:
           "Atua como ponte entre áreas técnicas e comerciais, reduzindo atritos e promovendo colaboração genuína entre os membros.",
       },
@@ -301,14 +301,14 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
     aderencia_vaga: 89,
     indicadores_perfil: [
       {
-        Campo: "Índice KAN Central",
-        Valor: "4 — Criação (Construtor de Processos)",
+        Campo: "Força Central KAN",
+        Valor: "Criação (Construtor de Processos)",
         Descricao:
           "Foco absoluto em estabilidade, qualidade arquitetural, cumprimento de prazos e organização metodológica.",
       },
       {
-        Campo: "Base Estrutural",
-        Valor: "7 — Profundidade Técnica",
+        Campo: "Estilo de Atuação",
+        Valor: "Profundidade Técnica",
         Descricao:
           "Domínio de sistemas complexos, investigação de causa-raiz e tomada de decisão embasada em evidências.",
       },
@@ -355,8 +355,8 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
     aderencia_vaga: 94,
     indicadores_perfil: [
       {
-        Campo: "Índice KAN Central",
-        Valor: "3 — Movimento (Magnetismo & Persuasão)",
+        Campo: "Força Central KAN",
+        Valor: "Movimento (Magnetismo & Persuasão)",
         Descricao:
           "Comunicação envolvente, presença executiva marcante e alta capacidade de contornar objeções em negociações complexas.",
       },
@@ -403,8 +403,8 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
     aderencia_vaga: 91,
     indicadores_perfil: [
       {
-        Campo: "Índice KAN Central",
-        Valor: "6 — Finalidade (Guardião do Clima & Coesão)",
+        Campo: "Força Central KAN",
+        Valor: "Finalidade (Guardião do Clima & Coesão)",
         Descricao:
           "Senso aguçado de justiça, empatia organizacional e mediação de conflitos em equipes sob alta pressão.",
       },
@@ -451,8 +451,8 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
     aderencia_vaga: 88,
     indicadores_perfil: [
       {
-        Campo: "Índice KAN Central",
-        Valor: "7 — Criação (Inteligência de Dados & Precisão)",
+        Campo: "Força Central KAN",
+        Valor: "Criação (Inteligência de Dados & Precisão)",
         Descricao:
           "Capacidade investigativa superior, modelagem estatística e leitura de padrões ocultos em grandes volumes de dados.",
       },

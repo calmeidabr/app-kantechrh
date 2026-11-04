@@ -845,7 +845,7 @@ export function OrganogramaView({
 
                       <div className="mt-3 flex flex-wrap items-center gap-1">
                         <Badge variant="purple" className="text-[10px]">
-                          KAN {t.kan_numero} • {t.kan_nome}
+                          KAN: {t.kan_nome}
                         </Badge>
                         <Badge variant="secondary" className="text-[10px]">
                           {t.perfis_lista[0]}

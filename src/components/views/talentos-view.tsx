@@ -225,7 +225,7 @@ export function TalentosView({
         )
       );
       setToastMsg(
-        `✅ Cadastro de "${cadNome.trim()}" recalculado (KAN ${calcKanNum} • ${calcKanNome}) e salvo no Supabase!`
+        `✅ Cadastro de "${cadNome.trim()}" recalculado (KAN: ${calcKanNome}) e salvo no Supabase!`
       );
     } else {
       const novo: TalentoProfile = {
@@ -257,13 +257,13 @@ export function TalentosView({
         indicadores_perfil: TALENTOS_MOCK_FALLBACK_IND,
         soft_skills: TALENTOS_MOCK_FALLBACK_SKILLS,
         ai_diagnosis: [
-          `Perfil processado pelo motor isolado mam-kantechrh: KAN ${calcKanNum} (${calcKanNome}), vértices [${calcVertices.join(", ")}] e vetores ${calcPerfis.join(", ")}.`,
+          `Perfil processado pelo motor isolado mam-kantechrh: KAN ${calcKanNome} e vetores comportamentais ${calcPerfis.join(", ")}.`,
         ],
       };
       setTalentos((prev) => [novo, ...prev]);
       setUltimosConsultados((prev) => [novo.nome, ...prev].slice(0, 6));
       setToastMsg(
-        `✅ Talento "${novo.nome}" calculado no mam-kantechrh (KAN ${calcKanNum} • ${calcKanNome}) e salvo no Supabase!`
+        `✅ Talento "${novo.nome}" calculado no mam-kantechrh (KAN: ${calcKanNome}) e salvo no Supabase!`
       );
     }
     setTimeout(() => setToastMsg(null), 4500);
@@ -635,7 +635,7 @@ export function TalentosView({
                         {t.nome}
                       </button>
                       <Badge variant="purple" className="shrink-0">
-                        KAN {t.kan_numero}
+                        KAN: {t.kan_nome}
                       </Badge>
                     </div>
 
@@ -723,8 +723,8 @@ export function TalentosView({
 
 const TALENTOS_MOCK_FALLBACK_IND = [
   {
-    Campo: "Índice KAN Central",
-    Valor: "8 — Realizador Executivo",
+    Campo: "Força Central KAN",
+    Valor: "Realizador Executivo",
     Descricao:
       "Orientação para entregas estruturadas, liderança pragmática e governança corporativa.",
   },

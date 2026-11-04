@@ -815,7 +815,7 @@ export function PeopleAnalyticsView({
                     </td>
                     <td className="px-3 py-3">
                       <Badge className="bg-[#510851] text-[10px] text-white">
-                        {t.kan_numero} • {t.kan_nome}
+                        {t.kan_nome}
                       </Badge>
                     </td>
                     <td className="px-3 py-3 font-semibold text-[#ea580c]">

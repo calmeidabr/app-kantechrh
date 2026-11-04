@@ -189,9 +189,6 @@ export function KanTrianglesSvg({
               {m.isLider ? "👑 " : m.isCandidatoDestaque ? "★ " : ""}
               {m.nome}
             </span>
-            <span className="text-[10px] opacity-65">
-              [{m.vertices.join(" • ")}]
-            </span>
           </button>
         ))}
       </div>

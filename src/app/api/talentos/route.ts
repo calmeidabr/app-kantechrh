@@ -51,8 +51,8 @@ function mapSupabaseRowToTalento(
           if (numMatch) kanNumero = parseInt(numMatch[0], 10);
           kanNome = mapKanName(rawVal);
           indicadoresPerfil.push({
-            Campo: "Índice KAN Central",
-            Valor: `${kanNumero} — ${kanNome}`,
+            Campo: "Força Central KAN",
+            Valor: kanNome,
             Descricao: rawDesc || `Força primordial ${kanNome} identificada pelo motor KAN.`,
           });
         } else if (campoNorm === "estrutural") {
@@ -186,7 +186,7 @@ function mapSupabaseRowToTalento(
   const aiParagraphs = aiText
     ? aiText.split(/\n+/).filter(Boolean)
     : [
-        `O perfil corporativo de ${nome} apresenta predominância na força KAN ${kanNome} (${kanNumero}), combinando base estrutural ${v2} e vetor de direcionamento ${v3}.`,
+        `O perfil corporativo de ${nome} apresenta predominância na força KAN ${kanNome}, evidenciando alta sinergia com desafios estratégicos e operacionais.`,
         `Destaca-se nos vetores comportamentais de ${perfisLista.join(", ")}, com estilo ${categoriasLista.join(", ")} e forte capacidade de entrega em ${qualidadesLista.join(", ")}.`,
       ];
 

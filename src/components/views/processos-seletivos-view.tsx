@@ -1061,7 +1061,7 @@ export function ProcessoSeletivoView({
                         KAN
                       </span>
                       <Badge variant="orange">
-                        {c.kan_nome.toUpperCase()} ({c.kan_numero})
+                        {c.kan_nome.toUpperCase()}
                       </Badge>
                     </div>
                     <div className="flex items-start justify-between gap-2">
