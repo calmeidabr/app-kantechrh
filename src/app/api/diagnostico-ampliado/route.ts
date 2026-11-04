@@ -95,7 +95,7 @@ const DEFAULT_MAP_CAT_EIXO: Record<string, string> = {
   compromissoeentrega: "Resultado",
 };
 
-export const EIXOS_CONFIG = [
+const EIXOS_CONFIG = [
   {
     nome: "Criação",
     icon_class: "icon-lightbulb",
@@ -152,7 +152,7 @@ export const EIXOS_CONFIG = [
   },
 ];
 
-export const COLUNAS_SCORE = [
+const COLUNAS_SCORE = [
   "Motivação",
   "Impressão",
   "Expressão",
@@ -167,7 +167,7 @@ export const COLUNAS_SCORE = [
   "REPETIÇÃO 2",
 ] as const;
 
-export const PERFIS_PADRAO = [
+const PERFIS_PADRAO = [
   "Líder",
   "Criativo",
   "Executor",
@@ -177,7 +177,7 @@ export const PERFIS_PADRAO = [
   "Comunicador",
 ] as const;
 
-export const CATEGORIAS_PADRAO = [
+const CATEGORIAS_PADRAO = [
   "Visionário",
   "Realizador",
   "Inovador",
@@ -429,7 +429,7 @@ function extractNumClean(v: unknown): string {
   return s.split(" - ")[0].split(",")[0].trim();
 }
 
-export function calcularDiagnosticoMembro(
+function calcularDiagnosticoMembro(
   nomeMembro: string,
   tables: CachedDbTables,
   fallbackDataNasc?: string
