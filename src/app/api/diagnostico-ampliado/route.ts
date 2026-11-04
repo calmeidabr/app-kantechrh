@@ -379,32 +379,166 @@ async function getReferenceTables(): Promise<CachedDbTables> {
   return cachedTables;
 }
 
-// Cabalistic table fallback when a talent is not yet in mapas_salvos_valores
-const TABELA_CABALISTICA: Record<string, number> = {
-  A: 1, I: 1, Q: 1, J: 1, Y: 1,
-  B: 2, K: 2, R: 2,
-  C: 3, G: 3, L: 3, S: 3,
-  D: 4, M: 4, T: 4,
-  E: 5, H: 5, N: 5,
-  U: 6, V: 6, W: 6, X: 6, Ç: 6,
-  O: 7, Z: 7,
-  F: 8, P: 8,
+// Exact Cabalistic table from PROG/services/numerologia.py (including accented characters)
+const LETTER_VALUES: Record<string, number> = {
+  A: 1, B: 2, C: 3, D: 4, E: 5, F: 8, G: 3, H: 5, I: 1, J: 1, K: 2,
+  L: 3, M: 4, N: 5, O: 7, P: 8, Q: 1, R: 2, S: 3, T: 4, U: 6, V: 6,
+  W: 6, X: 6, Y: 1, Z: 7, Ç: 6, Ê: 3, É: 7, Í: 3, Ó: 9, Á: 3, Ú: 8,
+  Ã: 4, Å: 8, Ñ: 8, Ù: 3, Û: 4, À: 2, Ö: 5, Ô: 5, È: 1, Â: 8, Ì: 2, Ï: 2,
 };
 
-const VOGAIS = new Set(["A", "E", "I", "O", "U", "Y"]);
+const VOGAIS = new Set("AEIOUYÀÁÂÃÄÅÆÉÈÊËÍÎÏÓÒÔÕÖÚÙÛÜ".split(""));
 
-function reduceNum(n: number, keepMaster = true): number {
+function reduceNumber(n: number): number {
   let curr = n;
-  while (curr > 9) {
-    if (keepMaster && (curr === 11 || curr === 22)) return curr;
+  while (curr > 9 && curr !== 11 && curr !== 22) {
     curr = String(curr)
       .split("")
       .reduce((acc, d) => acc + parseInt(d, 10), 0);
   }
-  return curr || 1;
+  return curr;
 }
 
-function parseDayFromBirthdate(dtStr: string): { day: number; month: number; year: number } {
+function calcularNumerosNome(nomeCompleto: string) {
+  const nome = nomeCompleto.toUpperCase().replace(/\s+/g, "");
+  let expressaoTotal = 0;
+  let motivacaoTotal = 0;
+  let consoantesTotal = 0;
+
+  for (const ch of nome) {
+    const val = LETTER_VALUES[ch] ?? 0;
+    expressaoTotal += val;
+    if (VOGAIS.has(ch)) {
+      motivacaoTotal += val;
+    } else {
+      consoantesTotal += val;
+    }
+  }
+
+  let impressaoReduzida = reduceNumber(consoantesTotal);
+  while (impressaoReduzida > 9) {
+    impressaoReduzida = String(impressaoReduzida)
+      .split("")
+      .reduce((acc, d) => acc + parseInt(d, 10), 0);
+  }
+
+  return {
+    expressao: reduceNumber(expressaoTotal),
+    motivacao: reduceNumber(motivacaoTotal),
+    impressao: impressaoReduzida,
+  };
+}
+
+function calcularTrianguloVidaBase(nomeCompleto: string): number {
+  const nome = nomeCompleto.toUpperCase().replace(/\s+/g, "");
+  let arr = Array.from(nome).map((ch) => LETTER_VALUES[ch] ?? 0);
+  while (arr.length > 1) {
+    const newArr: number[] = [];
+    for (let i = 0; i < arr.length - 1; i++) {
+      let s = arr[i] + arr[i + 1];
+      while (s > 9) {
+        s = String(s)
+          .split("")
+          .reduce((acc, d) => acc + parseInt(d, 10), 0);
+      }
+      newArr.push(s);
+    }
+    arr = newArr;
+  }
+  return arr[0] ?? 0;
+}
+
+function calcularCiclosVida(
+  dia: number,
+  mes: number,
+  ano: number,
+  destino: number
+) {
+  let ciclo1Num = mes;
+  while (ciclo1Num > 9) {
+    ciclo1Num = String(ciclo1Num)
+      .split("")
+      .reduce((acc, d) => acc + parseInt(d, 10), 0);
+  }
+  const ciclo1Inicio = ano;
+  const ciclo1Fim = ciclo1Inicio + (37 - destino);
+
+  let ciclo2Num = dia;
+  while (ciclo2Num > 9) {
+    ciclo2Num = String(ciclo2Num)
+      .split("")
+      .reduce((acc, d) => acc + parseInt(d, 10), 0);
+  }
+  const ciclo2Inicio = ciclo1Fim;
+  const ciclo2Fim = ciclo2Inicio + 27;
+
+  const ciclo3Num = reduceNumber(ano);
+  return {
+    ciclo1: { numero: ciclo1Num, inicio: ciclo1Inicio, fim: ciclo1Fim },
+    ciclo2: { numero: ciclo2Num, inicio: ciclo2Inicio, fim: ciclo2Fim },
+    ciclo3: { numero: ciclo3Num, inicio: ciclo2Fim, fim: null },
+  };
+}
+
+function calcularMomentoDecisivo(a: number, b: number): number {
+  const soma = a + b;
+  if (soma === 11 || soma === 22) return soma;
+  return reduceNumber(soma);
+}
+
+function calcularMomentosDecisivos(
+  dia: number,
+  mes: number,
+  ano: number,
+  ciclosVida: ReturnType<typeof calcularCiclosVida>
+) {
+  const momento1 = calcularMomentoDecisivo(dia, mes);
+  const anoReduzido = reduceNumber(ano);
+  const momento2 = calcularMomentoDecisivo(dia, anoReduzido);
+  const soma12 = momento1 + momento2;
+  const momento3 =
+    soma12 === 11 || soma12 === 22 ? soma12 : reduceNumber(soma12);
+  const momento4 = calcularMomentoDecisivo(mes, anoReduzido);
+
+  return {
+    momento1: {
+      numero: momento1,
+      inicio: ciclosVida.ciclo1.inicio,
+      fim: ciclosVida.ciclo1.fim,
+    },
+    momento2: {
+      numero: momento2,
+      inicio: ciclosVida.ciclo1.fim,
+      fim: ciclosVida.ciclo1.fim + 9,
+    },
+    momento3: {
+      numero: momento3,
+      inicio: ciclosVida.ciclo1.fim + 9,
+      fim: ciclosVida.ciclo1.fim + 18,
+    },
+    momento4: {
+      numero: momento4,
+      inicio: ciclosVida.ciclo1.fim + 18,
+      fim: null,
+    },
+  };
+}
+
+function calcularDesafios(dia: number, mes: number, ano: number) {
+  const d1 = reduceNumber(dia);
+  const m1 = reduceNumber(mes);
+  const a1 = reduceNumber(ano);
+  const desafio1 = Math.abs(d1 - m1);
+  const desafio2 = Math.abs(d1 - a1);
+  const desafioPrincipal = Math.abs(desafio1 - desafio2);
+  return { desafio1, desafio2, desafioPrincipal };
+}
+
+function parseDayFromBirthdate(dtStr: string): {
+  day: number;
+  month: number;
+  year: number;
+} {
   const clean = cleanStr(dtStr, "01/01/1990");
   if (clean.includes("/")) {
     const parts = clean.split("/");
@@ -423,12 +557,6 @@ function parseDayFromBirthdate(dtStr: string): { day: number; month: number; yea
   return { day: 1, month: 1, year: 1990 };
 }
 
-function extractNumClean(v: unknown): string {
-  const s = cleanStr(v);
-  if (!s) return "";
-  return s.split(" - ")[0].split(",")[0].trim();
-}
-
 function calcularDiagnosticoMembro(
   nomeMembro: string,
   tables: CachedDbTables,
@@ -445,106 +573,107 @@ function calcularDiagnosticoMembro(
     {};
 
   const dtNascStr =
-    cleanStr(valRow.data_nascimento) ||
     cleanStr(mapaRow.data_nascimento) ||
+    cleanStr(valRow.data_nascimento) ||
     cleanStr(fallbackDataNasc, "01/01/1990");
   const { day, month, year } = parseDayFromBirthdate(dtNascStr);
 
-  // Extract from perfil_json if available
-  const pJsonMap: Record<string, string> = {};
-  const pJsonRaw = mapaRow.perfil_json;
-  if (typeof pJsonRaw === "string" && pJsonRaw.trim().startsWith("[")) {
-    try {
-      const parsed = JSON.parse(pJsonRaw) as Array<Record<string, unknown>>;
-      for (const item of parsed) {
-        const c = cleanStr(item.Campo);
-        const v = cleanStr(item.Valor ?? item.Resultado);
-        if (c && v) {
-          pJsonMap[c] = v;
-        }
-      }
-    } catch {
-      // ignore malformed JSON
-    }
-  }
+  // Exact calculation from PROG/services/numerologia.py + PROG/services/perfil.py
+  const { expressao, motivacao, impressao } = calcularNumerosNome(nomeMembro);
+  const destinoTotal = String(day)
+    .concat(String(month), String(year))
+    .split("")
+    .reduce((acc, d) => acc + (parseInt(d, 10) || 0), 0);
+  const destino = reduceNumber(destinoTotal);
+  const missao = reduceNumber(destino + expressao);
+  const numPsiquico = reduceNumber(day);
+  const trianguloBase = calcularTrianguloVidaBase(nomeMembro);
 
-  // Fallback Cabalistic computation if valRow is missing fields
-  const upperName = removerAcentos(nomeMembro).toUpperCase().replace(/[^A-Z]/g, "");
-  let sumVogais = 0;
-  let sumConsoantes = 0;
-  for (const ch of upperName) {
-    const val = TABELA_CABALISTICA[ch] || 1;
-    if (VOGAIS.has(ch)) sumVogais += val;
-    else sumConsoantes += val;
-  }
-  const calcMotivacao = reduceNum(sumVogais, true);
-  const calcImpressao = reduceNum(sumConsoantes, false);
-  const calcExpressao = reduceNum(sumVogais + sumConsoantes, true);
-  const calcDestino = reduceNum(
-    reduceNum(day, false) + reduceNum(month, false) + reduceNum(year, false),
-    true
+  const ciclosVida = calcularCiclosVida(day, month, year, destino);
+  const momentosDecisivos = calcularMomentosDecisivos(
+    day,
+    month,
+    year,
+    ciclosVida
   );
-  const calcMissao = reduceNum(calcExpressao + calcDestino, true);
-  const calcPsiquico = reduceNum(day, false);
+  const { desafio1, desafio2, desafioPrincipal } = calcularDesafios(
+    day,
+    month,
+    year
+  );
 
-  const motivacaoStr =
-    extractNumClean(valRow.motivacao) ||
-    extractNumClean(pJsonMap["Motivação"]) ||
-    String(calcMotivacao);
-  const impressaoStr =
-    extractNumClean(valRow.impressao) ||
-    extractNumClean(pJsonMap["Impressão"]) ||
-    String(calcImpressao);
-  const expressaoStr =
-    extractNumClean(valRow.expressao) ||
-    extractNumClean(pJsonMap["Expressão"]) ||
-    String(calcExpressao);
-  const destinoStr =
-    extractNumClean(valRow.destino) ||
-    extractNumClean(pJsonMap["Destino"]) ||
-    String(calcDestino);
-  const missaoStr =
-    extractNumClean(valRow.missao) ||
-    extractNumClean(pJsonMap["Missão"]) ||
-    String(calcMissao);
-  const diaNatalicioStr =
-    extractNumClean(valRow.dia_natalicio) || String(day);
-  const trianguloStr =
-    extractNumClean(valRow.vertice_triangulo_1) ||
-    extractNumClean(pJsonMap["Triângulo Harmônico"]) ||
-    String(reduceNum(calcMotivacao + calcExpressao, false));
-  const psiquicoStr =
-    extractNumClean(valRow.numero_psiquico) ||
-    extractNumClean(pJsonMap["Número Psíquico"]) ||
-    String(calcPsiquico);
-  const estruturalStr =
-    extractNumClean(valRow.estrutural) ||
-    extractNumClean(pJsonMap["Estrutural"]) ||
-    String(reduceNum(calcExpressao, false));
-  const direcionamentoStr =
-    extractNumClean(valRow.direcionamento) ||
-    extractNumClean(pJsonMap["Direcionamento"]) ||
-    String(reduceNum(calcDestino, false));
-  const rep1Str =
-    extractNumClean(valRow.repeticao_1) ||
-    String(reduceNum(calcMotivacao, false));
-  const rep2Str =
-    extractNumClean(valRow.repeticao_2) ||
-    extractNumClean(valRow.repeticao_mapa) ||
-    extractNumClean(pJsonMap["Repetição Mapa"]) ||
-    String(reduceNum(calcImpressao, false));
+  const estrutural = reduceNumber(
+    motivacao + impressao + expressao + reduceNumber(day)
+  );
+  const direcionamento = reduceNumber(
+    destino +
+      missao +
+      ciclosVida.ciclo2.numero +
+      momentosDecisivos.momento3.numero
+  );
+  const kanNum = reduceNumber(estrutural + direcionamento);
+
+  // REPETIÇÃO 1: most repeated (>= 2) among [motivacao, impressao, expressao, destino, missao, dia, triangulo_base, reduce_number(dia)]
+  const numsRep1 = [
+    motivacao,
+    impressao,
+    expressao,
+    destino,
+    missao,
+    day,
+    trianguloBase,
+    numPsiquico,
+  ];
+  const counts1 = new Map<number, number>();
+  for (const n of numsRep1) {
+    counts1.set(n, (counts1.get(n) || 0) + 1);
+  }
+  const reps1 = Array.from(counts1.entries())
+    .filter(([, count]) => count >= 2)
+    .sort((a, b) => (b[1] !== a[1] ? b[1] - a[1] : a[0] - b[0]));
+  const rep1Str = reps1.length > 0 ? String(reps1[0][0]) : "";
+
+  // REPETIÇÃO 2 (Repetição Mapa): most repeated among all map numbers
+  const todosNumerosMapa = [
+    expressao,
+    motivacao,
+    impressao,
+    destino,
+    missao,
+    day,
+    desafio1,
+    desafio2,
+    desafioPrincipal,
+    ciclosVida.ciclo1.numero,
+    ciclosVida.ciclo2.numero,
+    ciclosVida.ciclo3.numero,
+    momentosDecisivos.momento1.numero,
+    momentosDecisivos.momento2.numero,
+    momentosDecisivos.momento3.numero,
+    momentosDecisivos.momento4.numero,
+    numPsiquico,
+    trianguloBase,
+  ];
+  const countsTotal = new Map<number, number>();
+  for (const n of todosNumerosMapa) {
+    countsTotal.set(n, (countsTotal.get(n) || 0) + 1);
+  }
+  const repsTotal = Array.from(countsTotal.entries()).sort((a, b) =>
+    b[1] !== a[1] ? b[1] - a[1] : a[0] - b[0]
+  );
+  const rep2Str = repsTotal.length > 0 ? String(repsTotal[0][0]) : "";
 
   const valoresScoreMap: Record<string, string> = {
-    Motivação: motivacaoStr,
-    Impressão: impressaoStr,
-    Expressão: expressaoStr,
-    Destino: destinoStr,
-    Missão: missaoStr,
-    "Dia Natalício": diaNatalicioStr,
-    Triângulo: trianguloStr,
-    "No Psiquico": psiquicoStr,
-    Estrutural: estruturalStr,
-    Direcionamento: direcionamentoStr,
+    Motivação: String(motivacao),
+    Impressão: String(impressao),
+    Expressão: String(expressao),
+    Destino: String(destino),
+    Missão: String(missao),
+    "Dia Natalício": String(day),
+    Triângulo: String(trianguloBase),
+    "No Psiquico": String(numPsiquico),
+    Estrutural: String(estrutural),
+    Direcionamento: String(direcionamento),
     "REPETIÇÃO 1": rep1Str,
     "REPETIÇÃO 2": rep2Str,
   };
@@ -577,6 +706,8 @@ function calcularDiagnosticoMembro(
     "Risco Prioritário": string;
   }> = [];
 
+  // Replicate exact loop behavior of PROG/menus/admin_menu.py (lines 3039-3130)
+  let eixoEnc = "";
   for (const campoNome of COLUNAS_SCORE) {
     const valNum = valoresScoreMap[campoNome] || "";
     if (!valNum) continue;
@@ -586,7 +717,6 @@ function calcularDiagnosticoMembro(
     let catEnc = "";
     let polEnc = "POSITIVA";
     let areaSupEnc = "";
-    let eixoEnc = "";
     let softSkEnc = "";
     let riscoEnc = "";
 
@@ -614,18 +744,28 @@ function calcularDiagnosticoMembro(
       attrEncontrado = cleanStr(matchedRow.atributos ?? matchedRow.ATRIBUTOS);
       perfilEnc = cleanStr(matchedRow.perfil ?? matchedRow.PERFIL);
       catEnc = cleanStr(matchedRow.categoria ?? matchedRow.CATEGORIA);
-      polEnc = cleanStr(matchedRow.polaridade ?? matchedRow.POLARIDADE, "POSITIVA");
-      areaSupEnc = cleanStr(matchedRow.area_de_suporte ?? matchedRow["AREA DE SUPORTE"]);
+      polEnc = cleanStr(
+        matchedRow.polaridade ?? matchedRow.POLARIDADE,
+        "POSITIVA"
+      );
+      areaSupEnc = cleanStr(
+        matchedRow.area_de_suporte ?? matchedRow["AREA DE SUPORTE"]
+      );
       eixoEnc = cleanStr(matchedRow.eixo ?? matchedRow.Eixo);
-      softSkEnc = cleanStr(matchedRow.soft_skills ?? matchedRow["Soft Skills"]);
-      riscoEnc = cleanStr(matchedRow.risco_prioritario ?? matchedRow["Risco Prioritário"]);
+      softSkEnc = cleanStr(
+        matchedRow.soft_skills ?? matchedRow["Soft Skills"]
+      );
+      riscoEnc = cleanStr(
+        matchedRow.risco_prioritario ?? matchedRow["Risco Prioritário"]
+      );
     }
 
     if (!perfilEnc) {
+      // Exact behavior from admin_menu.py lines 3087-3094 where REPETICAO_DB has uppercase keys
       const rRep = tables.repeticaoDb[valNum];
       if (rRep) {
-        perfilEnc = rRep.perfil;
-        catEnc = rRep.categoria;
+        perfilEnc = "";
+        catEnc = "";
         if (!attrEncontrado) {
           attrEncontrado = `Repetição ${valNum}`;
         }
@@ -745,14 +885,7 @@ function calcularDiagnosticoMembro(
   }
 
   // Determine KAN title & description (never displaying numeric KAN outside admin)
-  const rawKanVal =
-    cleanStr(valRow.kan) ||
-    cleanStr(pJsonMap["KAN"]) ||
-    String(
-      [3, 6, 9][
-        (parseInt(trianguloStr, 10) || 1) % 3
-      ]
-    );
+  const rawKanVal = String(kanNum);
   const kanMapTitulos: Record<string, string> = {
     "3": "CRIAÇÃO",
     "6": "MOVIMENTO",
