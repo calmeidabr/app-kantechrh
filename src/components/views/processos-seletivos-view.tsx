@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import {
+  Search,
   Briefcase,
   Plus,
   Sparkles,
@@ -41,6 +42,13 @@ import {
   type EquipeData,
 } from "@/lib/mock-data";
 
+const normText = (s?: string | null) =>
+  (s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
 /* ============================================================================
    PARTE A: CADASTRO E GESTÃO DE VAGAS (Antigo processos_menu.py)
 ============================================================================ */
@@ -55,6 +63,7 @@ export function VagasView({
 }) {
   const [empresaSel, setEmpresaSel] = useState(EMPRESAS_TENANT[0].nome);
   const [formOpen, setFormOpen] = useState(false);
+  const [buscaVaga, setBuscaVaga] = useState("");
   const [expandedVagaId, setExpandedVagaId] = useState<number | null>(
     vagas[0]?.id || null
   );
@@ -129,7 +138,7 @@ export function VagasView({
     setNomeVaga("");
     setDescVaga("");
     setExpandedVagaId(nova.id);
-    setToastMsg(`✅ Vaga "${nova.nome_vaga}" cadastrada e sincronizada no Supabase!`);
+    setToastMsg(`✅ Vaga "${nova.nome_vaga}" cadastrada com sucesso!`);
     setTimeout(() => setToastMsg(null), 4000);
   };
 
@@ -139,15 +148,22 @@ export function VagasView({
     setTimeout(() => setToastMsg(null), 3000);
   };
 
+  const qVaga = normText(buscaVaga);
+  const vagasFiltradas = vagas.filter((vg) => {
+    if (!qVaga) return true;
+    const tokens = qVaga.split(/\s+/).filter(Boolean);
+    const searchable = normText(
+      `${vg.nome_vaga} ${vg.senioridade} ${vg.departamento} ${vg.kan_ideal.join(" ")} ${vg.perfis_ideais.join(" ")} ${vg.categorias_ideais.join(" ")}`
+    );
+    return tokens.every((tk) => searchable.includes(tk));
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
             <Badge variant="purple">Cadastros • Perfis Ideais de Vagas</Badge>
-            <span className="text-xs text-slate-400">
-              Tabela: <code className="font-mono">public.vagas</code>
-            </span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight mt-1">
             Gestão de Vagas & Requisitos Comportamentais
@@ -301,7 +317,31 @@ export function VagasView({
 
       {/* Lista de Vagas Cadastradas */}
       <div className="space-y-3">
-        {vagas.map((vg) => {
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Input
+              value={buscaVaga}
+              onChange={(e) => setBuscaVaga(e.target.value)}
+              placeholder="Buscar vaga por título, senioridade, departamento ou KAN..."
+              className="pl-9 pr-8"
+            />
+            {buscaVaga && (
+              <button
+                type="button"
+                onClick={() => setBuscaVaga("")}
+                className="absolute right-2.5 top-2.5 text-xs text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <span className="text-xs text-slate-400">
+            Exibindo {vagasFiltradas.length} de {vagas.length} vagas
+          </span>
+        </div>
+
+        {vagasFiltradas.map((vg) => {
           const isOpen = expandedVagaId === vg.id;
           return (
             <Card key={vg.id} className="p-5 space-y-4">
@@ -447,6 +487,7 @@ export function ProcessoSeletivoView({
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [assocTalentosOpen, setAssocTalentosOpen] = useState(false);
   const [assocAderenciaOpen, setAssocAderenciaOpen] = useState(false);
+  const [buscaAssociar, setBuscaAssociar] = useState("");
   const [minAderenciaPct, setMinAderenciaPct] = useState(65);
   const [candDestaqueHarmonia, setCandDestaqueHarmonia] = useState<string>(
     vagaAtiva?.candidatos_associados[0] || talentos[0].nome
@@ -521,6 +562,16 @@ export function ProcessoSeletivoView({
     .map(calcularMatchTalento)
     .sort((a, b) => b.aderenciaPct - a.aderenciaPct);
 
+  const qAssoc = normText(buscaAssociar);
+  const todosRankeadosFiltrados = todosRankeados.filter((r) => {
+    if (!qAssoc) return true;
+    const tokens = qAssoc.split(/\s+/).filter(Boolean);
+    const searchable = normText(
+      `${r.talento.nome} ${r.talento.profissao} ${r.talento.cargo} ${r.talento.departamento} ${r.talento.kan_nome}`
+    );
+    return tokens.every((tk) => searchable.includes(tk));
+  });
+
   const candidatosAssociadosRank = todosRankeados
     .filter((r) => vagaAtiva.candidatos_associados.includes(r.talento.nome))
     .sort((a, b) => b.totalPts - a.totalPts);
@@ -545,7 +596,7 @@ export function ProcessoSeletivoView({
       prev.map((vg) =>
         vg.id === vagaAtiva.id
           ? {
-              ...vg,
+               ...vg,
               kan_ideal: ["Finalidade", "Movimento"],
               perfis_ideais: ["Lider", "Resultado", "Comunicador"],
               categorias_ideais: ["Realizador", "Visionário"],
@@ -605,9 +656,6 @@ export function ProcessoSeletivoView({
         <div>
           <div className="flex items-center gap-2">
             <Badge variant="orange">Matching Comportamental & Triângulos</Badge>
-            <span className="text-xs text-slate-400">
-              Tabela: <code className="font-mono">public.processos_seletivos</code>
-            </span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight mt-1">
             Processo Seletivo & Aderência KAN
@@ -894,19 +942,40 @@ export function ProcessoSeletivoView({
       {/* Drawer: Associar Talentos Manualmente */}
       {assocTalentosOpen && (
         <Card className="p-4 space-y-3 border-[#510851]/30">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Selecionar Talentos Participantes do Processo Seletivo
+              Selecionar Talentos Participantes do Processo Seletivo (
+              {todosRankeadosFiltrados.length})
             </h4>
-            <button
-              onClick={() => setAssocTalentosOpen(false)}
-              className="text-xs text-slate-400"
-            >
-              ✕ Fechar
-            </button>
+            <div className="flex items-center gap-2">
+              <div className="relative w-64">
+                <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
+                <Input
+                  value={buscaAssociar}
+                  onChange={(e) => setBuscaAssociar(e.target.value)}
+                  placeholder="Buscar talento para associar..."
+                  className="h-8 pl-8 pr-7 text-xs"
+                />
+                {buscaAssociar && (
+                  <button
+                    type="button"
+                    onClick={() => setBuscaAssociar("")}
+                    className="absolute right-2 top-2 text-xs text-slate-400"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => setAssocTalentosOpen(false)}
+                className="text-xs text-slate-400"
+              >
+                ✕ Fechar
+              </button>
+            </div>
           </div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {todosRankeados.map((r) => {
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 max-h-[380px] overflow-y-auto pr-1">
+            {todosRankeadosFiltrados.map((r) => {
               const isAssoc = vagaAtiva.candidatos_associados.includes(
                 r.talento.nome
               );

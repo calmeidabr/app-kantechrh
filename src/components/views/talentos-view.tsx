@@ -133,7 +133,7 @@ export function TalentosView({
       return;
     }
 
-    setToastMsg("⏳ Calculando matriz no container mam-kantechrh e salvando no Supabase...");
+    setToastMsg("⏳ Calculando matriz comportamental e salvando cadastro...");
 
     let calcKanNum = 8;
     let calcKanNome: "Criação" | "Movimento" | "Finalidade" = "Finalidade";
@@ -225,7 +225,7 @@ export function TalentosView({
         )
       );
       setToastMsg(
-        `✅ Cadastro de "${cadNome.trim()}" recalculado (KAN: ${calcKanNome}) e salvo no Supabase!`
+        `✅ Cadastro de "${cadNome.trim()}" recalculado (KAN: ${calcKanNome}) e salvo com sucesso!`
       );
     } else {
       const novo: TalentoProfile = {
@@ -257,13 +257,13 @@ export function TalentosView({
         indicadores_perfil: TALENTOS_MOCK_FALLBACK_IND,
         soft_skills: TALENTOS_MOCK_FALLBACK_SKILLS,
         ai_diagnosis: [
-          `Perfil processado pelo motor isolado mam-kantechrh: KAN ${calcKanNome} e vetores comportamentais ${calcPerfis.join(", ")}.`,
+          `Perfil processado pelo motor comportamental KAN: KAN ${calcKanNome} e vetores comportamentais ${calcPerfis.join(", ")}.`,
         ],
       };
       setTalentos((prev) => [novo, ...prev]);
       setUltimosConsultados((prev) => [novo.nome, ...prev].slice(0, 6));
       setToastMsg(
-        `✅ Talento "${novo.nome}" calculado no mam-kantechrh (KAN: ${calcKanNome}) e salvo no Supabase!`
+        `✅ Talento "${novo.nome}" calculado (KAN: ${calcKanNome}) e salvo com sucesso!`
       );
     }
     setTimeout(() => setToastMsg(null), 4500);
@@ -280,21 +280,41 @@ export function TalentosView({
 
   const [visibleCount, setVisibleCount] = useState(24);
 
+  const normText = (s?: string | null) =>
+    (s || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+
+  const queryTalento = normText(buscaTalento);
+
   // Filter talents for bottom grid
-  const talentosFiltrados = talentos.filter((t) => {
-    if (!buscaTalento.trim()) {
-      return true;
-    }
-    const q = buscaTalento.toLowerCase();
-    return (
-      t.nome.toLowerCase().includes(q) ||
-      t.profissao.toLowerCase().includes(q) ||
-      t.cargo.toLowerCase().includes(q) ||
-      t.grupo.toLowerCase().includes(q) ||
-      t.departamento.toLowerCase().includes(q) ||
-      t.empresa.toLowerCase().includes(q)
-    );
-  });
+  const talentosFiltrados = talentos
+    .filter((t) => {
+      if (!queryTalento) {
+        return true;
+      }
+      const tokens = queryTalento.split(/\s+/).filter(Boolean);
+      const empNorm =
+        normText(t.empresa) !== "mundo kan" ? normText(t.empresa) : "";
+      const searchable = normText(
+        `${t.nome} ${t.profissao} ${t.cargo} ${t.grupo} ${t.departamento} ${t.kan_nome} ${t.codigo} ${empNorm}`
+      );
+      return tokens.every((tk) => searchable.includes(tk));
+    })
+    .sort((a, b) => {
+      if (!queryTalento) return 0;
+      const na = normText(a.nome);
+      const nb = normText(b.nome);
+      const startA = na.startsWith(queryTalento) ? 1 : 0;
+      const startB = nb.startsWith(queryTalento) ? 1 : 0;
+      if (startA !== startB) return startB - startA;
+      const incA = na.includes(queryTalento) ? 1 : 0;
+      const incB = nb.includes(queryTalento) ? 1 : 0;
+      if (incA !== incB) return incB - incA;
+      return na.localeCompare(nb);
+    });
 
   const talentosExibidos = talentosFiltrados.slice(0, visibleCount);
 
@@ -305,10 +325,6 @@ export function TalentosView({
         <div>
           <div className="flex items-center gap-2">
             <Badge variant="purple">Cadastros • Base Sincronizada</Badge>
-            <span className="text-xs text-slate-400">
-              Tabelas: <code className="font-mono">mapas_salvos</code> &{" "}
-              <code className="font-mono">mapas_salvos_valores</code>
-            </span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight mt-1">
             Cadastro e Consulta de Talentos
@@ -354,11 +370,7 @@ export function TalentosView({
                 {cadNome ? `Editando / Consultando: ${cadNome}` : "Novo Cadastro de Talento"}
               </CardTitle>
               <CardDescription>
-                Ao salvar, o frontend aciona internamente o container{" "}
-                <span className="font-semibold text-[#510851] dark:text-[#a78bfa]">
-                  mam-kantechrh
-                </span>{" "}
-                para gerar o Mapa e o Perfil Comportamental.
+                Preencha os dados cadastrais para processar automaticamente o Mapa e o Perfil Comportamental.
               </CardDescription>
             </div>
             {cadNome && (
@@ -599,7 +611,7 @@ export function TalentosView({
             <p className="text-xs text-slate-400">
               {buscaTalento.trim()
                 ? `Resultados filtrados: ${talentosFiltrados.length} de ${talentos.length} perfis`
-                : `Exibindo ${talentosExibidos.length} de ${talentosFiltrados.length} talentos sincronizados com o Supabase`}
+                : `Exibindo ${talentosExibidos.length} de ${talentosFiltrados.length} talentos cadastrados na plataforma`}
             </p>
           </div>
 
@@ -612,8 +624,21 @@ export function TalentosView({
                 setVisibleCount(24);
               }}
               placeholder="Buscar por Nome, Profissão, Grupo ou Departamento..."
-              className="pl-9"
+              className="pl-9 pr-8"
             />
+            {buscaTalento && (
+              <button
+                type="button"
+                onClick={() => {
+                  setBuscaTalento("");
+                  setVisibleCount(24);
+                }}
+                className="absolute right-2.5 top-2.5 text-xs text-slate-400 hover:text-slate-600"
+                title="Limpar busca"
+              >
+                ✕
+              </button>
+            )}
           </div>
         </div>
 

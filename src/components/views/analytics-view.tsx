@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import {
+  Search,
   BarChart3,
   Users,
   Sparkles,
@@ -34,6 +35,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { TalentoProfile } from "@/lib/mock-data";
 
 interface PeopleAnalyticsViewProps {
@@ -115,6 +117,13 @@ const CHART_PALETTE = [
   "#ec4899",
 ];
 
+const normText = (s?: string | null) =>
+  (s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
 export function PeopleAnalyticsView({
   talentos,
   onInspectTalento,
@@ -125,6 +134,7 @@ export function PeopleAnalyticsView({
   const [selectedCargo, setSelectedCargo] = useState<string>("Todos");
   const [selectedGeracao, setSelectedGeracao] = useState<string>("Todas");
   const [selectedSoftSkills, setSelectedSoftSkills] = useState<string[]>([]);
+  const [buscaNomeAnalytics, setBuscaNomeAnalytics] = useState<string>("");
 
   const opcoesGrupos = useMemo(
     () =>
@@ -163,6 +173,8 @@ export function PeopleAnalyticsView({
 
   // Filtered Talents (`df_filtered` logic from analytics_menu.py)
   const filteredTalentos = useMemo(() => {
+    const q = normText(buscaNomeAnalytics);
+    const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
     return talentos.filter((t) => {
       const grp = t.departamento || t.grupo;
       if (selectedGrupo !== "Todos" && grp !== selectedGrupo) return false;
@@ -174,6 +186,13 @@ export function PeopleAnalyticsView({
         getGeracao(t.data_nascimento) !== selectedGeracao
       )
         return false;
+
+      if (tokens.length > 0) {
+        const searchable = normText(
+          `${t.nome} ${t.cargo} ${t.profissao} ${t.departamento} ${t.grupo} ${t.kan_nome}`
+        );
+        if (!tokens.every((tk) => searchable.includes(tk))) return false;
+      }
 
       if (selectedSoftSkills.length > 0) {
         for (const skName of selectedSoftSkills) {
@@ -204,6 +223,7 @@ export function PeopleAnalyticsView({
     selectedCargo,
     selectedGeracao,
     selectedSoftSkills,
+    buscaNomeAnalytics,
   ]);
 
   // KPIs
@@ -301,6 +321,7 @@ export function PeopleAnalyticsView({
     setSelectedCargo("Todos");
     setSelectedGeracao("Todas");
     setSelectedSoftSkills([]);
+    setBuscaNomeAnalytics("");
   };
 
   return (
@@ -316,8 +337,8 @@ export function PeopleAnalyticsView({
             Analytics & BI Comportamental Consolidado
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-             Inteligência demográfica, cruzamento de Soft Skills e distribuição
-            de forças KAN (`mapas_salvos` & `mapas_salvos_valores`).
+            Inteligência demográfica, cruzamento de Soft Skills e distribuição
+            de forças KAN e perfis comportamentais.
           </p>
         </div>
 
@@ -766,7 +787,7 @@ export function PeopleAnalyticsView({
       {/* ANALYTICAL TABLE OF TALENTS (`Tabela Analítica de Talentos`) */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="text-base">
                 Tabela Analítica de Talentos ({filteredTalentos.length})
@@ -775,6 +796,24 @@ export function PeopleAnalyticsView({
                 Visão consolidada dos indicadores comportamentais e status do
                 Diagnóstico IA
               </CardDescription>
+            </div>
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+              <Input
+                value={buscaNomeAnalytics}
+                onChange={(e) => setBuscaNomeAnalytics(e.target.value)}
+                placeholder="Buscar talento na tabela..."
+                className="h-8 pl-8 pr-7 text-xs"
+              />
+              {buscaNomeAnalytics && (
+                <button
+                  type="button"
+                  onClick={() => setBuscaNomeAnalytics("")}
+                  className="absolute right-2.5 top-2 text-xs text-slate-400"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           </div>
         </CardHeader>

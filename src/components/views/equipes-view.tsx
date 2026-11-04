@@ -65,6 +65,7 @@ export function EquipesView({
   const [novoNomeEq, setNovoNomeEq] = useState(`Equipe ${equipes.length + 1}`);
   const [filtroEmpresa, setFiltroEmpresa] = useState("Todas");
   const [filtroDepto, setFiltroDepto] = useState("Todos");
+  const [filtroNomeTalento, setFiltroNomeTalento] = useState("");
   const [filtroProfissao, setFiltroProfissao] = useState("");
   const [filtroGrupo, setFiltroGrupo] = useState("");
   const [membrosSelecionadosNovo, setMembrosSelecionadosNovo] = useState<
@@ -75,19 +76,34 @@ export function EquipesView({
   const [membroParaAdicionar, setMembroParaAdicionar] = useState<
     Record<string, string>
   >({});
+  const [buscaMembroAdd, setBuscaMembroAdd] = useState<Record<string, string>>(
+    {}
+  );
+
+  const normText = (s?: string | null) =>
+    (s || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
 
   // Eligible talents in New Team Wizard
   const candidatosElegiveis = talentos.filter((t) => {
     if (filtroEmpresa !== "Todas" && t.empresa !== filtroEmpresa) return false;
     if (filtroDepto !== "Todos" && t.departamento !== filtroDepto) return false;
+    if (filtroNomeTalento.trim()) {
+      const tokens = normText(filtroNomeTalento).split(/\s+/).filter(Boolean);
+      const target = normText(`${t.nome} ${t.cargo} ${t.profissao}`);
+      if (!tokens.every((tk) => target.includes(tk))) return false;
+    }
     if (
       filtroProfissao.trim() &&
-      !t.profissao.toLowerCase().includes(filtroProfissao.toLowerCase())
+      !normText(`${t.profissao} ${t.cargo}`).includes(normText(filtroProfissao))
     )
       return false;
     if (
       filtroGrupo.trim() &&
-      !t.grupo.toLowerCase().includes(filtroGrupo.toLowerCase())
+      !normText(`${t.grupo} ${t.departamento}`).includes(normText(filtroGrupo))
     )
       return false;
     return true;
@@ -145,7 +161,7 @@ export function EquipesView({
     setAddMode(false);
     setMembrosSelecionadosNovo([]);
     setOpenTrianglesId(novaEq.id);
-    setToastMsg(`✅ Equipe "${novaEq.nome}" salva no Supabase com sucesso!`);
+    setToastMsg(`✅ Equipe "${novaEq.nome}" salva com sucesso!`);
     setTimeout(() => setToastMsg(null), 4000);
   };
 
@@ -210,15 +226,37 @@ export function EquipesView({
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  const equipesFiltradas = equipes.filter((eq) => {
-    if (!buscaEquipe.trim()) return true;
-    const q = buscaEquipe.toLowerCase();
-    return (
-      eq.nome.toLowerCase().includes(q) ||
-      eq.empresa.toLowerCase().includes(q) ||
-      eq.departamento.toLowerCase().includes(q)
-    );
-  });
+  const queryEq = normText(buscaEquipe);
+  const equipesFiltradas = equipes
+    .filter((eq) => {
+      if (!queryEq) return true;
+      const tokens = queryEq.split(/\s+/).filter(Boolean);
+      const nomeNorm = normText(eq.nome);
+      const deptoNorm =
+        normText(eq.departamento) !== "multidisciplinar"
+          ? normText(eq.departamento)
+          : "";
+      const empNorm =
+        normText(eq.empresa) !== "mundo kan" ? normText(eq.empresa) : "";
+      const membrosNorm = eq.membros.map((m) => normText(m.nome)).join(" ");
+      const searchable = `${nomeNorm} ${deptoNorm} ${empNorm} ${membrosNorm}`;
+      return tokens.every((tk) => searchable.includes(tk));
+    })
+    .sort((a, b) => {
+      if (!queryEq) return 0;
+      const na = normText(a.nome);
+      const nb = normText(b.nome);
+      const exactA = na === queryEq ? 1 : 0;
+      const exactB = nb === queryEq ? 1 : 0;
+      if (exactA !== exactB) return exactB - exactA;
+      const startA = na.startsWith(queryEq) ? 1 : 0;
+      const startB = nb.startsWith(queryEq) ? 1 : 0;
+      if (startA !== startB) return startB - startA;
+      const incA = na.includes(queryEq) ? 1 : 0;
+      const incB = nb.includes(queryEq) ? 1 : 0;
+      if (incA !== incB) return incB - incA;
+      return na.localeCompare(nb);
+    });
 
   return (
     <div className="space-y-6">
@@ -227,10 +265,6 @@ export function EquipesView({
         <div>
           <div className="flex items-center gap-2">
             <Badge variant="purple">Gestão de Equipes & Sinergia</Badge>
-            <span className="text-xs text-slate-400">
-              Tabela: <code className="font-mono">public.equipes</code> + Motor{" "}
-              <code className="font-mono">harmonia.py</code>
-            </span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight mt-1">
             Gestão de Equipes & Triângulos Harmônicos
@@ -326,7 +360,18 @@ export function EquipesView({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-medium text-slate-500">
+                    Buscar por Nome do Talento
+                  </label>
+                  <Input
+                    value={filtroNomeTalento}
+                    onChange={(e) => setFiltroNomeTalento(e.target.value)}
+                    placeholder="Ex.: Cristiano, Djane..."
+                  />
+                </div>
+
                 <div className="space-y-1">
                   <label className="text-[11px] font-medium text-slate-500">
                     Empresa Base
@@ -394,12 +439,15 @@ export function EquipesView({
                   Seleção Fina (Clique para marcar/desmarcar integrantes) —{" "}
                   <span className="text-[#510851] dark:text-[#a78bfa]">
                     {membrosSelecionadosNovo.length} selecionado(s)
+                  </span>{" "}
+                  <span className="text-slate-400 font-normal">
+                    (exibindo {candidatosElegiveis.length} de {talentos.length})
                   </span>
                 </label>
               </div>
 
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-                {talentos.map((t) => {
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 max-h-[420px] overflow-y-auto pr-1">
+                {candidatosElegiveis.map((t) => {
                   const isSel = membrosSelecionadosNovo.includes(t.nome);
                   return (
                     <button
@@ -458,19 +506,46 @@ export function EquipesView({
         ==================================================================== */
         <div className="space-y-4">
           {/* Search Bar */}
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <Input
-              value={buscaEquipe}
-              onChange={(e) => setBuscaEquipe(e.target.value)}
-              placeholder="Buscar equipe por nome, empresa ou departamento..."
-              className="pl-9"
-            />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full max-w-md">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <Input
+                value={buscaEquipe}
+                onChange={(e) => setBuscaEquipe(e.target.value)}
+                placeholder="Buscar equipe por nome, integrante ou departamento..."
+                className="pl-9 pr-8"
+              />
+              {buscaEquipe && (
+                <button
+                  type="button"
+                  onClick={() => setBuscaEquipe("")}
+                  className="absolute right-2.5 top-2.5 text-xs text-slate-400 hover:text-slate-600"
+                  title="Limpar busca"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <span className="text-xs text-slate-400">
+              {queryEq
+                ? `Resultados filtrados: ${equipesFiltradas.length} de ${equipes.length} equipes`
+                : `Total de ${equipes.length} equipes cadastradas`}
+            </span>
           </div>
 
-          {equipesFiltradas.map((eq) => {
+          {equipesFiltradas.length === 0 && (
+            <Card className="p-8 text-center text-xs text-slate-400">
+              Nenhuma equipe encontrada para &ldquo;{buscaEquipe}&rdquo;.
+            </Card>
+          )}
+
+          {equipesFiltradas.map((eq, eqIdx) => {
             const isEditOpen = openEditId === eq.id;
-            const isTriOpen = openTrianglesId === eq.id;
+            const isTriOpen =
+              openTrianglesId === eq.id ||
+              (Boolean(queryEq) &&
+                eqIdx === 0 &&
+                !equipesFiltradas.some((e) => e.id === openTrianglesId));
             const liderObj = eq.membros.find((m) => m.lider);
 
             // Prepare members for KanTrianglesSvg
@@ -500,8 +575,12 @@ export function EquipesView({
               isLider: boolean;
             }[];
 
+            const qAdd = normText(buscaMembroAdd[eq.id] || "");
             const talentosDisponiveisParaAdd = talentos.filter(
-              (t) => !eq.membros.some((m) => m.nome === t.nome)
+              (t) =>
+                !eq.membros.some((m) => m.nome === t.nome) &&
+                (!qAdd ||
+                  normText(`${t.nome} ${t.profissao} ${t.cargo}`).includes(qAdd))
             );
 
             return (
@@ -583,7 +662,18 @@ export function EquipesView({
                         <UserPlus className="h-4 w-4 text-[#510851] dark:text-[#a78bfa]" />
                         <span>Adicionar Talento à Equipe:</span>
                       </div>
-                      <div className="flex items-center gap-2 flex-1 max-w-md">
+                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 flex-1 max-w-xl">
+                        <Input
+                          value={buscaMembroAdd[eq.id] || ""}
+                          onChange={(e) =>
+                            setBuscaMembroAdd((prev) => ({
+                              ...prev,
+                              [eq.id]: e.target.value,
+                            }))
+                          }
+                          placeholder="Filtrar nome..."
+                          className="h-9 w-full sm:w-44 text-xs"
+                        />
                         <select
                           value={membroParaAdicionar[eq.id] || ""}
                           onChange={(e) =>

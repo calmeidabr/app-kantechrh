@@ -248,6 +248,14 @@ export function OrganogramaView({
   // Search & Filter inside Department
   const [searchColab, setSearchColab] = useState("");
   const [filterCargo, setFilterCargo] = useState("Todos");
+  const [buscaEquipeOrg, setBuscaEquipeOrg] = useState("");
+
+  const normText = (s?: string | null) =>
+    (s || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
 
   // Link Talent to Department modal/bar
   const [showVincularBar, setShowVincularBar] = useState(false);
@@ -310,6 +318,8 @@ export function OrganogramaView({
   }, [selectedDeptId, selectedDeptObj, deptosDaEmpresa]);
 
   const filteredColaboradores = useMemo(() => {
+    const q = normText(searchColab);
+    const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
     return talentos
       .filter((t) => {
         if (
@@ -319,13 +329,11 @@ export function OrganogramaView({
         ) {
           return false;
         }
-        if (searchColab.trim()) {
-          const q = searchColab.toLowerCase();
-          if (
-            !t.nome.toLowerCase().includes(q) &&
-            !t.cargo.toLowerCase().includes(q) &&
-            !t.departamento.toLowerCase().includes(q)
-          ) {
+        if (tokens.length > 0) {
+          const searchable = normText(
+            `${t.nome} ${t.cargo} ${t.profissao} ${t.departamento} ${t.grupo}`
+          );
+          if (!tokens.every((tk) => searchable.includes(tk))) {
             return false;
           }
         }
@@ -641,7 +649,7 @@ export function OrganogramaView({
         <Card className="border-[#510851]/30">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
-              Cadastro e Gestão de Empresas (`public.empresas`)
+              Cadastro e Gestão de Empresas
             </CardTitle>
             <CardDescription className="text-xs">
               Empresas cadastradas no ecossistema KantechRH com validação de
@@ -764,7 +772,7 @@ export function OrganogramaView({
               {editStructureMode && (
                 <div className="mt-4 space-y-2.5 rounded-xl border border-dashed border-[#ea580c]/50 bg-[#ea580c]/5 p-3">
                   <div className="text-xs font-bold text-[#ea580c]">
-                    Construtor de Hierarquia (`hierarquia_departamentos`)
+                    Construtor de Hierarquia de Departamentos
                   </div>
                   <Input
                     value={novoDeptNome}
@@ -1125,7 +1133,7 @@ export function OrganogramaView({
       {/* SEÇÃO 3: EQUIPES DA EMPRESA & TRIÂNGULOS HARMÔNICOS INTEGRADOS */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Users className="h-4 w-4 text-[#ea580c]" />
@@ -1136,11 +1144,49 @@ export function OrganogramaView({
                 cada equipe diretamente no organograma
               </CardDescription>
             </div>
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+              <Input
+                value={buscaEquipeOrg}
+                onChange={(e) => setBuscaEquipeOrg(e.target.value)}
+                placeholder="Buscar equipe ou membro..."
+                className="h-8 pl-8 pr-7 text-xs"
+              />
+              {buscaEquipeOrg && (
+                <button
+                  type="button"
+                  onClick={() => setBuscaEquipeOrg("")}
+                  className="absolute right-2 top-2 text-xs text-slate-400"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {equipes.map((eq) => {
+            {equipes
+              .filter((eq) => {
+                const q = normText(buscaEquipeOrg);
+                if (!q) return true;
+                const tokens = q.split(/\s+/).filter(Boolean);
+                const searchable = `${normText(eq.nome)} ${eq.membros
+                  .map((m) => normText(m.nome))
+                  .join(" ")}`;
+                return tokens.every((tk) => searchable.includes(tk));
+              })
+              .sort((a, b) => {
+                const q = normText(buscaEquipeOrg);
+                if (!q) return 0;
+                const na = normText(a.nome);
+                const nb = normText(b.nome);
+                if ((na === q) !== (nb === q)) return na === q ? -1 : 1;
+                if (na.startsWith(q) !== nb.startsWith(q))
+                  return na.startsWith(q) ? -1 : 1;
+                return na.localeCompare(nb);
+              })
+              .map((eq) => {
               const isSelected = openTeamTrianglesId === eq.id;
               return (
                 <div

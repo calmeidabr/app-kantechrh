@@ -148,6 +148,15 @@ export function DiagnosticoAmpliadoView({
   const [talentoSelNome, setTalentoSelNome] = useState<string>(
     selectedTalento?.nome || talentos[0]?.nome || ""
   );
+  const [buscaEquipeDiag, setBuscaEquipeDiag] = useState<string>("");
+  const [buscaTalentoDiag, setBuscaTalentoDiag] = useState<string>("");
+
+  const normText = (s?: string | null) =>
+    (s || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
 
   // Sync when parent selectedTalento changes
   useEffect(() => {
@@ -371,6 +380,34 @@ export function DiagnosticoAmpliadoView({
           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
             Selecione a equipe para diagnóstico comparativo:
           </label>
+          <div className="relative">
+            <input
+              type="text"
+              value={buscaEquipeDiag}
+              onChange={(e) => {
+                const v = e.target.value;
+                setBuscaEquipeDiag(v);
+                const terms = normText(v).split(/\s+/).filter(Boolean);
+                if (terms.length === 0) return;
+                const match = equipes.find((eq) =>
+                  terms.every((t) => normText(eq.nome).includes(t))
+                );
+                if (match) setEquipeSelNome(match.nome);
+              }}
+              placeholder="Buscar equipe pelo nome..."
+              className="h-9 w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 pr-8 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#ea580c]"
+            />
+            {buscaEquipeDiag && (
+              <button
+                type="button"
+                onClick={() => setBuscaEquipeDiag("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                aria-label="Limpar busca de equipe"
+              >
+                ✕
+              </button>
+            )}
+          </div>
           <select
             value={equipeSelNome}
             onChange={(e) => setEquipeSelNome(e.target.value)}
@@ -379,7 +416,13 @@ export function DiagnosticoAmpliadoView({
             <option value="Nenhuma equipe selecionada">
               Nenhuma equipe selecionada
             </option>
-            {equipes.map((eq) => (
+            {equipes
+              .filter((eq) => {
+                const terms = normText(buscaEquipeDiag).split(/\s+/).filter(Boolean);
+                if (terms.length === 0 || eq.nome === equipeSelNome) return true;
+                return terms.every((t) => normText(eq.nome).includes(t));
+              })
+              .map((eq) => (
               <option key={eq.id} value={eq.nome}>
                 {eq.nome} ({eq.membros.length} membros)
               </option>
@@ -391,6 +434,38 @@ export function DiagnosticoAmpliadoView({
           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
             Ou selecione um talento para diagnóstico individual:
           </label>
+          <div className="relative">
+            <input
+              type="text"
+              value={buscaTalentoDiag}
+              disabled={equipeSelNome !== "Nenhuma equipe selecionada"}
+              onChange={(e) => {
+                const v = e.target.value;
+                setBuscaTalentoDiag(v);
+                const terms = normText(v).split(/\s+/).filter(Boolean);
+                if (terms.length === 0) return;
+                const match = talentos.find((t) =>
+                  terms.every((term) => normText(t.nome).includes(term))
+                );
+                if (match) {
+                  setTalentoSelNome(match.nome);
+                  if (onSelectTalento) onSelectTalento(match);
+                }
+              }}
+              placeholder="Buscar talento pelo nome..."
+              className="h-9 w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 pr-8 text-xs text-slate-800 dark:text-slate-100 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#ea580c]"
+            />
+            {buscaTalentoDiag && (
+              <button
+                type="button"
+                onClick={() => setBuscaTalentoDiag("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                aria-label="Limpar busca de talento"
+              >
+                ✕
+              </button>
+            )}
+          </div>
           <select
             value={talentoSelNome}
             disabled={equipeSelNome !== "Nenhuma equipe selecionada"}
@@ -404,7 +479,13 @@ export function DiagnosticoAmpliadoView({
             }}
             className="h-10 w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900 px-3 text-xs font-medium text-slate-800 dark:text-slate-100 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#ea580c]"
           >
-            {talentos.map((t) => (
+            {talentos
+              .filter((t) => {
+                const terms = normText(buscaTalentoDiag).split(/\s+/).filter(Boolean);
+                if (terms.length === 0 || t.nome === talentoSelNome) return true;
+                return terms.every((term) => normText(t.nome).includes(term));
+              })
+              .map((t) => (
               <option key={t.id} value={t.nome}>
                 {t.nome}
               </option>
