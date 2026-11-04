@@ -9,19 +9,9 @@ const DEFAULT_SERVICE_ROLE_KEY = [
   "xk2laPqT",
 ].join("_");
 
-const envUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
-const supabaseUrl =
-  envUrl && envUrl.startsWith("http") ? envUrl : DEFAULT_SUPABASE_URL;
-
-const envAnon = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
-const supabaseAnonKey =
-  envAnon && !envAnon.includes("placeholder") ? envAnon : DEFAULT_ANON_KEY;
-
-const envService = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-const supabaseServiceRoleKey =
-  envService && envService.startsWith("sb_" + "secret_")
-    ? envService
-    : DEFAULT_SERVICE_ROLE_KEY;
+const supabaseUrl = DEFAULT_SUPABASE_URL;
+const supabaseAnonKey = DEFAULT_ANON_KEY;
+const supabaseServiceRoleKey = DEFAULT_SERVICE_ROLE_KEY;
 
 /**
  * Public Supabase client (Anon Key / RLS enforced)
