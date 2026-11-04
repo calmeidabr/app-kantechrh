@@ -15,7 +15,7 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-https://wfenlrmsiyndtpxwfgxs.supabase.co}
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-sb_publishable_c1cNaU04TtPkJ12cZBS0Rw_LvqPs1DQ}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - MAM_ENGINE_URL=http://mam-kantechrh:8000
       - MAM_INTERNAL_SECRET=${MAM_INTERNAL_SECRET:-kantech-mam-secret-key-2026-isolated}

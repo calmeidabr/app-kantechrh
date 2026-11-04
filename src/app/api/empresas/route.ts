@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/empresas?empresa=...
  * Carrega empresas (`public.empresas`) e a árvore de departamentos (`public.hierarquia_departamentos`) do Supabase.

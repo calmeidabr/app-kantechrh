@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callMamEngine, getSupabaseAdmin, MAM_ENGINE_CONFIG } from "@/lib/supabase";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/diagnostico
  * Verifica o status de saúde (healthcheck) do motor isolado `mam-kantechrh` e da conexão Supabase.

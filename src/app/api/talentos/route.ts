@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin, callMamEngine, normalizeKey } from "@/lib/supabase";
 import { TALENTOS_MOCK, TalentoProfile, KanType } from "@/lib/mock-data";
 
+export const dynamic = "force-dynamic";
+
 const SOFT_SKILL_COLORS: Record<string, string> = {
   Líder: "#510851",
   Lider: "#510851",

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { EQUIPES_MOCK } from "@/lib/mock-data";
 
+export const dynamic = "force-dynamic";
+
 function parseMembros(raw: unknown): { nome: string; lider: boolean }[] {
   let list: unknown[] = [];
   if (Array.isArray(raw)) {

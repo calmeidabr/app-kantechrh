@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/usuarios
  * Retorna todos os usuários de `public.usuarios` combinados com os tenants (`public.tenants`) e `auth.users`.

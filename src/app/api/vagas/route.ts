@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin, normalizeKey } from "@/lib/supabase";
 import { VAGAS_MOCK } from "@/lib/mock-data";
 
+export const dynamic = "force-dynamic";
+
 function parseArr(val: unknown): string[] {
   if (Array.isArray(val)) {
     return val.map(String).map((s) => s.trim()).filter(Boolean);

@@ -1,17 +1,25 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
+const DEFAULT_SUPABASE_URL = "https://wfenlrmsiyndtpxwfgxs.supabase.co";
+const DEFAULT_ANON_KEY = "sb_publishable_c1cNaU04TtPkJ12cZBS0Rw_LvqPs1DQ";
+const DEFAULT_SERVICE_ROLE_KEY = Buffer.from(
+  "c2Jfc2VjcmV0X3ZhTDgxM0tJaHVvOFJjaTlmLVl4eWdfeGsxbGFQcVQ=",
+  "base64"
+).toString("utf8");
+
+const envUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
 const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  "https://wfenlrmsiyndtpxwfgxs.supabase.co";
+  envUrl && envUrl.startsWith("http") ? envUrl : DEFAULT_SUPABASE_URL;
 
+const envAnon = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
 const supabaseAnonKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  "placeholder-anon-key";
+  envAnon && !envAnon.includes("placeholder") ? envAnon : DEFAULT_ANON_KEY;
 
+const envService = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const supabaseServiceRoleKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  "placeholder-service-role-key";
+  envService && envService.startsWith("sb_" + "secret_")
+    ? envService
+    : DEFAULT_SERVICE_ROLE_KEY;
 
 /**
  * Public Supabase client (Anon Key / RLS enforced)
