@@ -34,6 +34,9 @@ import {
   SlidersHorizontal,
   UploadCloud,
   Menu,
+  LogOut,
+  Lock,
+  KeyRound,
 } from "lucide-react";
 import {
   BarChart,
@@ -100,12 +103,106 @@ type RouteKey =
   | "SaaS Multi-Tenant"
   | "Painel de Controle";
 
+interface AuthUserSession {
+  id: string;
+  usuario: string;
+  nome_completo: string;
+  email: string;
+  direitos: "admin master" | "Editor" | "Analista" | "Comum" | string;
+  empresa: string;
+  tenant_id: string;
+  status: string;
+}
+
 export default function KantechApp() {
   const { theme, setTheme } = useTheme();
   const [activeRoute, setActiveRoute] = useState<RouteKey>("Home");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [empresasTenantList, setEmpresasTenantList] = useState(EMPRESAS_TENANT);
   const [selectedTenant, setSelectedTenant] = useState(EMPRESAS_TENANT[0]);
   const [tenantMenuOpen, setTenantMenuOpen] = useState(false);
+
+  // Authentication state (Supabase public.usuarios + auth.users)
+  const [authUser, setAuthUser] = useState<AuthUserSession | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [loginInput, setLoginInput] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("kan_auth_user");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.usuario) {
+          setAuthUser(parsed);
+        }
+      }
+    } catch {
+      // ignore storage errors
+    } finally {
+      setAuthChecked(true);
+    }
+  }, []);
+
+  const handleLoginSubmit = async (
+    e?: React.FormEvent,
+    overrideUser?: string,
+    overridePass?: string
+  ) => {
+    if (e) e.preventDefault();
+    const u = (overrideUser ?? loginInput).trim();
+    const p = overridePass ?? loginPassword;
+    if (!u || !p) {
+      setLoginError("Informe seu usuário/e-mail e senha.");
+      return;
+    }
+    setLoginLoading(true);
+    setLoginError(null);
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usernameOrEmail: u, password: p }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.success || !json?.user) {
+        setLoginError(
+          json?.error || "Usuário ou senha inválidos na base Supabase."
+        );
+        setLoginLoading(false);
+        return;
+      }
+      setAuthUser(json.user);
+      try {
+        localStorage.setItem("kan_auth_user", JSON.stringify(json.user));
+      } catch {
+        // ignore
+      }
+      setLoginLoading(false);
+    } catch {
+      setLoginError("Falha de conexão com o servidor de autenticação.");
+      setLoginLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setAuthUser(null);
+    setLoginPassword("");
+    setActiveRoute("Home");
+    try {
+      localStorage.removeItem("kan_auth_user");
+    } catch {
+      // ignore
+    }
+  };
+
+  const isAdminMaster =
+    !authUser ||
+    String(authUser.direitos || "").toLowerCase() === "admin master" ||
+    authUser.usuario === "adminkan" ||
+    authUser.usuario === "admin";
 
   // Stateful collections so changes in Talentos / Equipes / Vagas / Processos reflect everywhere
   const [talentos, setTalentos] = useState<TalentoProfile[]>(TALENTOS_MOCK);
@@ -141,28 +238,78 @@ export default function KantechApp() {
     let mounted = true;
     async function hydrateFromBff() {
       try {
-        const [talRes, eqRes, vagRes, diagRes] = await Promise.all([
-          fetch("/api/talentos").then((r) => r.json()).catch(() => null),
-          fetch("/api/equipes").then((r) => r.json()).catch(() => null),
-          fetch("/api/vagas").then((r) => r.json()).catch(() => null),
-          fetch("/api/diagnostico").then((r) => r.json()).catch(() => null),
+        const [talRes, eqRes, vagRes, empRes, diagRes] = await Promise.all([
+          fetch("/api/talentos", { cache: "no-store" })
+            .then((r) => r.json())
+            .catch(() => null),
+          fetch("/api/equipes", { cache: "no-store" })
+            .then((r) => r.json())
+            .catch(() => null),
+          fetch("/api/vagas", { cache: "no-store" })
+            .then((r) => r.json())
+            .catch(() => null),
+          fetch("/api/empresas", { cache: "no-store" })
+            .then((r) => r.json())
+            .catch(() => null),
+          fetch("/api/diagnostico", { cache: "no-store" })
+            .then((r) => r.json())
+            .catch(() => null),
         ]);
 
         if (!mounted) return;
 
-        if (talRes?.talentos && Array.isArray(talRes.talentos) && talRes.talentos.length > 0) {
+        if (
+          talRes?.talentos &&
+          Array.isArray(talRes.talentos) &&
+          talRes.talentos.length > 0
+        ) {
           setTalentos(talRes.talentos);
           setSelectedTalento(talRes.talentos[0]);
         }
-        if (eqRes?.equipes && Array.isArray(eqRes.equipes) && eqRes.equipes.length > 0) {
+        if (
+          eqRes?.equipes &&
+          Array.isArray(eqRes.equipes) &&
+          eqRes.equipes.length > 0
+        ) {
           setEquipes(eqRes.equipes);
         }
-        if (vagRes?.vagas && Array.isArray(vagRes.vagas) && vagRes.vagas.length > 0) {
+        if (
+          vagRes?.vagas &&
+          Array.isArray(vagRes.vagas) &&
+          vagRes.vagas.length > 0
+        ) {
           setVagas(vagRes.vagas);
           setSelectedVagaId(vagRes.vagas[0].id);
         }
+        if (
+          empRes?.empresas &&
+          Array.isArray(empRes.empresas) &&
+          empRes.empresas.length > 0
+        ) {
+          const palette = [
+            "#510851",
+            "#ea580c",
+            "#0f766e",
+            "#2563eb",
+            "#7c3aed",
+            "#059669",
+          ];
+          const mappedTenants = empRes.empresas.map(
+            (e: Record<string, unknown>, idx: number) => ({
+              id: String(e.id || `emp-${idx}`),
+              nome: String(e.nome || "Mundo Kan"),
+              plano: idx === 0 ? "Enterprise" : "Business Growth",
+              cor: palette[idx % palette.length],
+              ativa: idx === 0,
+            })
+          );
+          setEmpresasTenantList(mappedTenants);
+          setSelectedTenant(mappedTenants[0]);
+        }
         setBffStatus({
-          supabase: diagRes?.supabase?.status || (talRes?.source === "supabase" ? "online" : "fallback"),
+          supabase:
+            diagRes?.supabase?.status ||
+            (talRes?.source === "supabase" ? "online" : "fallback"),
           mamEngine: diagRes?.mamEngine?.status || "standby",
           source: talRes?.source || "mock",
         });
@@ -388,31 +535,33 @@ export default function KantechApp() {
           )}
         </div>
 
-        {/* Group 3: Governança & Admin Master */}
-        <div>
-          {!isCollapsed && (
-            <div className="px-2.5 pb-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500">
-              Governança & SaaS
-            </div>
-          )}
-          <nav className="space-y-0.5">
-            <SidebarItem
-              icon={<Layers className="h-4 w-4" />}
-              label="SaaS Multi-Tenant"
-              active={activeRoute === "SaaS Multi-Tenant"}
-              collapsed={isCollapsed}
-              hasChevron
-              onClick={() => navigateTo("SaaS Multi-Tenant")}
-            />
-            <SidebarItem
-              icon={<ShieldCheck className="h-4 w-4" />}
-              label="Painel de Controle"
-              active={activeRoute === "Painel de Controle"}
-              collapsed={isCollapsed}
-              onClick={() => navigateTo("Painel de Controle")}
-            />
-          </nav>
-        </div>
+        {/* Group 3: Governança & Admin Master (Restrito ao Admin Master) */}
+        {isAdminMaster && (
+          <div>
+            {!isCollapsed && (
+              <div className="px-2.5 pb-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                Governança & SaaS
+              </div>
+            )}
+            <nav className="space-y-0.5">
+              <SidebarItem
+                icon={<Layers className="h-4 w-4" />}
+                label="SaaS Multi-Tenant"
+                active={activeRoute === "SaaS Multi-Tenant"}
+                collapsed={isCollapsed}
+                hasChevron
+                onClick={() => navigateTo("SaaS Multi-Tenant")}
+              />
+              <SidebarItem
+                icon={<ShieldCheck className="h-4 w-4" />}
+                label="Painel de Controle"
+                active={activeRoute === "Painel de Controle"}
+                collapsed={isCollapsed}
+                onClick={() => navigateTo("Painel de Controle")}
+              />
+            </nav>
+          </div>
+        )}
       </div>
 
       {/* Bottom Card: Motor MAM Isolado */}
@@ -456,6 +605,165 @@ export default function KantechApp() {
       </div>
     </>
   );
+
+  if (authChecked && !authUser) {
+    return (
+      <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-950 px-4 py-10 text-white">
+        {/* Background radial glow */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-35"
+          style={{
+            background:
+              "radial-gradient(circle at 20% 20%, #510851 0%, transparent 50%), radial-gradient(circle at 80% 80%, #ea580c 0%, transparent 45%)",
+          }}
+        />
+
+        <div className="relative z-10 w-full max-w-md rounded-2xl border border-white/10 bg-slate-900/90 p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
+          <div className="mb-6 flex flex-col items-center text-center">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#510851] text-white shadow-lg ring-2 ring-[#ea580c]/40">
+              <span className="text-xl font-bold">◇</span>
+            </div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-white">
+              Kantech<span className="text-[#ea580c]">RH</span>
+            </h1>
+            <p className="mt-1 text-xs text-slate-400">
+              Plataforma de Inteligência Comportamental • Autenticação Supabase
+            </p>
+            <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              {talentos.length} Perfis • {equipes.length} Equipes •{" "}
+              {vagas.length} Processos Conectados
+            </div>
+          </div>
+
+          <form onSubmit={(e) => handleLoginSubmit(e)} className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-300">
+                Usuário ou E-mail (`public.usuarios`)
+              </label>
+              <Input
+                type="text"
+                value={loginInput}
+                onChange={(e) => setLoginInput(e.target.value)}
+                placeholder="Ex: adminkan ou cristiano.correabr7@gmail.com"
+                className="h-10 border-slate-700 bg-slate-950/80 text-sm text-white placeholder:text-slate-500"
+                autoComplete="username"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-300">
+                Senha de Acesso
+              </label>
+              <Input
+                type="password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                placeholder="Digite sua senha"
+                className="h-10 border-slate-700 bg-slate-950/80 text-sm text-white placeholder:text-slate-500"
+                autoComplete="current-password"
+              />
+            </div>
+
+            {loginError && (
+              <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-300">
+                {loginError}
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              disabled={loginLoading}
+              className="h-10 w-full bg-[#ea580c] text-xs font-bold uppercase tracking-wider text-white hover:bg-[#ea580c]/90"
+            >
+              <Lock className="mr-1.5 h-3.5 w-3.5" />
+              {loginLoading ? "Autenticando no Supabase..." : "Entrar no Sistema"}
+            </Button>
+          </form>
+
+          <div className="mt-6 border-t border-slate-800 pt-4">
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
+              <KeyRound className="h-3.5 w-3.5 text-[#ea580c]" />
+              Contas Cadastradas no Supabase (`public.usuarios`):
+            </div>
+            <div className="grid grid-cols-1 gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginInput("adminkan");
+                  setLoginPassword("K@nAdmin#2026*");
+                  handleLoginSubmit(undefined, "adminkan", "K@nAdmin#2026*");
+                }}
+                className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-left text-xs transition hover:border-[#ea580c]/50 hover:bg-slate-800/70"
+              >
+                <div>
+                  <span className="font-bold text-white">adminkan</span>
+                  <span className="ml-1.5 text-[11px] text-slate-400">
+                    (adminkan@mundokan.com.br)
+                  </span>
+                </div>
+                <Badge className="bg-[#510851] text-[10px] text-white">
+                  admin master
+                </Badge>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginInput("cristiano.correabr7");
+                  setLoginPassword("kan2026");
+                  handleLoginSubmit(
+                    undefined,
+                    "cristiano.correabr7",
+                    "kan2026"
+                  );
+                }}
+                className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-left text-xs transition hover:border-[#ea580c]/50 hover:bg-slate-800/70"
+              >
+                <div>
+                  <span className="font-bold text-white">
+                    cristiano.correabr7
+                  </span>
+                  <span className="ml-1.5 text-[11px] text-slate-400">
+                    (Mundo Kan)
+                  </span>
+                </div>
+                <Badge variant="outline" className="border-slate-700 text-[10px] text-slate-300">
+                  Editor
+                </Badge>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginInput("cristiano.almeidabr");
+                  setLoginPassword("kan2026");
+                  handleLoginSubmit(
+                    undefined,
+                    "cristiano.almeidabr",
+                    "kan2026"
+                  );
+                }}
+                className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-left text-xs transition hover:border-[#ea580c]/50 hover:bg-slate-800/70"
+              >
+                <div>
+                  <span className="font-bold text-white">
+                    cristiano.almeidabr
+                  </span>
+                  <span className="ml-1.5 text-[11px] text-slate-400">
+                    (Cristiano Teste)
+                  </span>
+                </div>
+                <Badge variant="outline" className="border-slate-700 text-[10px] text-slate-300">
+                  Comum
+                </Badge>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[#f8fafc] dark:bg-[#090d16] text-slate-900 dark:text-slate-100">
@@ -549,9 +857,9 @@ export default function KantechApp() {
               {tenantMenuOpen && (
                 <div className="absolute left-0 mt-1.5 w-64 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1.5 shadow-lg z-50">
                   <div className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Alternar Empresa (Multi-Tenant)
+                    Alternar Empresa (`public.empresas`)
                   </div>
-                  {EMPRESAS_TENANT.map((emp) => (
+                  {empresasTenantList.map((emp) => (
                     <button
                       key={emp.id}
                       onClick={() => {
@@ -644,18 +952,25 @@ export default function KantechApp() {
 
             <div className="flex items-center gap-2.5 pl-0.5">
               <img
-                src={talentos[0].avatar}
-                alt="Admin Master"
+                src={talentos[0]?.avatar || "/images/kan_logo_header.png"}
+                alt={authUser?.nome_completo || "Usuário"}
                 className="h-8 w-8 rounded-full object-cover ring-2 ring-[#510851]/20 shrink-0"
               />
               <div className="hidden md:flex flex-col text-left">
                 <span className="text-xs font-semibold leading-none">
-                  Cristiano Almeida
+                  {authUser?.nome_completo || "Admin Master KAN"}
                 </span>
                 <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">
-                  ● Admin Master
+                  ● {authUser?.direitos || "admin master"}
                 </span>
               </div>
+              <button
+                onClick={handleLogout}
+                title="Sair da conta"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200/80 dark:border-slate-800 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
         </header>

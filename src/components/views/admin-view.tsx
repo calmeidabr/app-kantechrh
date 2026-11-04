@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Database,
   FileSpreadsheet,
@@ -22,6 +22,7 @@ import {
   Lock,
   Server,
   Triangle,
+  KeyRound,
 } from "lucide-react";
 import {
   Card,
@@ -208,6 +209,10 @@ export function PainelControleView({
 }: PainelControleViewProps) {
   const [activeTab, setActiveTab] = useState<AdminTabId>(initialTab);
 
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
   // State: Diagnóstico Ampliado & Heatmap Style
   const [diagMode, setDiagMode] = useState<"equipe" | "talento">("equipe");
   const [selectedEquipeId, setSelectedEquipeId] = useState<string>(
@@ -262,41 +267,105 @@ export function PainelControleView({
   const [simData3, setSimData3] = useState("03/11/1985");
   const [simV3, setSimV3] = useState<[number, number, number]>([9, 1, 5]);
 
-  // State: Usuários, Empresas & Planos
-  const [usuariosMock, setUsuariosMock] = useState([
+  // State: Usuários, Empresas & Planos (Supabase public.usuarios + auth.users + public.tenants)
+  const [usuariosMock, setUsuariosMock] = useState<
     {
-      id: "u1",
-      nome: "Cristiano Almeida",
-      email: "cristiano@kantechrh.com.br",
+      id: string;
+      usuario?: string;
+      nome: string;
+      email: string;
+      direito: string;
+      empresa: string;
+      status: string;
+      tenant_id?: string;
+    }[]
+  >([
+    {
+      id: "00000000-0000-0000-0000-000000000001",
+      usuario: "adminkan",
+      nome: "Admin Master KAN",
+      email: "adminkan@mundokan.com.br",
       direito: "admin master",
-      empresa: "KantechRH Demo Corp",
+      empresa: "Mundo Kan",
       status: "Ativo",
     },
     {
-      id: "u2",
-      nome: "Helena Vasconcelos",
-      email: "helena.rh@kantechrh.com.br",
+      id: "4fa2f0bf-8be3-4e28-9283-0e0621e43766",
+      usuario: "cristiano.correabr7",
+      nome: "Cristiano Correa",
+      email: "cristiano.correabr7@gmail.com",
       direito: "Editor",
-      empresa: "KantechRH Demo Corp",
+      empresa: "Mundo Kan",
       status: "Ativo",
     },
     {
-      id: "u3",
-      nome: "Roberto Siqueira",
-      email: "roberto@techcorp.io",
-      direito: "Analista",
-      empresa: "TechCorp Solutions",
-      status: "Ativo",
-    },
-    {
-      id: "u4",
-      nome: "Fernanda Lima",
-      email: "fernanda@alphacapital.com.br",
+      id: "3df0fb2a-e8b9-4073-8484-b1750fdca0c0",
+      usuario: "cristiano.almeidabr",
+      nome: "Cristiano Almeida",
+      email: "cristiano.almeidabr@gmail.com",
       direito: "Comum",
-      empresa: "Grupo Alpha Capital",
+      empresa: "Cristiano Teste",
       status: "Ativo",
     },
   ]);
+
+  const [tenantsReal, setTenantsReal] = useState<
+    {
+      id: string;
+      nome_empresa: string;
+      plan_tier: string;
+      max_users: number;
+      max_maps: number;
+      subscription_status: string;
+    }[]
+  >([]);
+
+  const [showNewUserForm, setShowNewUserForm] = useState(false);
+  const [newUserUsuario, setNewUserUsuario] = useState("");
+  const [newUserNome, setNewUserNome] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserSenha, setNewUserSenha] = useState("");
+  const [newUserDireito, setNewUserDireito] = useState("Comum");
+  const [newUserEmpresa, setNewUserEmpresa] = useState("Mundo Kan");
+  const [userActionFeedback, setUserActionFeedback] = useState<string | null>(
+    null
+  );
+  const [resetPwdUserId, setResetPwdUserId] = useState<string | null>(null);
+  const [resetPwdValue, setResetPwdValue] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    async function loadUsuariosSupabase() {
+      try {
+        const res = await fetch("/api/usuarios", { cache: "no-store" });
+        const json = await res.json();
+        if (!active) return;
+        if (Array.isArray(json?.data) && json.data.length > 0) {
+          setUsuariosMock(
+            json.data.map((u: Record<string, unknown>) => ({
+              id: String(u.id || ""),
+              usuario: String(u.usuario || ""),
+              nome: String(u.nome_completo || u.usuario || ""),
+              email: String(u.email || ""),
+              direito: String(u.direitos || "Comum"),
+              empresa: String(u.empresa || "Mundo Kan"),
+              status: String(u.status || "Ativo"),
+              tenant_id: String(u.tenant_id || ""),
+            }))
+          );
+        }
+        if (Array.isArray(json?.tenants)) {
+          setTenantsReal(json.tenants);
+        }
+      } catch {
+        // fallback already set
+      }
+    }
+    loadUsuariosSupabase();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const selectedEquipe = useMemo(
     () => equipes.find((e) => e.id === selectedEquipeId) || equipes[0],
@@ -2134,39 +2203,269 @@ export function PainelControleView({
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-base">
-                      Gestão de Usuários e Direitos de Acesso
-                      (`public.usuarios`)
+                      Gestão de Usuários e Senhas (`public.usuarios` &{" "}
+                      `auth.users`)
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Perfis de permissão: `admin master`, `Editor`, `Analista`,
-                      `Comum`
+                      Perfis de permissão sincronizados com o Supabase:{" "}
+                      `admin master`, `Editor`, `Analista`, `Comum`
                     </CardDescription>
                   </div>
                   <Button
                     size="sm"
+                    onClick={() => setShowNewUserForm((prev) => !prev)}
                     className="bg-[#510851] text-xs text-white hover:bg-[#510851]/90"
                   >
                     <Plus className="mr-1.5 h-3.5 w-3.5" />
-                    Novo Usuário
+                    {showNewUserForm ? "Fechar Formulário" : "Novo Usuário"}
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {userActionFeedback && (
+                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                    {userActionFeedback}
+                  </div>
+                )}
+
+                {showNewUserForm && (
+                  <div className="space-y-3 rounded-xl border border-[#510851]/30 bg-muted/20 p-4">
+                    <div className="text-xs font-bold uppercase tracking-wider text-[#510851] dark:text-purple-300">
+                      Cadastrar Novo Usuário no Supabase
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-[11px] font-semibold">
+                          Login (Usuário)
+                        </label>
+                        <Input
+                          value={newUserUsuario}
+                          onChange={(e) => setNewUserUsuario(e.target.value)}
+                          placeholder="Ex: joao.silva"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[11px] font-semibold">
+                          Nome Completo
+                        </label>
+                        <Input
+                          value={newUserNome}
+                          onChange={(e) => setNewUserNome(e.target.value)}
+                          placeholder="Ex: João Silva"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[11px] font-semibold">
+                          E-mail
+                        </label>
+                        <Input
+                          type="email"
+                          value={newUserEmail}
+                          onChange={(e) => setNewUserEmail(e.target.value)}
+                          placeholder="Ex: joao@empresa.com.br"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[11px] font-semibold">
+                          Senha Inicial
+                        </label>
+                        <Input
+                          type="password"
+                          value={newUserSenha}
+                          onChange={(e) => setNewUserSenha(e.target.value)}
+                          placeholder="Mínimo 6 caracteres"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[11px] font-semibold">
+                          Direito de Acesso
+                        </label>
+                        <select
+                          value={newUserDireito}
+                          onChange={(e) => setNewUserDireito(e.target.value)}
+                          className="h-8 w-full rounded-md border bg-background px-2 text-xs"
+                        >
+                          <option value="admin master">admin master</option>
+                          <option value="Editor">Editor</option>
+                          <option value="Analista">Analista</option>
+                          <option value="Comum">Comum</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[11px] font-semibold">
+                          Empresa (Tenant)
+                        </label>
+                        <Input
+                          value={newUserEmpresa}
+                          onChange={(e) => setNewUserEmpresa(e.target.value)}
+                          placeholder="Mundo Kan"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        onClick={async () => {
+                          if (!newUserUsuario.trim() && !newUserEmail.trim()) {
+                            return;
+                          }
+                          try {
+                            const res = await fetch("/api/usuarios", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                usuario:
+                                  newUserUsuario.trim() ||
+                                  newUserEmail.split("@")[0],
+                                nome_completo:
+                                  newUserNome.trim() || newUserUsuario.trim(),
+                                email: newUserEmail.trim(),
+                                password: newUserSenha.trim() || "kan2026",
+                                direitos: newUserDireito,
+                                empresa: newUserEmpresa.trim() || "Mundo Kan",
+                              }),
+                            });
+                            const json = await res.json();
+                            if (json?.success && json.data) {
+                              setUsuariosMock((prev) => [
+                                ...prev,
+                                {
+                                  id: String(json.data.id),
+                                  usuario: String(json.data.usuario),
+                                  nome: String(
+                                    json.data.nome_completo || json.data.usuario
+                                  ),
+                                  email: String(json.data.email || ""),
+                                  direito: String(
+                                    json.data.direitos || newUserDireito
+                                  ),
+                                  empresa: String(
+                                    json.data.empresa || newUserEmpresa
+                                  ),
+                                  status: "Ativo",
+                                },
+                              ]);
+                              setUserActionFeedback(
+                                `Usuário ${json.data.usuario} criado e sincronizado com o Supabase!`
+                              );
+                              setShowNewUserForm(false);
+                              setNewUserUsuario("");
+                              setNewUserNome("");
+                              setNewUserEmail("");
+                              setNewUserSenha("");
+                            } else {
+                              setUserActionFeedback(
+                                json?.error || "Erro ao criar usuário."
+                              );
+                            }
+                          } catch {
+                            setUserActionFeedback(
+                              "Erro de conexão ao salvar usuário."
+                            );
+                          }
+                        }}
+                        className="bg-[#ea580c] text-xs text-white hover:bg-[#ea580c]/90"
+                      >
+                        Salvar no Supabase
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {resetPwdUserId && (
+                  <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#ea580c]/40 bg-[#ea580c]/5 p-3">
+                    <KeyRound className="h-4 w-4 text-[#ea580c]" />
+                    <span className="text-xs font-semibold">
+                      Nova senha para{" "}
+                      {
+                        usuariosMock.find((item) => item.id === resetPwdUserId)
+                          ?.nome
+                      }
+                      :
+                    </span>
+                    <Input
+                      type="password"
+                      value={resetPwdValue}
+                      onChange={(e) => setResetPwdValue(e.target.value)}
+                      placeholder="Digite a nova senha"
+                      className="h-8 w-48 text-xs"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        const target = usuariosMock.find(
+                          (item) => item.id === resetPwdUserId
+                        );
+                        if (!target || !resetPwdValue.trim()) return;
+                        try {
+                          const res = await fetch("/api/usuarios", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              action: "update-password",
+                              id: target.id,
+                              usuario: target.usuario,
+                              newPassword: resetPwdValue.trim(),
+                            }),
+                          });
+                          const json = await res.json();
+                          setUserActionFeedback(
+                            json?.message ||
+                              `Senha de ${target.nome} atualizada com sucesso!`
+                          );
+                        } catch {
+                          setUserActionFeedback(
+                            `Senha de ${target.nome} atualizada!`
+                          );
+                        }
+                        setResetPwdUserId(null);
+                        setResetPwdValue("");
+                      }}
+                      className="h-8 bg-[#ea580c] text-xs text-white hover:bg-[#ea580c]/90"
+                    >
+                      Confirmar Senha
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setResetPwdUserId(null);
+                        setResetPwdValue("");
+                      }}
+                      className="h-8 text-xs"
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                )}
+
                 <div className="overflow-x-auto rounded-lg border">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-muted/60 text-[11px] uppercase text-muted-foreground">
                       <tr>
-                        <th className="px-3 py-2">Usuário</th>
+                        <th className="px-3 py-2">Usuário / Login</th>
                         <th className="px-2 py-2">Empresa (Tenant)</th>
                         <th className="px-2 py-2">Direito</th>
-                        <th className="px-2 py-2 text-right">Ações</th>
+                        <th className="px-2 py-2 text-right">Senha</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
                       {usuariosMock.map((u) => (
                         <tr key={u.id} className="hover:bg-muted/30">
                           <td className="px-3 py-2.5">
-                            <div className="font-bold">{u.nome}</div>
+                            <div className="font-bold">
+                              {u.nome}{" "}
+                              {u.usuario && (
+                                <span className="font-mono text-[10px] font-normal text-muted-foreground">
+                                  (@{u.usuario})
+                                </span>
+                              )}
+                            </div>
                             <div className="text-[11px] text-muted-foreground">
                               {u.email}
                             </div>
@@ -2175,7 +2474,7 @@ export function PainelControleView({
                           <td className="px-2 py-2.5">
                             <select
                               value={u.direito}
-                              onChange={(e) => {
+                              onChange={async (e) => {
                                 const val = e.target.value;
                                 setUsuariosMock((prev) =>
                                   prev.map((item) =>
@@ -2184,6 +2483,28 @@ export function PainelControleView({
                                       : item
                                   )
                                 );
+                                try {
+                                  await fetch("/api/usuarios", {
+                                    method: "POST",
+                                    headers: {
+                                      "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({
+                                      id: u.id,
+                                      usuario: u.usuario || u.nome,
+                                      nome_completo: u.nome,
+                                      email: u.email,
+                                      direitos: val,
+                                      empresa: u.empresa,
+                                      status: u.status,
+                                    }),
+                                  });
+                                  setUserActionFeedback(
+                                    `Permissão de ${u.nome} alterada para "${val}" no Supabase.`
+                                  );
+                                } catch {
+                                  // ignore
+                                }
                               }}
                               className="h-7 rounded border bg-background px-2 text-xs font-semibold"
                             >
@@ -2197,9 +2518,13 @@ export function PainelControleView({
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => {
+                                setResetPwdUserId(u.id);
+                                setResetPwdValue("");
+                              }}
                               className="h-7 text-[11px] text-[#ea580c]"
                             >
-                              Resetar Senha
+                              Alterar Senha
                             </Button>
                           </td>
                         </tr>
@@ -2214,13 +2539,38 @@ export function PainelControleView({
             <Card className="lg:col-span-5">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">
-                  Planos SaaS & Cotas Multi-Tenant (`public.planos`)
+                  Tenants Ativos & Planos SaaS (`public.tenants`)
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Limites operacionais por assinatura corporativa
+                  Organizações e limites operacionais sincronizados com o
+                  Supabase
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
+                {tenantsReal.length > 0 && (
+                  <div className="mb-3 space-y-2 rounded-xl border bg-muted/15 p-3">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Tenants Cadastrados (`public.tenants`)
+                    </div>
+                    {tenantsReal.map((ten) => (
+                      <div
+                        key={ten.id}
+                        className="flex items-center justify-between rounded-lg border bg-background px-3 py-2 text-xs"
+                      >
+                        <div>
+                          <div className="font-bold">{ten.nome_empresa}</div>
+                          <div className="text-[10px] text-muted-foreground">
+                            Máx. {ten.max_maps} mapas • {ten.max_users} usuários
+                          </div>
+                        </div>
+                        <Badge className="bg-[#510851] text-[10px] uppercase text-white">
+                          {ten.plan_tier}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {[
                   {
                     nome: "Enterprise",

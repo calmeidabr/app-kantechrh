@@ -40,6 +40,8 @@ export interface TalentoProfile {
   indicadores_perfil: IndicadorKAN[];
   soft_skills: SoftSkillScore[];
   ai_diagnosis: string[];
+  tenant_id?: string;
+  valores_mapa?: Record<string, string>;
 }
 
 export interface EquipeMember {
@@ -62,10 +64,12 @@ export interface EquipeData {
     Executor: number;
     Resultado: number;
   };
+  tenant_id?: string;
 }
 
 export interface VagaData {
   id: number;
+  processo_id?: number;
   nome_vaga: string;
   senioridade: "Junior" | "Pleno" | "Senior" | "Executivo";
   link_vaga?: string;
@@ -79,6 +83,7 @@ export interface VagaData {
   equipe_associada?: string;
   candidatos_associados: string[];
   created_at: string;
+  tenant_id?: string;
 }
 
 export const KAN_OPCOES: KanType[] = ["Criação", "Movimento", "Finalidade"];
@@ -124,18 +129,25 @@ export const QUALIDADES_OPCOES = [
 ];
 
 export const DEPARTAMENTOS_OPCOES = [
-  "Diretoria Executiva",
-  "Produto & Inovação",
-  "Engenharia & Dados",
-  "Comercial & Growth",
-  "Gente & Cultura",
-  "Operações & Finanças",
+  "Geral",
+  "CEO/PRESIDENCIA",
+  "Comercial",
+  "Marketing",
+  "RH",
+  "Financeiro",
+  "DP",
+  "Presidência / CEO",
+  "Diretoria de Tecnologia",
+  "Diretoria de Operações",
+  "Desenvolvimento de Software",
+  "Infraestrutura e Nuvem",
+  "Recursos Humanos",
 ];
 
 export const EMPRESAS_TENANT = [
-  { id: "kan-corp", nome: "KantechRH Enterprise", plano: "Scale Master", cor: "#ea580c" },
-  { id: "nexus-tech", nome: "Nexus Tecnologia S.A.", plano: "Corporate Pro", cor: "#8b5cf6" },
-  { id: "valora-group", nome: "Grupo Valora Holding", plano: "Business", cor: "#10b981" },
+  { id: "mundo-kan", nome: "Mundo Kan", plano: "Alta Performance", cor: "#ea580c" },
+  { id: "cristiano-teste", nome: "Cristiano Teste", plano: "Free", cor: "#8b5cf6" },
+  { id: "testes", nome: "testes", plano: "Free", cor: "#10b981" },
 ];
 
 export const TALENTOS_MOCK: TalentoProfile[] = [
@@ -149,7 +161,7 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
     cargo: "CEO / Founder",
     grupo: "Board Executivo",
     departamento: "Diretoria Executiva",
-    empresa: "KantechRH Enterprise",
+    empresa: "Mundo Kan",
     status: "Ativo",
     avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
     linkedin_url: "https://linkedin.com/in/cristiano-almeida",
@@ -222,7 +234,7 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
     cargo: "Product Manager",
     grupo: "Product Squad",
     departamento: "Produto & Inovação",
-    empresa: "KantechRH Enterprise",
+    empresa: "Mundo Kan",
     status: "Ativo",
     avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
     linkedin_url: "https://linkedin.com/in/marianavasconcelos",
@@ -283,7 +295,7 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
     cargo: "Engineering Lead",
     grupo: "Core Tech",
     departamento: "Engenharia & Dados",
-    empresa: "KantechRH Enterprise",
+    empresa: "Mundo Kan",
     status: "Ativo",
     avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
     linkedin_url: "https://linkedin.com/in/rafaelmendonca",
@@ -338,7 +350,7 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
     cargo: "Account Executive",
     grupo: "Growth B2B",
     departamento: "Comercial & Growth",
-    empresa: "KantechRH Enterprise",
+    empresa: "Mundo Kan",
     status: "Em Avaliação",
     avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80",
     linkedin_url: "https://linkedin.com/in/camilaalbuquerque",
@@ -386,7 +398,7 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
     cargo: "HRBP Senior",
     grupo: "People & Culture",
     departamento: "Gente & Cultura",
-    empresa: "KantechRH Enterprise",
+    empresa: "Mundo Kan",
     status: "Ativo",
     avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80",
     linkedin_url: "https://linkedin.com/in/lucasbittencourt",
@@ -434,7 +446,7 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
     cargo: "Data Analyst",
     grupo: "Core Tech",
     departamento: "Engenharia & Dados",
-    empresa: "KantechRH Enterprise",
+    empresa: "Mundo Kan",
     status: "Candidato",
     avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80",
     linkedin_url: "https://linkedin.com/in/beatriznogueira",
@@ -488,7 +500,7 @@ export const EQUIPES_MOCK: EquipeData[] = [
   {
     id: "eq-1",
     nome: "Squad Core Product & IA",
-    empresa: "KantechRH Enterprise",
+    empresa: "Mundo Kan",
     departamento: "Produto & Inovação",
     membros: [
       { nome: "Cristiano Corrêa de Almeida", lider: true },
@@ -503,7 +515,7 @@ export const EQUIPES_MOCK: EquipeData[] = [
   {
     id: "eq-2",
     nome: "Comitê Executivo & Expansão",
-    empresa: "KantechRH Enterprise",
+    empresa: "Mundo Kan",
     departamento: "Diretoria Executiva",
     membros: [
       { nome: "Mariana Vasconcelos", lider: true },
@@ -518,7 +530,7 @@ export const EQUIPES_MOCK: EquipeData[] = [
   {
     id: "eq-3",
     nome: "Engenharia de Plataforma & Dados",
-    empresa: "KantechRH Enterprise",
+    empresa: "Mundo Kan",
     departamento: "Engenharia & Dados",
     membros: [
       { nome: "Rafael Mendonça", lider: true },
@@ -537,7 +549,7 @@ export const VAGAS_MOCK: VagaData[] = [
     nome_vaga: "Head de Operações Comerciais",
     senioridade: "Senior",
     link_vaga: "https://kantechrh.com.br/vagas/head-comercial",
-    empresa: "KantechRH Enterprise",
+    empresa: "Mundo Kan",
     departamento: "Comercial & Growth",
     kan_ideal: ["Movimento", "Finalidade"],
     perfis_ideais: ["Lider", "Resultado", "Vendedor", "Influenciador"],
@@ -559,7 +571,7 @@ export const VAGAS_MOCK: VagaData[] = [
     nome_vaga: "Tech Lead Full-Stack (Next.js / Python)",
     senioridade: "Senior",
     link_vaga: "https://kantechrh.com.br/vagas/tech-lead",
-    empresa: "KantechRH Enterprise",
+    empresa: "Mundo Kan",
     departamento: "Engenharia & Dados",
     kan_ideal: ["Criação", "Finalidade"],
     perfis_ideais: ["Executor", "Resultado", "Lider"],
@@ -580,7 +592,7 @@ export const VAGAS_MOCK: VagaData[] = [
     nome_vaga: "Business Partner de Gente & Cultura",
     senioridade: "Pleno",
     link_vaga: "https://kantechrh.com.br/vagas/hrbp-pleno",
-    empresa: "KantechRH Enterprise",
+    empresa: "Mundo Kan",
     departamento: "Gente & Cultura",
     kan_ideal: ["Movimento", "Finalidade"],
     perfis_ideais: ["Comunicador", "Influenciador", "Criativo"],

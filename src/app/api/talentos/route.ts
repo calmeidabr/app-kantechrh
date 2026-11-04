@@ -3,8 +3,8 @@ import { getSupabaseAdmin, callMamEngine, normalizeKey } from "@/lib/supabase";
 import { TALENTOS_MOCK, TalentoProfile, KanType } from "@/lib/mock-data";
 
 const SOFT_SKILL_COLORS: Record<string, string> = {
-  Lider: "#510851",
   Líder: "#510851",
+  Lider: "#510851",
   Resultado: "#ea580c",
   Executor: "#8b5cf6",
   Criativo: "#10b981",
@@ -13,29 +13,74 @@ const SOFT_SKILL_COLORS: Record<string, string> = {
   Vendedor: "#ec4899",
 };
 
+function cleanStr(val: unknown, fallback = ""): string {
+  if (val === null || val === undefined) return fallback;
+  const s = String(val).trim();
+  if (!s || s.toLowerCase() === "nan" || s.toLowerCase() === "none" || s.toLowerCase() === "null") {
+    return fallback;
+  }
+  return s;
+}
+
 function mapKanName(kanVal: unknown): KanType {
-  const s = String(kanVal || "").toLowerCase();
-  if (s.includes("cria") || s === "3" || s === "1" || s === "2") return "Criação";
-  if (s.includes("mov") || s === "6" || s === "4" || s === "5") return "Movimento";
+  const s = cleanStr(kanVal).toUpperCase();
+  if (s.includes("MOVIMENTO")) return "Movimento";
+  if (s.includes("CRIA") || s.includes("CRIACAO")) return "Criação";
+  if (s.includes("FINALIDADE")) return "Finalidade";
+  const num = parseInt(s, 10);
+  if ([3, 5].includes(num)) return "Movimento";
+  if ([4, 7, 22].includes(num)) return "Criação";
   return "Finalidade";
 }
 
+function mapKanNumberFromName(kanName: string, rawVal?: unknown): number {
+  const s = cleanStr(rawVal);
+  const match = s.match(/\d+/);
+  if (match) {
+    const n = parseInt(match[0], 10);
+    if (n >= 1 && n <= 22) return n;
+  }
+  if (kanName === "Movimento") return 5;
+  if (kanName === "Criação") return 4;
+  return 8;
+}
+
+function normalizeProfileLabel(p: string): string {
+  const norm = normalizeKey(p);
+  if (norm.includes("lider")) return "Lider";
+  if (norm.includes("resultado")) return "Resultado";
+  if (norm.includes("executor")) return "Executor";
+  if (norm.includes("criativo")) return "Criativo";
+  if (norm.includes("comunicador")) return "Comunicador";
+  if (norm.includes("influenciador")) return "Influenciador";
+  if (norm.includes("vendedor")) return "Vendedor";
+  return p.trim();
+}
+
+/**
+ * Converte um registro bruto de `public.mapas_salvos` + `public.mapas_salvos_valores`
+ * para o formato `TalentoProfile` consumido pelo frontend Next.js.
+ */
 function mapSupabaseRowToTalento(
   row: Record<string, unknown>,
   idx: number,
   valoresRow?: Record<string, unknown>
-): TalentoProfile {
-  const nome = String(row.nome || `Talento ${idx + 1}`);
+): TalentoProfile & {
+  tenant_id?: string;
+  valores_mapa?: Record<string, string>;
+} {
+  const nome = cleanStr(row.nome, `Talento #${idx + 1}`);
   const pJsonRaw = row.perfil_json;
 
-  let kanNumero = 8;
   let kanNome: KanType = "Finalidade";
+  let kanNumero = 8;
   let estrutural = 1;
   let direcionamento = 7;
   let perfisLista: string[] = [];
   let categoriasLista: string[] = [];
   let qualidadesLista: string[] = [];
   const indicadoresPerfil: { Campo: string; Valor: string; Descricao: string }[] = [];
+  const mapaDetalhado: Record<string, string> = {};
 
   if (typeof pJsonRaw === "string" && pJsonRaw.trim().startsWith("[")) {
     try {
@@ -43,17 +88,18 @@ function mapSupabaseRowToTalento(
       for (const item of parsed) {
         const campoOrig = String(item.Campo || "");
         const campoNorm = normalizeKey(campoOrig);
-        const rawVal = String(item.Valor ?? item.Resultado ?? "");
-        const rawDesc = String(item.Descricao ?? item.Explicacao ?? "");
+        const rawVal = cleanStr(item.Valor ?? item.Resultado);
+        const rawDesc = cleanStr(item.Descricao ?? item.Explicacao);
 
         if (campoNorm === "kan") {
-          const numMatch = rawVal.match(/\d+/);
-          if (numMatch) kanNumero = parseInt(numMatch[0], 10);
           kanNome = mapKanName(rawVal);
+          kanNumero = mapKanNumberFromName(kanNome, rawVal);
           indicadoresPerfil.push({
             Campo: "Força Central KAN",
             Valor: kanNome,
-            Descricao: rawDesc || `Força primordial ${kanNome} identificada pelo motor KAN.`,
+            Descricao:
+              rawDesc.replace(/<br\s*\/?>/gi, " ") ||
+              `Força primordial ${kanNome} identificada pelo motor KAN.`,
           });
         } else if (campoNorm === "estrutural") {
           const n = parseInt(rawVal, 10);
@@ -64,12 +110,14 @@ function mapSupabaseRowToTalento(
         } else if (campoNorm === "perfil") {
           perfisLista = rawVal
             .split(",")
-            .map((s) => s.trim())
+            .map((s) => normalizeProfileLabel(s))
             .filter(Boolean);
           indicadoresPerfil.push({
             Campo: "Perfil Comportamental",
-            Valor: rawVal,
-            Descricao: rawDesc.replace(/<br\s*\/?>/gi, " ") || "Vetor comportamental dominante.",
+            Valor: perfisLista.join(", "),
+            Descricao:
+              rawDesc.replace(/<br\s*\/?>/gi, " ") ||
+              "Vetor comportamental dominante.",
           });
         } else if (campoNorm === "categoria") {
           categoriasLista = rawVal
@@ -78,8 +126,10 @@ function mapSupabaseRowToTalento(
             .filter(Boolean);
           indicadoresPerfil.push({
             Campo: "Categoria Principal",
-            Valor: rawVal,
-            Descricao: rawDesc.replace(/<br\s*\/?>/gi, " ") || "Estilo de atuação predominante.",
+            Valor: categoriasLista.join(", "),
+            Descricao:
+              rawDesc.replace(/<br\s*\/?>/gi, " ") ||
+              "Estilo de atuação predominante.",
           });
         } else if (campoNorm === "qualidades") {
           qualidadesLista = rawVal
@@ -88,21 +138,30 @@ function mapSupabaseRowToTalento(
             .filter(Boolean);
           indicadoresPerfil.push({
             Campo: "Qualidades & Suporte",
-            Valor: rawVal,
-            Descricao: rawDesc.replace(/<br\s*\/?>/gi, " ").replace(/<\/?b>/gi, "") || "Competências naturais de suporte.",
+            Valor: qualidadesLista.join(", "),
+            Descricao:
+              rawDesc.replace(/<br\s*\/?>/gi, " ").replace(/<\/?b>/gi, "") ||
+              "Competências naturais de suporte.",
           });
         } else if (campoNorm === "fortaleza") {
-          indicadoresPerfil.push({
-            Campo: "Fortaleza Comportamental",
-            Valor: rawVal,
-            Descricao: rawDesc || "Potencial de destaque na operação.",
-          });
+          if (rawVal) {
+            indicadoresPerfil.push({
+              Campo: "Fortaleza Comportamental",
+              Valor: rawVal,
+              Descricao: rawDesc || "Potencial de destaque na operação.",
+            });
+          }
         } else if (campoNorm === "desafio" || campoNorm === "riscocomportamental") {
-          indicadoresPerfil.push({
-            Campo: "Ponto de Atenção na Gestão",
-            Valor: rawVal,
-            Descricao: rawDesc || "Fator de atenção para gestão de liderança.",
-          });
+          if (rawVal) {
+            indicadoresPerfil.push({
+              Campo: "Ponto de Atenção na Gestão",
+              Valor: rawVal,
+              Descricao: rawDesc || "Fator de atenção para gestão de liderança.",
+            });
+          }
+        } else if (campoOrig.includes("Mapa:")) {
+          const k = campoOrig.split("Mapa:")[1]?.trim();
+          if (k && rawVal) mapaDetalhado[k] = rawVal;
         }
       }
     } catch {
@@ -110,53 +169,91 @@ function mapSupabaseRowToTalento(
     }
   }
 
-  // Fallback to mapas_salvos_valores if available
+  // Hydrate from mapas_salvos_valores when available
   if (valoresRow) {
+    if (valoresRow.kan) {
+      kanNome = mapKanName(valoresRow.kan);
+      kanNumero = mapKanNumberFromName(kanNome, valoresRow.kan);
+    }
     if (!perfisLista.length && valoresRow.perfil) {
-      perfisLista = String(valoresRow.perfil)
+      perfisLista = cleanStr(valoresRow.perfil)
         .split(",")
-        .map((s) => s.trim())
+        .map((s) => normalizeProfileLabel(s))
         .filter(Boolean);
     }
     if (!categoriasLista.length && valoresRow.categoria) {
-      categoriasLista = String(valoresRow.categoria)
+      categoriasLista = cleanStr(valoresRow.categoria)
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
     }
     if (!qualidadesLista.length && valoresRow.qualidades) {
-      qualidadesLista = String(valoresRow.qualidades)
+      qualidadesLista = cleanStr(valoresRow.qualidades)
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
     }
     if (valoresRow.estrutural) {
-      const n = parseInt(String(valoresRow.estrutural), 10);
+      const n = parseInt(cleanStr(valoresRow.estrutural), 10);
       if (!isNaN(n)) estrutural = n;
     }
     if (valoresRow.direcionamento) {
-      const n = parseInt(String(valoresRow.direcionamento), 10);
+      const n = parseInt(cleanStr(valoresRow.direcionamento), 10);
       if (!isNaN(n)) direcionamento = n;
     }
   }
 
   if (!perfisLista.length) perfisLista = ["Lider", "Resultado", "Executor"];
-  if (!categoriasLista.length) categoriasLista = ["Realizador", "Visionário"];
+  if (!categoriasLista.length) categoriasLista = ["Realizador", "Analítico"];
   if (!qualidadesLista.length) qualidadesLista = ["Execução", "Análise", "Organização"];
+
+  // Build qualitative indicators if perfil_json was not present
+  if (indicadoresPerfil.length === 0) {
+    indicadoresPerfil.push(
+      {
+        Campo: "Força Central KAN",
+        Valor: kanNome,
+        Descricao:
+          kanNome === "Movimento"
+            ? "Versatilidade cognitiva, adaptabilidade rápida a mudanças e facilidade para conectar diferentes áreas."
+            : kanNome === "Criação"
+            ? "Estímulo para criar, estruturar processos inovadores e desenvolver soluções técnicas com precisão."
+            : "Orientação para entregas concretas, governança, visão sistêmica e capacidade de realização executiva.",
+      },
+      {
+        Campo: "Perfil Comportamental",
+        Valor: perfisLista.join(", "),
+        Descricao: `Predominância nos vetores comportamentais de ${perfisLista.join(", ")}.`,
+      },
+      {
+        Campo: "Categoria Principal",
+        Valor: categoriasLista.join(", "),
+        Descricao: `Atuação caracterizada pelo estilo ${categoriasLista.join(", ")}.`,
+      },
+      {
+        Campo: "Qualidades & Suporte",
+        Valor: qualidadesLista.join(", "),
+        Descricao: `Competências naturais de sustentação em ${qualidadesLista.join(", ")}.`,
+      }
+    );
+  }
 
   let v1 = kanNumero > 9 ? (kanNumero === 11 ? 2 : 4) : kanNumero || 8;
   let v2 = estrutural > 9 ? (estrutural === 11 ? 2 : 4) : estrutural || 1;
   let v3 = direcionamento > 9 ? (direcionamento === 11 ? 2 : 4) : direcionamento || 7;
 
-  if (valoresRow?.vertice_triangulo_1 && valoresRow?.vertice_triangulo_2 && valoresRow?.vertice_triangulo_3) {
-    v1 = parseInt(String(valoresRow.vertice_triangulo_1), 10) || v1;
-    v2 = parseInt(String(valoresRow.vertice_triangulo_2), 10) || v2;
-    v3 = parseInt(String(valoresRow.vertice_triangulo_3), 10) || v3;
+  if (valoresRow) {
+    const vt1 = parseInt(cleanStr(valoresRow.vertice_triangulo_1), 10);
+    const vt2 = parseInt(cleanStr(valoresRow.vertice_triangulo_2), 10);
+    const vt3 = parseInt(cleanStr(valoresRow.vertice_triangulo_3), 10);
+    if (!isNaN(vt1) && vt1 >= 1 && vt1 <= 9) v1 = vt1;
+    if (!isNaN(vt2) && vt2 >= 1 && vt2 <= 9) v2 = vt2;
+    if (!isNaN(vt3) && vt3 >= 1 && vt3 <= 9) v3 = vt3;
   }
 
-  // Ensure distinct vertices 1..9
+  // Ensure 3 distinct vertices 1..9 for the triangle projection
   const distinct = Array.from(new Set([v1, v2, v3].filter((n) => n >= 1 && n <= 9)));
-  for (const fb of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+  for (const fb of [8, 4, 1, 5, 7, 3, 6, 2, 9]) {
     if (distinct.length >= 3) break;
     if (!distinct.includes(fb)) distinct.push(fb);
   }
@@ -171,10 +268,19 @@ function mapSupabaseRowToTalento(
     "Vendedor",
   ];
   const softSkills = allSevenProfiles.map((p, i) => {
-    const isTop = perfisLista.some(
+    const rankIdx = perfisLista.findIndex(
       (pl) => normalizeKey(pl) === normalizeKey(p)
     );
-    const baseScore = isTop ? 92 - i * 3 : 76 - i * 2;
+    const baseScore =
+      rankIdx === 0
+        ? 95
+        : rankIdx === 1
+        ? 89
+        : rankIdx === 2
+        ? 84
+        : rankIdx > 2
+        ? 79
+        : 68 - (i % 4) * 3;
     return {
       perfil: p,
       score: Math.max(55, Math.min(98, baseScore)),
@@ -182,7 +288,7 @@ function mapSupabaseRowToTalento(
     };
   });
 
-  const aiText = String(row.ai_diagnosis || "").trim();
+  const aiText = cleanStr(row.ai_diagnosis);
   const aiParagraphs = aiText
     ? aiText.split(/\n+/).filter(Boolean)
     : [
@@ -190,64 +296,95 @@ function mapSupabaseRowToTalento(
         `Destaca-se nos vetores comportamentais de ${perfisLista.join(", ")}, com estilo ${categoriasLista.join(", ")} e forte capacidade de entrega em ${qualidadesLista.join(", ")}.`,
       ];
 
+  const profissaoClean = cleanStr(row.profissao) || cleanStr(row.cargo) || "Especialista Corporativo";
+  const cargoClean = cleanStr(row.cargo) || profissaoClean;
+  const grupoClean = cleanStr(row.grupo) || cleanStr(row.departamento) || "Geral";
+  const deptoClean = cleanStr(row.departamento) || grupoClean;
+  const empresaClean = cleanStr(row.empresa) || "Mundo Kan";
+
+  const valoresMapa: Record<string, string> = {
+    motivacao: cleanStr(valoresRow?.motivacao || mapaDetalhado["Motivação"]),
+    impressao: cleanStr(valoresRow?.impressao || mapaDetalhado["Impressão"]),
+    expressao: cleanStr(valoresRow?.expressao || mapaDetalhado["Expressão"]),
+    destino: cleanStr(valoresRow?.destino || mapaDetalhado["Destino"]),
+    missao: cleanStr(valoresRow?.missao || mapaDetalhado["Missão"]),
+    numero_psiquico: cleanStr(valoresRow?.numero_psiquico || mapaDetalhado["Número Psíquico"]),
+    dia_natalicio: cleanStr(valoresRow?.dia_natalicio),
+    licoes_carmicas: cleanStr(valoresRow?.licoes_carmicas || mapaDetalhado["Lições Cármicas"]),
+    dividas_carmicas: cleanStr(valoresRow?.dividas_carmicas || mapaDetalhado["Dívidas Cármicas"]),
+    tendencias_ocultas: cleanStr(valoresRow?.tendencias_ocultas || mapaDetalhado["Tendências Ocultas"]),
+    resposta_subconsciente: cleanStr(valoresRow?.resposta_subconsciente || mapaDetalhado["Resposta Subconsciente"]),
+    repeticao_1: cleanStr(valoresRow?.repeticao_1),
+    repeticao_2: cleanStr(valoresRow?.repeticao_2),
+  };
+
+  const rowId = String(row.id || idx + 1);
+
   return {
-    id: String(row.id || idx + 1),
-    codigo: String(10000000 + ((idx + 1) * 7919) % 89999999),
+    id: rowId,
+    codigo: String(10000000 + ((Number(row.id) || idx + 1) * 7919) % 89999999),
     nome,
-    email: `${normalizeKey(nome).slice(0, 14)}@kantechrh.com.br`,
-    data_nascimento: String(row.data_nascimento || "01/01/1990"),
-    profissao: String(row.profissao || row.cargo || "Especialista Corporativo"),
-    cargo: String(row.cargo || "Analista Sênior"),
-    grupo: String(row.grupo || row.departamento || "Corporativo"),
-    departamento: String(row.departamento || row.grupo || "Diretoria Executiva"),
-    empresa: String(row.empresa || "KantechRH Enterprise"),
+    email: `${normalizeKey(nome).slice(0, 16) || "talento"}@mundokan.com.br`,
+    data_nascimento: cleanStr(row.data_nascimento, "01/01/1990"),
+    profissao: profissaoClean,
+    cargo: cargoClean,
+    grupo: grupoClean,
+    departamento: deptoClean,
+    empresa: empresaClean,
     status: "Ativo",
-    avatar:
-      row.foto_base64 && String(row.foto_base64).length > 20
-        ? String(row.foto_base64).startsWith("data:")
-          ? String(row.foto_base64)
-          : `data:image/jpeg;base64,${row.foto_base64}`
-        : TALENTOS_MOCK[idx % TALENTOS_MOCK.length].avatar,
-    linkedin_url: String(row.linkedin_url || ""),
-    experiencias: String(row.experiencias || ""),
+    avatar: `/api/talentos/foto?id=${encodeURIComponent(rowId)}&nome=${encodeURIComponent(nome)}`,
+    linkedin_url: cleanStr(row.linkedin_url),
+    experiencias: cleanStr(row.experiencias),
     kan_numero: v1,
     kan_nome: kanNome,
-    estrutural: v2,
-    direcionamento: v3,
+    estrutural: estrutural || v2,
+    direcionamento: direcionamento || v3,
     perfil_dominante: `${perfisLista[0] || "Líder"} ${categoriasLista[0] || "Realizador"}`,
     perfis_lista: perfisLista,
     categorias_lista: categoriasLista,
     qualidades_lista: qualidadesLista,
     vertices_triangulo: [distinct[0], distinct[1], distinct[2]],
     aderencia_vaga: 88 + (idx % 10),
-    indicadores_perfil:
-      indicadoresPerfil.length > 0
-        ? indicadoresPerfil
-        : TALENTOS_MOCK[0].indicadores_perfil,
+    indicadores_perfil: indicadoresPerfil,
     soft_skills: softSkills,
     ai_diagnosis: aiParagraphs,
+    tenant_id: cleanStr(row.tenant_id, "00000000-0000-0000-0000-000000000000"),
+    valores_mapa: valoresMapa,
   };
 }
 
 /**
  * GET /api/talentos
- * Lista talentos da tabela `public.mapas_salvos` + `public.mapas_salvos_valores` no Supabase.
- * Caso o banco esteja vazio ou offline, retorna fallback estruturado com `TALENTOS_MOCK`.
+ * Lista todos os talentos da tabela `public.mapas_salvos` + `public.mapas_salvos_valores` no Supabase (~502 perfis).
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const tenantId = searchParams.get("tenant_id");
+    const isAdminMaster = searchParams.get("admin") === "true";
+
     const supabaseAdmin = getSupabaseAdmin();
+
+    let mapasQuery = supabaseAdmin
+      .from("mapas_salvos")
+      .select(
+        "id, nome, data_nascimento, profissao, cargo, grupo, empresa, departamento, linkedin_url, experiencias, lider, perfil_json, ai_diagnosis, tenant_id"
+      )
+      .order("nome", { ascending: true })
+      .limit(1000);
+
+    if (
+      tenantId &&
+      !isAdminMaster &&
+      tenantId !== "00000000-0000-0000-0000-000000000000"
+    ) {
+      mapasQuery = mapasQuery.eq("tenant_id", tenantId);
+    }
 
     const [{ data: mapasData, error: mapasError }, { data: valoresData }] =
       await Promise.all([
-        supabaseAdmin
-          .from("mapas_salvos")
-          .select(
-            "id, nome, data_nascimento, profissao, cargo, grupo, empresa, departamento, linkedin_url, experiencias, lider, perfil_json, ai_diagnosis"
-          )
-          .order("nome", { ascending: true })
-          .limit(300),
-        supabaseAdmin.from("mapas_salvos_valores").select("*").limit(300),
+        mapasQuery,
+        supabaseAdmin.from("mapas_salvos_valores").select("*").limit(1000),
       ]);
 
     if (mapasError) {
@@ -262,25 +399,31 @@ export async function GET() {
     if (!mapasData || mapasData.length === 0) {
       return NextResponse.json({
         source: "mock-empty-db",
-        count: TALENTOS_MOCK.length,
-        talentos: TALENTOS_MOCK,
+        count: 0,
+        talentos: [],
       });
     }
 
     const valoresMap = new Map<string, Record<string, unknown>>();
     if (valoresData) {
       for (const vRow of valoresData) {
-        if (vRow.nome) valoresMap.set(String(vRow.nome), vRow);
+        if (vRow.nome) {
+          valoresMap.set(String(vRow.nome).trim(), vRow);
+          valoresMap.set(String(vRow.nome).trim().toLowerCase(), vRow);
+        }
       }
     }
 
-    const talentos = mapasData.map((row, idx) =>
-      mapSupabaseRowToTalento(
+    const talentos = mapasData.map((row, idx) => {
+      const nomeKey = String(row.nome || "").trim();
+      const valRow =
+        valoresMap.get(nomeKey) || valoresMap.get(nomeKey.toLowerCase());
+      return mapSupabaseRowToTalento(
         row as Record<string, unknown>,
         idx,
-        valoresMap.get(String(row.nome))
-      )
-    );
+        valRow
+      );
+    });
 
     return NextResponse.json({
       source: "supabase",
@@ -299,9 +442,7 @@ export async function GET() {
 
 /**
  * POST /api/talentos
- * Cadastra ou atualiza um Talento:
- * 1) Solicita ao container isolado `mam-kantechrh` (`/api/v1/calcular-completo`) os cálculos proprietários KAN.
- * 2) Persiste os dados brutos e o `perfil_json` em `public.mapas_salvos` e os vértices/indicadores em `public.mapas_salvos_valores`.
+ * Cadastra ou atualiza um Talento no Supabase + calcula no `mam-kantechrh`.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -317,6 +458,7 @@ export async function POST(req: NextRequest) {
       linkedin_url,
       experiencias,
       lider,
+      tenant_id,
     } = body;
 
     if (!nome || !data_nascimento) {
@@ -326,20 +468,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Call isolated FastAPI calculation microservice (mam-kantechrh)
     const mamResponse = await callMamEngine<Record<string, unknown>>(
       "/api/v1/calcular-completo",
       {
         nome,
         data_nascimento,
         cargo: cargo || profissao || "",
-        empresa: empresa || "KantechRH Enterprise",
+        empresa: empresa || "Mundo Kan",
       }
     );
 
     const calcData = mamResponse.ok && mamResponse.data ? mamResponse.data : null;
 
-    // 2. Prepare payload for public.mapas_salvos
     const supabaseAdmin = getSupabaseAdmin();
     const perfilJsonStr = calcData?.perfil_json
       ? typeof calcData.perfil_json === "string"
@@ -348,55 +488,77 @@ export async function POST(req: NextRequest) {
       : null;
 
     const upsertMapaPayload: Record<string, unknown> = {
-      nome,
-      data_nascimento,
-      profissao: profissao || cargo || "Especialista",
-      cargo: cargo || "Analista",
+      nome: String(nome).trim(),
+      data_nascimento: String(data_nascimento).trim(),
+      profissao: profissao || cargo || "Especialista Corporativo",
+      cargo: cargo || profissao || "Analista Sênior",
       grupo: grupo || departamento || "Geral",
       departamento: departamento || grupo || "Diretoria Executiva",
-      empresa: empresa || "KantechRH Enterprise",
+      empresa: empresa || "Mundo Kan",
       linkedin_url: linkedin_url || "",
       experiencias: experiencias || "",
       lider: Boolean(lider),
     };
 
+    if (tenant_id) {
+      upsertMapaPayload.tenant_id = tenant_id;
+    }
+
     if (perfilJsonStr) {
       upsertMapaPayload.perfil_json = perfilJsonStr;
     }
 
-    const { data: savedRow, error: saveErr } = await supabaseAdmin
+    const { data: savedMapa, error: saveError } = await supabaseAdmin
       .from("mapas_salvos")
       .upsert(upsertMapaPayload, { onConflict: "nome" })
       .select()
       .single();
 
-    // 3. Upsert into public.mapas_salvos_valores if calculation succeeded
-    if (calcData && calcData.valores_resumo) {
-      const resumo = calcData.valores_resumo as Record<string, unknown>;
+    if (calcData) {
+      const vertices = Array.isArray(calcData.vertices_triangulo)
+        ? calcData.vertices_triangulo
+        : [8, 1, 7];
+
       await supabaseAdmin.from("mapas_salvos_valores").upsert(
         {
-          nome,
-          data_nascimento,
-          ...resumo,
-          updated_at: new Date().toISOString(),
+          nome: String(nome).trim(),
+          data_nascimento: String(data_nascimento).trim(),
+          kan: String(calcData.kan_nome || calcData.kan_numero || "FINALIDADE").toUpperCase(),
+          perfil: Array.isArray(calcData.perfis_lista)
+            ? calcData.perfis_lista.join(", ")
+            : String(calcData.perfil || "Lider, Resultado"),
+          categoria: Array.isArray(calcData.categorias_lista)
+            ? calcData.categorias_lista.join(", ")
+            : String(calcData.categoria || "Realizador"),
+          qualidades: Array.isArray(calcData.qualidades_lista)
+            ? calcData.qualidades_lista.join(", ")
+            : String(calcData.qualidades || "Execução, Análise"),
+          estrutural: String(calcData.estrutural ?? 1),
+          direcionamento: String(calcData.direcionamento ?? 7),
+          vertice_triangulo_1: String(vertices[0] ?? 8),
+          vertice_triangulo_2: String(vertices[1] ?? 1),
+          vertice_triangulo_3: String(vertices[2] ?? 7),
         },
         { onConflict: "nome" }
       );
     }
 
     return NextResponse.json({
-      success: true,
-      mamCalculated: mamResponse.ok,
+      success: !saveError,
+      mamEngineUsed: mamResponse.ok,
       mamEngineUrl: mamResponse.engineUrl,
-      calculation: calcData,
-      savedRecord: savedRow || upsertMapaPayload,
-      dbWarning: saveErr ? saveErr.message : null,
+      mamError: mamResponse.error,
+      dbError: saveError?.message,
+      calculated: calcData,
+      savedRecord: savedMapa,
     });
   } catch (err) {
     return NextResponse.json(
       {
-        success: false,
-        error: err instanceof Error ? err.message : "Erro interno ao salvar talento.",
+        error:
+          err instanceof Error
+            ? err.message
+            : "Erro interno ao processar cadastro de talento.",
       },
       { status: 500 }
     );
@@ -410,28 +572,26 @@ export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const nome = searchParams.get("nome");
+
     if (!nome) {
       return NextResponse.json(
-        { error: "Parâmetro 'nome' é obrigatório para exclusão." },
+        { error: "Parâmetro 'nome' obrigatório." },
         { status: 400 }
       );
     }
 
     const supabaseAdmin = getSupabaseAdmin();
-    await supabaseAdmin.from("mapas_salvos_valores").delete().eq("nome", nome);
-    const { error } = await supabaseAdmin
-      .from("mapas_salvos")
-      .delete()
-      .eq("nome", nome);
-
-    if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
-    }
+    await Promise.all([
+      supabaseAdmin.from("mapas_salvos").delete().eq("nome", nome),
+      supabaseAdmin.from("mapas_salvos_valores").delete().eq("nome", nome),
+    ]);
 
     return NextResponse.json({ success: true, deleted: nome });
   } catch (err) {
     return NextResponse.json(
-      { success: false, error: err instanceof Error ? err.message : "Erro ao excluir" },
+      {
+        error: err instanceof Error ? err.message : "Erro ao excluir talento.",
+      },
       { status: 500 }
     );
   }

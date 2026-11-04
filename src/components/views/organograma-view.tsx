@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Building2,
   Folder,
@@ -77,84 +77,75 @@ export interface EmpresaRecord {
 
 const INITIAL_EMPRESAS: EmpresaRecord[] = [
   {
-    id: "emp-1",
-    nome_empresa: "KantechRH Enterprise",
-    razao_social: "Kantech Inteligência Comportamental S.A.",
-    cnpj: "42.819.304/0001-90",
-    segmento: "HR Tech & People Analytics",
-    responsavel_nome: "Cristiano Almeida",
-    email: "contato@kantechrh.com.br",
+    id: "3",
+    nome_empresa: "Mundo Kan",
+    razao_social: "Mundo Kan Ltda",
+    cnpj: "00.000.000/0001-00",
+    segmento: "Serviços de Tecnologia",
+    responsavel_nome: "Cristiano Corrêa",
+    email: "cristiano@mundokan.com.br",
     status: "Ativa",
     cor: "#510851",
   },
   {
-    id: "emp-2",
-    nome_empresa: "Nexus Tecnologia S.A.",
-    razao_social: "Nexus Engenharia de Software S.A.",
-    cnpj: "18.492.110/0001-32",
-    segmento: "Tecnologia & SaaS",
-    responsavel_nome: "Roberto Siqueira",
-    email: "rh@nexustech.io",
+    id: "8",
+    nome_empresa: "Cristiano Teste",
+    razao_social: "Cristiano Teste Ltda",
+    cnpj: "00.000.000/0001-00",
+    segmento: "Tecnologia",
+    responsavel_nome: "Cristiano Almeida",
+    email: "cristiano.correabr7@gmail.com",
     status: "Ativa",
     cor: "#ea580c",
-  },
-  {
-    id: "emp-3",
-    nome_empresa: "Grupo Valora Holding",
-    razao_social: "Valora Participações e Finanças S.A.",
-    cnpj: "09.331.780/0001-15",
-    segmento: "Mercado Financeiro",
-    responsavel_nome: "Fernanda Lima",
-    email: "pessoas@grupovalora.com.br",
-    status: "Ativa",
-    cor: "#10b981",
   },
 ];
 
 const INITIAL_DEPARTAMENTOS: DepartamentoNode[] = [
   {
-    id: "dept-ceo",
-    nome: "Diretoria Executiva",
+    id: "dept_1779068576195_0",
+    nome: "CEO/PRESIDENCIA",
     parentId: null,
-    empresa: "KantechRH Enterprise",
+    empresa: "Mundo Kan",
     ordem: 0,
   },
   {
-    id: "dept-prod",
-    nome: "Produto & Inovação",
-    parentId: "dept-ceo",
-    empresa: "KantechRH Enterprise",
+    id: "dept_1779068586460_1",
+    nome: "Comercial",
+    parentId: "dept_1779068576195_0",
+    empresa: "Mundo Kan",
     ordem: 1,
   },
   {
-    id: "dept-eng",
-    nome: "Engenharia & Dados",
-    parentId: "dept-prod",
-    empresa: "KantechRH Enterprise",
+    id: "dept_1779068622788_4",
+    nome: "Marketing",
+    parentId: "dept_1779068576195_0",
+    empresa: "Mundo Kan",
     ordem: 2,
   },
   {
-    id: "dept-rh",
-    nome: "Gente & Cultura",
-    parentId: "dept-ceo",
-    empresa: "KantechRH Enterprise",
+    id: "dept_1779068641065_4",
+    nome: "RH",
+    parentId: "dept_1779068576195_0",
+    empresa: "Mundo Kan",
     ordem: 3,
   },
   {
-    id: "dept-com",
-    nome: "Comercial & Growth",
-    parentId: "dept-ceo",
-    empresa: "KantechRH Enterprise",
+    id: "dept_1779068662360_5",
+    nome: "Financeiro",
+    parentId: "dept_1779068576195_0",
+    empresa: "Mundo Kan",
     ordem: 4,
   },
   {
-    id: "dept-ops",
-    nome: "Operações & Finanças",
-    parentId: "dept-ceo",
-    empresa: "KantechRH Enterprise",
+    id: "dept_1779068719854_6",
+    nome: "DP",
+    parentId: "dept_1779068641065_4",
+    empresa: "Mundo Kan",
     ordem: 5,
   },
 ];
+
+const EMP_COLORS = ["#510851", "#ea580c", "#10b981", "#6366f1", "#ec4899", "#f59e0b"];
 
 export function OrganogramaView({
   talentos,
@@ -180,20 +171,77 @@ export function OrganogramaView({
   );
   const [selectedDeptId, setSelectedDeptId] = useState<string>("all");
   const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>({
-    "dept-ceo": true,
-    "dept-prod": true,
-    "dept-rh": true,
+    dept_root: true,
+    dept_1779068576195_0: true,
+    dept_tech: true,
+    dept_ops: true,
+    dept_1779068641065_4: true,
   });
   const [viewMode, setViewMode] = useState<"setores" | "arvore">("setores");
   const [editStructureMode, setEditStructureMode] = useState(false);
   const [novoDeptNome, setNovoDeptNome] = useState("");
-  const [novoDeptParentId, setNovoDeptParentId] = useState<string>("dept-ceo");
+  const [novoDeptParentId, setNovoDeptParentId] = useState<string>("root");
+
+  // Load real Empresas & Hierarquia from Supabase on mount
+  useEffect(() => {
+    let active = true;
+    fetch("/api/empresas")
+      .then((r) => r.json())
+      .then((res) => {
+        if (!active) return;
+        if (Array.isArray(res?.empresas) && res.empresas.length > 0) {
+          const mappedEmps: EmpresaRecord[] = res.empresas.map(
+            (e: Record<string, unknown>, idx: number) => ({
+              id: String(e.id || `emp-${idx}`),
+              nome_empresa: String(e.nome_empresa || "Mundo Kan"),
+              razao_social: String(e.razao_social || e.nome_empresa || ""),
+              cnpj: String(e.cnpj || "00.000.000/0001-00"),
+              segmento: String(e.segmento || "Tecnologia"),
+              responsavel_nome: String(e.responsavel_nome || "Administrador"),
+              email: String(e.email || "contato@mundokan.com.br"),
+              status:
+                String(e.status || "Ativa") === "Inativa" ? "Inativa" : "Ativa",
+              cor: EMP_COLORS[idx % EMP_COLORS.length],
+            })
+          );
+          setEmpresas(mappedEmps);
+          const firstActive =
+            mappedEmps.find((e) => e.status === "Ativa") || mappedEmps[0];
+          if (firstActive) {
+            setSelectedEmpresa(firstActive.nome_empresa);
+          }
+        }
+        if (Array.isArray(res?.hierarquia) && res.hierarquia.length > 0) {
+          const mappedDepts: DepartamentoNode[] = res.hierarquia.map(
+            (h: Record<string, unknown>, idx: number) => ({
+              id: String(h.departamento_id || `dept_${idx}`),
+              nome: String(h.nome || "Departamento"),
+              parentId:
+                h.parent_id &&
+                String(h.parent_id) !== "null" &&
+                String(h.parent_id) !== "Nenhum (Nível Mais Alto)"
+                  ? String(h.parent_id)
+                  : null,
+              empresa: String(h.empresa || "Mundo Kan"),
+              ordem: Number(h.ordem ?? idx),
+            })
+          );
+          setDepartamentos(mappedDepts);
+        }
+      })
+      .catch(() => {
+        // Keep initial defaults
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Department Leader tracking (talentoId -> boolean)
   const [deptLeaders, setDeptLeaders] = useState<Record<string, boolean>>({
-    "tal-1": true,
-    "tal-2": true,
-    "tal-4": true,
+    "1": true,
+    "2": true,
+    "4": true,
   });
 
   // Search & Filter inside Department
@@ -205,7 +253,9 @@ export function OrganogramaView({
   const [vincularTalentoNome, setVincularTalentoNome] = useState(
     talentos[0]?.nome || ""
   );
-  const [vincularCargo, setVincularCargo] = useState(CARGOS_OPCOES[0] || "Diretor(a)");
+  const [vincularCargo, setVincularCargo] = useState(
+    CARGOS_OPCOES[0] || "Diretor(a)"
+  );
   const [vincularLider, setVincularLider] = useState(false);
 
   // Team triangles preview inside Organograma
@@ -214,7 +264,10 @@ export function OrganogramaView({
   );
 
   const deptosDaEmpresa = useMemo(
-    () => departamentos.filter((d) => d.empresa === selectedEmpresa),
+    () =>
+      departamentos.filter(
+        (d) => d.empresa.toLowerCase() === selectedEmpresa.toLowerCase()
+      ),
     [departamentos, selectedEmpresa]
   );
 
@@ -242,12 +295,12 @@ export function OrganogramaView({
   // Talents filtered by selected department (including subdepartments when parent is clicked)
   const matchingDeptNames = useMemo(() => {
     if (selectedDeptId === "all" || !selectedDeptObj) return null;
-    const names = new Set<string>([selectedDeptObj.nome]);
+    const names = new Set<string>([selectedDeptObj.nome.toLowerCase()]);
     const collectChildren = (parentId: string) => {
       deptosDaEmpresa
         .filter((d) => d.parentId === parentId)
         .forEach((child) => {
-          names.add(child.nome);
+          names.add(child.nome.toLowerCase());
           collectChildren(child.id);
         });
     };
@@ -258,7 +311,11 @@ export function OrganogramaView({
   const filteredColaboradores = useMemo(() => {
     return talentos
       .filter((t) => {
-        if (matchingDeptNames && !matchingDeptNames.has(t.departamento)) {
+        if (
+          matchingDeptNames &&
+          !matchingDeptNames.has((t.departamento || "").toLowerCase()) &&
+          !matchingDeptNames.has((t.grupo || "").toLowerCase())
+        ) {
           return false;
         }
         if (searchColab.trim()) {
@@ -284,7 +341,7 @@ export function OrganogramaView({
       });
   }, [talentos, matchingDeptNames, searchColab, filterCargo, deptLeaders]);
 
-  const handleAddEmpresa = () => {
+  const handleAddEmpresa = async () => {
     if (!novaEmpresaNome.trim()) return;
     const nova: EmpresaRecord = {
       id: `emp-${Date.now()}`,
@@ -299,11 +356,11 @@ export function OrganogramaView({
     };
     setEmpresas((prev) => [...prev, nova]);
     setSelectedEmpresa(nova.nome_empresa);
-    // Seed root dept for new company
+    const rootDeptId = `dept_${Date.now()}`;
     setDepartamentos((prev) => [
       ...prev,
       {
-        id: `dept-${Date.now()}`,
+        id: rootDeptId,
         nome: "Presidência / Diretoria Executiva",
         parentId: null,
         empresa: nova.nome_empresa,
@@ -314,34 +371,83 @@ export function OrganogramaView({
     setNovaEmpresaCnpj("");
     setNovaEmpresaSegmento("");
     setNovaEmpresaResp("");
+
+    try {
+      await fetch("/api/empresas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nova),
+      });
+      await fetch("/api/empresas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "departamento",
+          empresa: nova.nome_empresa,
+          departamento_id: rootDeptId,
+          nome: "Presidência / Diretoria Executiva",
+          parent_id: null,
+          ordem: 0,
+        }),
+      });
+    } catch {
+      // Keep optimistic state
+    }
   };
 
-  const handleAddDepartamento = () => {
+  const handleAddDepartamento = async () => {
     if (!novoDeptNome.trim()) return;
-    const newId = `dept-${Date.now()}`;
+    const newId = `dept_${Date.now()}`;
+    const parentVal = novoDeptParentId === "root" ? null : novoDeptParentId;
+    const ordemVal = departamentos.length;
     setDepartamentos((prev) => [
       ...prev,
       {
         id: newId,
         nome: novoDeptNome.trim(),
-        parentId: novoDeptParentId === "root" ? null : novoDeptParentId,
+        parentId: parentVal,
         empresa: selectedEmpresa,
-        ordem: prev.length,
+        ordem: ordemVal,
       },
     ]);
     setExpandedDepts((prev) => ({ ...prev, [novoDeptParentId]: true }));
     setNovoDeptNome("");
+
+    try {
+      await fetch("/api/empresas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "departamento",
+          empresa: selectedEmpresa,
+          departamento_id: newId,
+          nome: novoDeptNome.trim(),
+          parent_id: parentVal,
+          ordem: ordemVal,
+        }),
+      });
+    } catch {
+      // Keep optimistic state
+    }
   };
 
-  const handleDeleteDepartamento = (deptId: string) => {
+  const handleDeleteDepartamento = async (deptId: string) => {
     setDepartamentos((prev) => prev.filter((d) => d.id !== deptId));
     if (selectedDeptId === deptId) setSelectedDeptId("all");
+    try {
+      await fetch(
+        `/api/empresas?departamento_id=${encodeURIComponent(deptId)}`,
+        { method: "DELETE" }
+      );
+    } catch {
+      // Keep optimistic state
+    }
   };
 
-  const handleVincularTalento = () => {
+  const handleVincularTalento = async () => {
     if (!vincularTalentoNome) return;
-    const targetDeptName =
-      selectedDeptObj?.nome || "Produto & Inovação";
+    const targetDeptName = selectedDeptObj?.nome || "Comercial";
+    const found = talentos.find((t) => t.nome === vincularTalentoNome);
     setTalentos((prev) =>
       prev.map((t) =>
         t.nome === vincularTalentoNome
@@ -354,11 +460,33 @@ export function OrganogramaView({
           : t
       )
     );
-    const found = talentos.find((t) => t.nome === vincularTalentoNome);
     if (found && vincularLider) {
       setDeptLeaders((prev) => ({ ...prev, [found.id]: true }));
     }
     setShowVincularBar(false);
+
+    if (found) {
+      try {
+        await fetch("/api/talentos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nome: found.nome,
+            data_nascimento: found.data_nascimento,
+            profissao: found.profissao,
+            cargo: vincularCargo,
+            grupo: found.grupo,
+            departamento: targetDeptName,
+            empresa: selectedEmpresa,
+            linkedin_url: found.linkedin_url,
+            experiencias: found.experiencias,
+            lider: vincularLider,
+          }),
+        });
+      } catch {
+        // Keep optimistic state
+      }
+    }
   };
 
   const toggleLeader = (talentoId: string) => {
