@@ -583,9 +583,17 @@ export function EquipesView({
                 {/* Horizontal Team Row matching equipes_menu.py */}
                 <div className="p-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#510851]/10 dark:bg-[#8b5cf6]/20 text-[#510851] dark:text-[#a78bfa] font-extrabold text-lg shrink-0 border border-[#510851]/20">
-                      {eq.nome[0]}
-                    </div>
+                    {eq.foto_url ? (
+                      <img
+                        src={eq.foto_url}
+                        alt={eq.nome}
+                        className="h-12 w-12 rounded-2xl object-cover shrink-0 border border-slate-200 dark:border-slate-800 shadow-xs"
+                      />
+                    ) : (
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#510851]/10 dark:bg-[#8b5cf6]/20 text-[#510851] dark:text-[#a78bfa] font-extrabold text-lg shrink-0 border border-[#510851]/20">
+                        {eq.nome[0]}
+                      </div>
+                    )}
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-base font-bold text-slate-900 dark:text-white">

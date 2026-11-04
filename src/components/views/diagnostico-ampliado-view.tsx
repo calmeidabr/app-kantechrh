@@ -359,6 +359,17 @@ export function DiagnosticoAmpliadoView({
       : { nome: "Resultado", pts: 0 };
   }, [diagInd]);
 
+  const talentoIndividualObj = useMemo(() => {
+    return (
+      talentos.find(
+        (t) => normText(t.nome) === normText(diagInd?.nome || talentoSelNome)
+      ) ||
+      talentos.find((t) => t.nome === talentoSelNome) ||
+      selectedTalento ||
+      null
+    );
+  }, [talentos, diagInd, talentoSelNome, selectedTalento]);
+
   return (
     <div className="space-y-6">
       {/* Header idêntico ao app.mundokan */}
@@ -976,13 +987,41 @@ export function DiagnosticoAmpliadoView({
            ===================================================================== */
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-white">
-              <User className="h-5 w-5 text-[#ea580c]" />
-              <span>
-                Diagnóstico Individual:{" "}
-                <strong>{diagInd?.nome || talentoSelNome}</strong>
-              </span>
-            </h3>
+            <div className="flex items-center gap-3.5">
+              {talentoIndividualObj?.avatar ? (
+                <img
+                  src={talentoIndividualObj.avatar}
+                  alt={diagInd?.nome || talentoSelNome}
+                  className="h-12 w-12 rounded-full border-2 border-[#ea580c] object-cover shadow-xs shrink-0"
+                />
+              ) : (
+                <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#ea580c] bg-[#ea580c]/10 text-base font-bold text-[#ea580c] shadow-xs shrink-0">
+                  <User className="h-6 w-6" />
+                </div>
+              )}
+              <div>
+                <h3 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
+                  Diagnóstico Individual:{" "}
+                  <span className="text-[#ea580c]">
+                    {diagInd?.nome || talentoSelNome}
+                  </span>
+                </h3>
+                {talentoIndividualObj?.data_nascimento && (
+                  <div className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <span>Nascimento:</span>
+                    <strong className="text-slate-700 dark:text-slate-200">
+                      {talentoIndividualObj.data_nascimento}
+                    </strong>
+                    {talentoIndividualObj.cargo && (
+                      <>
+                        <span>•</span>
+                        <span>{talentoIndividualObj.cargo}</span>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
             {loadingInd && (
               <span className="text-xs text-slate-400 animate-pulse">
                 Calculando diagnóstico ampliado...
