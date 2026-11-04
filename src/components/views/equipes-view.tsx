@@ -26,7 +26,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { KanTrianglesSvg } from "@/components/kan-triangles-svg";
-import { obterVerticesTriangulo } from "@/lib/numerologia";
 import {
   EMPRESAS_TENANT,
   DEPARTAMENTOS_OPCOES,
@@ -559,13 +558,9 @@ export function EquipesView({
                       m.nome.trim().toLowerCase()
                   );
                 if (!found) return null;
-                const verts = found.data_nascimento
-                  ? obterVerticesTriangulo(found.nome, found.data_nascimento)
-                      .vertices
-                  : found.vertices_triangulo;
                 return {
                   nome: m.nome,
-                  vertices: verts,
+                  vertices: found.vertices_triangulo || [1, 2, 3],
                   isLider: Boolean(m.lider),
                 };
               })
