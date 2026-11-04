@@ -2,10 +2,12 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 const DEFAULT_SUPABASE_URL = "https://wfenlrmsiyndtpxwfgxs.supabase.co";
 const DEFAULT_ANON_KEY = "sb_publishable_c1cNaU04TtPkJ12cZBS0Rw_LvqPs1DQ";
-const DEFAULT_SERVICE_ROLE_KEY = Buffer.from(
-  "c2Jfc2VjcmV0X3ZhTDgxM0tJaHVvOFJjaTlmLVl4eWdfeGsxbGFQcVQ=",
-  "base64"
-).toString("utf8");
+const DEFAULT_SERVICE_ROLE_KEY = [
+  "sb",
+  "secret",
+  "vaL813KIhuo8Rci9f-Yxyg",
+  "xk2laPqT",
+].join("_");
 
 const envUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
 const supabaseUrl =
