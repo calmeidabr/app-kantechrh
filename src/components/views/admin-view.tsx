@@ -655,14 +655,14 @@ export function PainelControleView({
 
           {diagMode === "equipe" && selectedEquipe ? (
             <>
-              {/* 1. PERFIL COMPORTAMENTAL DA EQUIPE (Executive Black & Orange Matrix from admin_menu.py) */}
-              <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-black p-6 text-white shadow-xl">
-                <div className="mb-5 flex items-center justify-between">
+              {/* 1. PERFIL COMPORTAMENTAL DA EQUIPE (Estilo Resumo do Diagnóstico Ampliado — Fundo Branco no Modo Claro) */}
+              <div className="overflow-hidden rounded-xl border-[1.5px] border-[#fb923c] bg-white dark:bg-[#0d111d] shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#fb923c]/35 bg-[#fb923c]/[0.03] px-5 py-3.5">
                   <div>
-                    <div className="text-sm font-extrabold uppercase tracking-[2px] text-[#ea580c]">
+                    <div className="text-xs font-extrabold uppercase tracking-[1.5px] text-[#f97316]">
                       PERFIL COMPORTAMENTAL — {selectedEquipe.nome}
                     </div>
-                    <p className="text-xs text-zinc-400">
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                       Matriz executiva consolidada ({equipeMembrosTalentos.length}{" "}
                       membros vinculados)
                     </p>
@@ -670,131 +670,144 @@ export function PainelControleView({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="border-zinc-700 bg-zinc-900 text-xs text-zinc-200 hover:bg-zinc-800"
+                    className="text-xs"
                   >
                     <Download className="mr-1.5 h-3.5 w-3.5 text-[#ea580c]" />
                     Exportar CSV
                   </Button>
                 </div>
 
-                <table className="w-full min-w-[680px] border-separate border-spacing-0">
-                  <thead>
-                    <tr>
-                      <th className="w-44 pb-4"></th>
-                      {equipeMembrosTalentos.map((m) => {
-                        const isLider = selectedEquipe.membros.find(
-                          (em) => em.nome === m.nome
-                        )?.lider;
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[720px] border-collapse">
+                    <thead>
+                      <tr className="border-b border-[#fb923c]/35">
+                        <th className="w-52 border-r border-[#fb923c]/35 bg-[#fb923c]/[0.02] p-4 text-left align-middle">
+                          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                            Dimensões do Diagnóstico
+                          </span>
+                        </th>
+                        {equipeMembrosTalentos.map((m, cIdx) => {
+                          const isLider = selectedEquipe.membros.find(
+                            (em) => em.nome === m.nome
+                          )?.lider;
+                          const isLastCol =
+                            cIdx === equipeMembrosTalentos.length - 1;
+                          return (
+                            <th
+                              key={m.id}
+                              className={`w-56 p-4 text-center align-bottom ${
+                                !isLastCol ? "border-r border-[#fb923c]/35" : ""
+                              }`}
+                            >
+                              <div className="flex flex-col items-center">
+                                <div className="relative mb-2.5 h-14 w-14">
+                                  <img
+                                    src={m.avatar}
+                                    alt={m.nome}
+                                    className="h-14 w-14 rounded-full border-2 border-[#fb923c]/60 object-cover shadow-2xs"
+                                  />
+                                  {isLider && (
+                                    <span
+                                      title="Líder da Equipe"
+                                      className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] text-black shadow"
+                                    >
+                                      👑
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-sm font-bold tracking-tight text-slate-900 dark:text-white">
+                                  {m.nome}
+                                </div>
+                                <div className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                                  {m.cargo}
+                                </div>
+                              </div>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        {
+                          label: "Perfil Predominante",
+                          render: (m: TalentoProfile) =>
+                            `${m.perfis_lista.join(", ")} • ${m.categorias_lista.join(", ")}`,
+                          isPrimary: true,
+                          isKan: false,
+                        },
+                        {
+                          label: "Forças Centrais",
+                          render: (m: TalentoProfile) =>
+                            getIndicador(m, "Fortaleza") ||
+                            "Liderança, execução estruturada e visão analítica",
+                          isPrimary: false,
+                          isKan: false,
+                        },
+                        {
+                          label: "Contexto de Maior Aderência",
+                          render: (m: TalentoProfile) =>
+                            m.qualidades_lista.slice(0, 3).join(", "),
+                          isPrimary: false,
+                          isKan: false,
+                        },
+                        {
+                          label: "Risco Prioritário",
+                          render: (m: TalentoProfile) =>
+                            getIndicador(m, "Risco") ||
+                            "Excesso de autocobrança em prazos críticos",
+                          isPrimary: false,
+                          isKan: false,
+                        },
+                        {
+                          label: "KAN",
+                          render: (m: TalentoProfile) =>
+                            `${m.kan_nome.toUpperCase()} (Vértices ${m.vertices_triangulo.join("-")})`,
+                          isPrimary: false,
+                          isKan: true,
+                        },
+                      ].map((row, rIdx, arr) => {
+                        const isLast = rIdx === arr.length - 1;
                         return (
-                          <th
-                            key={m.id}
-                            className="w-44 px-2 pb-4 text-center align-bottom"
+                          <tr
+                            key={row.label}
+                            className={
+                              isLast
+                                ? "bg-[#fb923c]/[0.03]"
+                                : "border-b border-[#fb923c]/35"
+                            }
                           >
-                            <div className="flex flex-col items-center">
-                              <div className="relative mb-2 h-12 w-12">
-                                <img
-                                  src={m.avatar}
-                                  alt={m.nome}
-                                  className="h-12 w-12 rounded-full border-2 border-white object-cover shadow"
-                                />
-                                {isLider && (
-                                  <span
-                                    title="Líder da Equipe"
-                                    className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] text-black shadow"
-                                  >
-                                    👑
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-xs font-bold text-white">
-                                {m.nome}
-                              </div>
-                              <div className="text-[10px] text-zinc-400">
-                                {m.cargo}
-                              </div>
-                            </div>
-                          </th>
+                            <td className="border-r border-[#fb923c]/35 bg-[#fb923c]/[0.02] px-4 py-4 text-xs font-semibold text-slate-600 dark:text-slate-300 align-top">
+                              {row.label}
+                            </td>
+                            {equipeMembrosTalentos.map((m, cIdx) => {
+                              const isLastCol =
+                                cIdx === equipeMembrosTalentos.length - 1;
+                              return (
+                                <td
+                                  key={m.id}
+                                  className={`p-4 align-top ${
+                                    !isLastCol
+                                      ? "border-r border-[#fb923c]/35"
+                                      : ""
+                                  } ${
+                                    row.isKan
+                                      ? "text-sm font-bold tracking-tight text-[#f97316]"
+                                      : row.isPrimary
+                                      ? "text-base font-bold tracking-tight text-slate-900 dark:text-white"
+                                      : "text-xs font-semibold leading-relaxed text-slate-800 dark:text-slate-100"
+                                  }`}
+                                >
+                                  {row.render(m)}
+                                </td>
+                              );
+                            })}
+                          </tr>
                         );
                       })}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      {
-                        label: "Perfil Predominante",
-                        render: (m: TalentoProfile) =>
-                          `${m.perfis_lista.join(", ")} • ${m.categorias_lista.join(", ")}`,
-                        isKan: false,
-                      },
-                      {
-                        label: "Forças Centrais",
-                        render: (m: TalentoProfile) =>
-                          getIndicador(m, "Fortaleza") ||
-                          "Liderança, execução estruturada e visão analítica",
-                        isKan: false,
-                      },
-                      {
-                        label: "Contexto de Maior Aderência",
-                        render: (m: TalentoProfile) =>
-                          m.qualidades_lista.slice(0, 3).join(", "),
-                        isKan: false,
-                      },
-                      {
-                        label: "Risco Prioritário",
-                        render: (m: TalentoProfile) =>
-                          getIndicador(m, "Risco") ||
-                          "Excesso de autocobrança em prazos críticos",
-                        isKan: false,
-                      },
-                      {
-                        label: "KAN Primordial",
-                        render: (m: TalentoProfile) =>
-                          `${m.kan_nome.toUpperCase()} (Vértices ${m.vertices_triangulo.join("-")})`,
-                        isKan: true,
-                      },
-                    ].map((row, rIdx, arr) => {
-                      const isFirst = rIdx === 0;
-                      const isLast = rIdx === arr.length - 1;
-                      return (
-                        <tr key={row.label}>
-                          <td
-                            className={`border border-[#ea580c] bg-[#ea580c] px-3.5 py-3 text-xs font-extrabold text-black ${
-                              isFirst ? "rounded-tl-xl" : ""
-                            } ${isLast ? "rounded-bl-xl" : ""}`}
-                          >
-                            {row.label}
-                          </td>
-                          {equipeMembrosTalentos.map((m, cIdx) => {
-                            const isLastCol =
-                              cIdx === equipeMembrosTalentos.length - 1;
-                            return (
-                              <td
-                                key={m.id}
-                                className={`border-b border-r border-[#ea580c]/40 bg-black px-3.5 py-3 text-xs ${
-                                  isFirst ? "border-t border-t-[#ea580c]" : ""
-                                } ${
-                                  isLastCol ? "border-r-[#ea580c]" : ""
-                                } ${
-                                  isLast ? "border-b-[#ea580c]" : ""
-                                } ${
-                                  isFirst && isLastCol ? "rounded-tr-xl" : ""
-                                } ${
-                                  isLast && isLastCol ? "rounded-br-xl" : ""
-                                } ${
-                                  row.isKan
-                                    ? "font-extrabold uppercase tracking-wider text-[#ea580c]"
-                                    : "text-zinc-200"
-                                }`}
-                              >
-                                {row.render(m)}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* 2. MAPA DE CALOR INTERATIVO - 9 EIXOS COMPORTAMENTAIS (SHADCN UI ROUNDED SQUIRCLE STYLE - 20% COMPACT) */}

@@ -437,139 +437,226 @@ export function DiagnosticoAmpliadoView({
             )}
           </div>
 
-          {/* 1. PERFIL COMPORTAMENTAL DA EQUIPE (Executive Black & Orange Matrix) */}
-          <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-black p-6 text-white shadow-xl">
-            <div className="mb-5 flex items-center justify-between">
+          {/* 1. PERFIL COMPORTAMENTAL DA EQUIPE (Estilo Resumo do Diagnóstico Ampliado — Fundo Branco no Modo Claro) */}
+          <div className="overflow-hidden rounded-xl border-[1.5px] border-[#fb923c] bg-white dark:bg-[#0d111d] shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#fb923c]/35 bg-[#fb923c]/[0.03] px-5 py-3.5">
               <div>
-                <div className="text-sm font-extrabold uppercase tracking-[2px] text-[#ea580c]">
+                <div className="text-xs font-extrabold uppercase tracking-[1.5px] text-[#f97316]">
                   PERFIL COMPORTAMENTAL — {selectedEquipeObj.nome}
                 </div>
-                <p className="text-xs text-zinc-400">
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                   Matriz executiva consolidada ({equipeMembrosTalentos.length}{" "}
                   membros vinculados)
                 </p>
               </div>
             </div>
 
-            <table className="w-full min-w-[680px] border-separate border-spacing-0">
-              <thead>
-                <tr>
-                  <th className="w-44 pb-4"></th>
-                  {equipeMembrosTalentos.map((m) => {
-                    const isLider = selectedEquipeObj.membros.find(
-                      (em) => em.nome === m.nome
-                    )?.lider;
-                    return (
-                      <th
-                        key={m.id}
-                        className="w-44 px-2 pb-4 text-center align-bottom"
-                      >
-                        <div className="flex flex-col items-center">
-                          <div className="relative mb-2 h-12 w-12">
-                            <img
-                              src={m.avatar}
-                              alt={m.nome}
-                              className="h-12 w-12 rounded-full border-2 border-white object-cover shadow"
-                            />
-                            {isLider && (
-                              <span
-                                title="Líder da Equipe"
-                                className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] text-black shadow"
-                              >
-                                👑
-                              </span>
-                            )}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] border-collapse">
+                <thead>
+                  <tr className="border-b border-[#fb923c]/35">
+                    <th className="w-52 border-r border-[#fb923c]/35 bg-[#fb923c]/[0.02] p-4 text-left align-middle">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                        Dimensões do Diagnóstico
+                      </span>
+                    </th>
+                    {equipeMembrosTalentos.map((m, cIdx) => {
+                      const isLider = selectedEquipeObj.membros.find(
+                        (em) => em.nome === m.nome
+                      )?.lider;
+                      const isLastCol =
+                        cIdx === equipeMembrosTalentos.length - 1;
+                      return (
+                        <th
+                          key={m.id}
+                          className={`w-56 p-4 text-center align-bottom ${
+                            !isLastCol ? "border-r border-[#fb923c]/35" : ""
+                          }`}
+                        >
+                          <div className="flex flex-col items-center">
+                            <div className="relative mb-2.5 h-14 w-14">
+                              <img
+                                src={m.avatar}
+                                alt={m.nome}
+                                className="h-14 w-14 rounded-full border-2 border-[#fb923c]/60 object-cover shadow-2xs"
+                              />
+                              {isLider && (
+                                <span
+                                  title="Líder da Equipe"
+                                  className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] text-black shadow"
+                                >
+                                  👑
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm font-bold tracking-tight text-slate-900 dark:text-white">
+                              {m.nome}
+                            </div>
+                            <div className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                              {m.cargo}
+                            </div>
                           </div>
-                          <div className="text-xs font-bold text-white">
-                            {m.nome}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Linha 1: Perfil Predominante */}
+                  <tr className="border-b border-[#fb923c]/35">
+                    <td className="border-r border-[#fb923c]/35 bg-[#fb923c]/[0.02] px-4 py-4 align-top">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        <Target className="h-4 w-4 shrink-0 text-[#38bdf8]" />
+                        <span>Perfil Predominante</span>
+                      </div>
+                    </td>
+                    {equipeMembrosTalentos.map((m, cIdx) => {
+                      const d = diagEquipeMap[m.nome];
+                      const isLastCol =
+                        cIdx === equipeMembrosTalentos.length - 1;
+                      return (
+                        <td
+                          key={m.id}
+                          className={`p-4 align-top ${
+                            !isLastCol ? "border-r border-[#fb923c]/35" : ""
+                          }`}
+                        >
+                          <div className="text-base font-bold tracking-tight text-slate-900 dark:text-white">
+                            {d?.perfil_predominante || m.perfil_dominante}
                           </div>
-                          <div className="text-[10px] text-zinc-400">
-                            {m.cargo}
+                          {d?.resumo && (
+                            <div className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                              {d.resumo}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+
+                  {/* Linha 2: Forças Centrais */}
+                  <tr className="border-b border-[#fb923c]/35">
+                    <td className="border-r border-[#fb923c]/35 bg-[#fb923c]/[0.02] px-4 py-4 align-top">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        <Zap className="h-4 w-4 shrink-0 text-[#fbbf24]" />
+                        <span>Forças Centrais</span>
+                      </div>
+                    </td>
+                    {equipeMembrosTalentos.map((m, cIdx) => {
+                      const d = diagEquipeMap[m.nome];
+                      const isLastCol =
+                        cIdx === equipeMembrosTalentos.length - 1;
+                      return (
+                        <td
+                          key={m.id}
+                          className={`p-4 align-top ${
+                            !isLastCol ? "border-r border-[#fb923c]/35" : ""
+                          }`}
+                        >
+                          <div className="text-xs font-semibold leading-relaxed text-slate-800 dark:text-slate-100">
+                            {d?.forcas ||
+                              "Liderança, resultados, execução, disciplina e persistência"}
                           </div>
-                        </div>
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  {
-                    label: "Perfil Predominante",
-                    render: (m: TalentoProfile) =>
-                      diagEquipeMap[m.nome]?.perfil_predominante ||
-                      m.perfil_dominante,
-                    isKan: false,
-                  },
-                  {
-                    label: "Forças Centrais",
-                    render: (m: TalentoProfile) =>
-                      diagEquipeMap[m.nome]?.forcas ||
-                      "Liderança, resultados, execução, disciplina e persistência",
-                    isKan: false,
-                  },
-                  {
-                    label: "Contexto de Maior Aderência",
-                    render: (m: TalentoProfile) =>
-                      diagEquipeMap[m.nome]?.contexto ||
-                      "Projetos críticos, operações e implantação",
-                    isKan: false,
-                  },
-                  {
-                    label: "Risco Prioritário",
-                    render: (m: TalentoProfile) =>
-                      diagEquipeMap[m.nome]?.risco_prior ||
-                      "Pressão Excessiva por Resultados e Centralização",
-                    isKan: false,
-                  },
-                  {
-                    label: "KAN",
-                    render: (m: TalentoProfile) =>
-                      diagEquipeMap[m.nome]?.kan_nome ||
-                      m.kan_nome.toUpperCase(),
-                    isKan: true,
-                  },
-                ].map((row, rIdx, arr) => {
-                  const isFirst = rIdx === 0;
-                  const isLast = rIdx === arr.length - 1;
-                  return (
-                    <tr key={row.label}>
-                      <td
-                        className={`border border-[#ea580c] bg-[#ea580c] px-3.5 py-3 text-xs font-extrabold text-black ${
-                          isFirst ? "rounded-tl-xl" : ""
-                        } ${isLast ? "rounded-bl-xl" : ""}`}
-                      >
-                        {row.label}
-                      </td>
-                      {equipeMembrosTalentos.map((m, cIdx) => {
-                        const isLastCol =
-                          cIdx === equipeMembrosTalentos.length - 1;
-                        return (
-                          <td
-                            key={m.id}
-                            className={`border-b border-r border-[#ea580c]/40 bg-black px-3.5 py-3 text-xs ${
-                              isFirst ? "border-t border-t-[#ea580c]" : ""
-                            } ${isLastCol ? "border-r-[#ea580c]" : ""} ${
-                              isLast ? "border-b-[#ea580c]" : ""
-                            } ${
-                              isFirst && isLastCol ? "rounded-tr-xl" : ""
-                            } ${
-                              isLast && isLastCol ? "rounded-br-xl" : ""
-                            } ${
-                              row.isKan
-                                ? "font-extrabold uppercase tracking-wider text-[#ea580c]"
-                                : "text-zinc-200"
-                            }`}
-                          >
-                            {row.render(m)}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                      );
+                    })}
+                  </tr>
+
+                  {/* Linha 3: Contexto de Maior Aderência */}
+                  <tr className="border-b border-[#fb923c]/35">
+                    <td className="border-r border-[#fb923c]/35 bg-[#fb923c]/[0.02] px-4 py-4 align-top">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        <Compass className="h-4 w-4 shrink-0 text-[#34d399]" />
+                        <span>Contexto de Maior Aderência</span>
+                      </div>
+                    </td>
+                    {equipeMembrosTalentos.map((m, cIdx) => {
+                      const d = diagEquipeMap[m.nome];
+                      const isLastCol =
+                        cIdx === equipeMembrosTalentos.length - 1;
+                      return (
+                        <td
+                          key={m.id}
+                          className={`p-4 align-top ${
+                            !isLastCol ? "border-r border-[#fb923c]/35" : ""
+                          }`}
+                        >
+                          <div className="text-xs font-semibold leading-relaxed text-slate-800 dark:text-slate-100">
+                            {d?.contexto ||
+                              "Projetos críticos, operações e implantação"}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+
+                  {/* Linha 4: Risco Prioritário */}
+                  <tr className="border-b border-[#fb923c]/35">
+                    <td className="border-r border-[#fb923c]/35 bg-[#fb923c]/[0.02] px-4 py-4 align-top">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        <AlertTriangle className="h-4 w-4 shrink-0 text-[#f87171]" />
+                        <span>Risco Prioritário</span>
+                      </div>
+                    </td>
+                    {equipeMembrosTalentos.map((m, cIdx) => {
+                      const d = diagEquipeMap[m.nome];
+                      const isLastCol =
+                        cIdx === equipeMembrosTalentos.length - 1;
+                      return (
+                        <td
+                          key={m.id}
+                          className={`p-4 align-top ${
+                            !isLastCol ? "border-r border-[#fb923c]/35" : ""
+                          }`}
+                        >
+                          <div className="text-xs font-bold leading-relaxed text-slate-800 dark:text-slate-100">
+                            {d?.risco_prior ||
+                              "Pressão Excessiva por Resultados e Centralização"}
+                          </div>
+                          {d?.desc_risco && (
+                            <div className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                              {d.desc_risco}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+
+                  {/* Linha 5: Faixa Inferior KAN */}
+                  <tr className="bg-[#fb923c]/[0.03]">
+                    <td className="border-r border-[#fb923c]/35 px-4 py-4 align-top">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        <Cpu className="h-4 w-4 shrink-0 text-[#f97316]" />
+                        <span>KAN</span>
+                      </div>
+                    </td>
+                    {equipeMembrosTalentos.map((m, cIdx) => {
+                      const d = diagEquipeMap[m.nome];
+                      const isLastCol =
+                        cIdx === equipeMembrosTalentos.length - 1;
+                      return (
+                        <td
+                          key={m.id}
+                          className={`p-4 align-top ${
+                            !isLastCol ? "border-r border-[#fb923c]/35" : ""
+                          }`}
+                        >
+                          <div className="text-base font-bold tracking-tight text-[#f97316]">
+                            {d?.kan_nome || m.kan_nome.toUpperCase()}
+                          </div>
+                          {d?.kan_desc && (
+                            <div className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                              {d.kan_desc}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* 2. MAPA DE CALOR INTERATIVO — EIXOS COMPORTAMENTAIS DA EQUIPE */}
