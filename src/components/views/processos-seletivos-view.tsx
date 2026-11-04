@@ -1039,7 +1039,10 @@ export function ProcessoSeletivoView({
                       <img
                         src={c.avatar}
                         alt={c.nome}
-                        className="h-18 w-18 rounded-full object-cover border-2 border-white dark:border-slate-900"
+                        width={64}
+                        height={64}
+                        style={{ width: 64, height: 64 }}
+                        className="h-16 w-16 min-h-[64px] min-w-[64px] max-h-[64px] max-w-[64px] rounded-full object-cover border-2 border-white dark:border-slate-900"
                       />
                     </div>
                     <button

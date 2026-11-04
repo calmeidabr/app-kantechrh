@@ -273,24 +273,30 @@ export function TalentosView({
   const equipesDoTalentoAtual = cadNome.trim()
     ? equipes.filter((eq) =>
         eq.membros.some(
-          (m) => m.nome.toLowerCase() === cadNome.trim().toLowerCase()
+          (m) => m.nome.trim().toLowerCase() === cadNome.trim().toLowerCase()
         )
       )
     : [];
 
+  const [visibleCount, setVisibleCount] = useState(24);
+
   // Filter talents for bottom grid
   const talentosFiltrados = talentos.filter((t) => {
     if (!buscaTalento.trim()) {
-      return ultimosConsultados.includes(t.nome);
+      return true;
     }
     const q = buscaTalento.toLowerCase();
     return (
       t.nome.toLowerCase().includes(q) ||
       t.profissao.toLowerCase().includes(q) ||
+      t.cargo.toLowerCase().includes(q) ||
       t.grupo.toLowerCase().includes(q) ||
-      t.departamento.toLowerCase().includes(q)
+      t.departamento.toLowerCase().includes(q) ||
+      t.empresa.toLowerCase().includes(q)
     );
   });
+
+  const talentosExibidos = talentosFiltrados.slice(0, visibleCount);
 
   return (
     <div className="space-y-6">
@@ -592,8 +598,8 @@ export function TalentosView({
             </h2>
             <p className="text-xs text-slate-400">
               {buscaTalento.trim()
-                ? `Resultados filtrados (${talentosFiltrados.length})`
-                : `Exibindo últimos perfis consultados (${talentosFiltrados.length})`}
+                ? `Resultados filtrados: ${talentosFiltrados.length} de ${talentos.length} perfis`
+                : `Exibindo ${talentosExibidos.length} de ${talentosFiltrados.length} talentos sincronizados com o Supabase`}
             </p>
           </div>
 
@@ -601,7 +607,10 @@ export function TalentosView({
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <Input
               value={buscaTalento}
-              onChange={(e) => setBuscaTalento(e.target.value)}
+              onChange={(e) => {
+                setBuscaTalento(e.target.value);
+                setVisibleCount(24);
+              }}
               placeholder="Buscar por Nome, Profissão, Grupo ou Departamento..."
               className="pl-9"
             />
@@ -610,47 +619,59 @@ export function TalentosView({
 
         {/* 3-Column Cards Grid matching talentos_menu.py */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {talentosFiltrados.map((t) => {
+          {talentosExibidos.map((t) => {
             const membroDe = equipes.filter((eq) =>
-              eq.membros.some((m) => m.nome === t.nome)
+              eq.membros.some(
+                (m) => m.nome.trim().toLowerCase() === t.nome.trim().toLowerCase()
+              )
             );
 
             return (
               <Card
                 key={t.id}
-                className="p-5 hover:border-[#510851]/40 transition-all flex flex-col justify-between space-y-4"
+                className="overflow-hidden p-5 hover:border-[#510851]/40 transition-all flex flex-col justify-between space-y-4"
               >
                 <div className="flex items-start gap-3.5">
-                  <img
-                    src={t.avatar}
-                    alt={t.nome}
-                    className="h-13 w-13 rounded-full object-cover ring-2 ring-[#510851]/20 shrink-0"
-                  />
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-center justify-between gap-2">
+                  <div className="relative h-14 w-14 min-h-[56px] min-w-[56px] max-h-[56px] max-w-[56px] shrink-0 overflow-hidden rounded-full ring-2 ring-[#510851]/20 bg-slate-100 dark:bg-slate-800">
+                    <img
+                      src={t.avatar}
+                      alt={t.nome}
+                      width={56}
+                      height={56}
+                      style={{ width: 56, height: 56 }}
+                      className="h-14 w-14 rounded-full object-cover"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="flex items-start justify-between gap-2">
                       <button
                         onClick={() => handleLoadIntoForm(t)}
-                        className="truncate text-sm font-bold text-slate-900 dark:text-white hover:text-[#510851] dark:hover:text-[#a78bfa] text-left"
+                        title={t.nome}
+                        className="line-clamp-2 break-words text-sm font-bold leading-snug text-slate-900 dark:text-white hover:text-[#510851] dark:hover:text-[#a78bfa] text-left"
                       >
                         {t.nome}
                       </button>
-                      <Badge variant="purple" className="shrink-0">
+                      <Badge variant="purple" className="shrink-0 text-[10px]">
                         KAN: {t.kan_nome}
                       </Badge>
                     </div>
 
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 truncate">
                       <Briefcase className="h-3.5 w-3.5 text-[#ea580c] shrink-0" />
-                      <span className="truncate">{t.profissao}</span>
+                      <span className="truncate">
+                        {t.profissao || t.cargo || "Profissional"}
+                      </span>
                     </div>
 
-                    <div className="flex items-center gap-3 text-[11px] text-slate-400">
-                      <span className="flex items-center gap-1">
-                        <Tag className="h-3 w-3 text-[#510851] dark:text-[#a78bfa]" />
-                        {t.grupo || t.departamento}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
+                      <span className="flex items-center gap-1 truncate max-w-[170px]">
+                        <Tag className="h-3 w-3 text-[#510851] dark:text-[#a78bfa] shrink-0" />
+                        <span className="truncate">
+                          {t.grupo || t.departamento || t.empresa}
+                        </span>
                       </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
+                      <span className="flex items-center gap-1 shrink-0">
+                        <Calendar className="h-3 w-3 shrink-0" />
                         {t.data_nascimento}
                       </span>
                     </div>
@@ -694,7 +715,9 @@ export function TalentosView({
                       LinkedIn
                     </a>
                   ) : (
-                    <span />
+                    <span className="text-[10px] font-mono text-slate-400">
+                      ID #{t.codigo}
+                    </span>
                   )}
 
                   <div className="flex items-center gap-1.5">
@@ -716,6 +739,25 @@ export function TalentosView({
             );
           })}
         </div>
+
+        {visibleCount < talentosFiltrados.length && (
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setVisibleCount((prev) => prev + 48)}
+            >
+              Carregar mais talentos (+48)
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setVisibleCount(talentosFiltrados.length)}
+            >
+              Mostrar todos ({talentosFiltrados.length})
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
