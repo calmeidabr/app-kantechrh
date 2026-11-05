@@ -42,6 +42,7 @@ import {
 } from "@/lib/mock-data";
 import { KanTrianglesSvg } from "@/components/kan-triangles-svg";
 import { DiagnosticoAmpliadoView } from "@/components/views/diagnostico-ampliado-view";
+import { AdminTabelasEditor } from "@/components/views/admin-tabelas-editor";
 
 interface PainelControleViewProps {
   talentos: TalentoProfile[];
@@ -251,7 +252,6 @@ export function PainelControleView({
   );
 
   // State: Tabelas & Upload CSV
-  const [selectedDbTable, setSelectedDbTable] = useState<string>("MATRIZ_DB");
   const [csvUploadStatus, setCsvUploadStatus] = useState<string | null>(null);
 
   // State: Central de Estudos (Simulador de Trio & Calculadora)
@@ -1758,156 +1758,8 @@ export function PainelControleView({
             </CardContent>
           </Card>
 
-          {/* Core Configuration Tables Editor */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                <div>
-                  <CardTitle className="text-base">
-                    Editor de Tabelas de Configuração (`public.config_tabelas`)
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Pesos e matrizes oficiais consumidos pelo motor de cálculo
-                    `mam-kantechrh`
-                  </CardDescription>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    "MATRIZ_DB",
-                    "PESO_DB",
-                    "ATRIBUTOS_DB",
-                    "REPETICAO_DB",
-                    "QUALIDADES_DB",
-                    "KAN_DB",
-                    "FORTALEZAS_DB",
-                    "DESAFIOS_DB",
-                  ].map((tb) => (
-                    <button
-                      key={tb}
-                      onClick={() => setSelectedDbTable(tb)}
-                      className={`rounded-md px-2.5 py-1 text-[11px] font-bold transition-colors ${
-                        selectedDbTable === tb
-                          ? "bg-[#ea580c] text-white"
-                          : "bg-muted text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {tb}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="overflow-x-auto rounded-lg border">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-muted/60 text-[11px] uppercase text-muted-foreground">
-                    <tr>
-                      <th className="px-3 py-2">
-                        Indicador / Parâmetro ({selectedDbTable})
-                      </th>
-                      <th className="px-2 py-2 text-center">Peso Perfil</th>
-                      <th className="px-2 py-2 text-center">Peso Categoria</th>
-                      <th className="px-2 py-2 text-center">Peso Qualidades</th>
-                      <th className="px-3 py-2">
-                        Perfis / Números Associados
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {[
-                      {
-                        campo: "Motivação",
-                        pPerf: 20,
-                        pCat: 20,
-                        pQual: 20,
-                        assoc:
-                          "1: Lider, Executor | 3: Criativo, Comunicador | 6: Diplomático | 8: Resultado",
-                      },
-                      {
-                        campo: "Impressão",
-                        pPerf: 10,
-                        pCat: 10,
-                        pQual: 10,
-                        assoc:
-                          "1: Lider | 2: Diplomático | 4: Organizado | 5: Versátil | 7: Analítico",
-                      },
-                      {
-                        campo: "Expressão",
-                        pPerf: 20,
-                        pCat: 20,
-                        pQual: 20,
-                        assoc:
-                          "3: Influenciador, Comunicador | 6: Harmônico | 8: Executor, Resultado",
-                      },
-                      {
-                        campo: "Destino",
-                        pPerf: 25,
-                        pCat: 25,
-                        pQual: 25,
-                        assoc:
-                          "1: Lider | 4: Realizador | 7: Analítico | 9: Visionário | 11: Intuitivo",
-                      },
-                      {
-                        campo: "Missão",
-                        pPerf: 30,
-                        pCat: 30,
-                        pQual: 30,
-                        assoc:
-                          "Peso mestre de vocação (30 pts em Perfil, Categoria e Qualidades)",
-                      },
-                      {
-                        campo: "Estrutural",
-                        pPerf: 25,
-                        pCat: 25,
-                        pQual: 25,
-                        assoc:
-                          "Eixo estrutural KAN derivado da redução cabalística",
-                      },
-                      {
-                        campo: "Direcionamento",
-                        pPerf: 20,
-                        pCat: 20,
-                        pQual: 20,
-                        assoc: "Vetor de direcionamento metodológico KAN",
-                      },
-                      {
-                        campo: "REPETIÇÃO 1 / REPETIÇÃO 2",
-                        pPerf: 30,
-                        pCat: 30,
-                        pQual: 25,
-                        assoc:
-                          "Bônus de repetição dominante no mapa (30 / 25 pts)",
-                      },
-                    ].map((r) => (
-                      <tr key={r.campo} className="hover:bg-muted/30">
-                        <td className="px-3 py-2 font-bold">{r.campo}</td>
-                        <td className="px-2 py-2 text-center font-mono font-semibold text-[#510851] dark:text-purple-300">
-                          {r.pPerf}
-                        </td>
-                        <td className="px-2 py-2 text-center font-mono font-semibold text-[#ea580c]">
-                          {r.pCat}
-                        </td>
-                        <td className="px-2 py-2 text-center font-mono font-semibold text-emerald-600">
-                          {r.pQual}
-                        </td>
-                        <td className="px-3 py-2 text-muted-foreground">
-                          {r.assoc}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex justify-end">
-                <Button
-                  size="sm"
-                  className="bg-[#510851] text-xs text-white hover:bg-[#510851]/90"
-                >
-                  Salvar Alterações em {selectedDbTable}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Editor de Tabelas Reais do Supabase (Diagnóstico Ampliado, Pesos e Parâmetros) */}
+          <AdminTabelasEditor />
         </div>
       )}
 

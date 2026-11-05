@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { getLastCacheInvalidationTime } from "@/lib/diagnostico-cache";
 
 export const dynamic = "force-dynamic";
 
@@ -209,10 +210,11 @@ interface CachedDbTables {
 }
 
 let cachedTables: CachedDbTables | null = null;
+
 const CACHE_TTL_MS = 120 * 1000; // 2 minutes
 
 async function getReferenceTables(): Promise<CachedDbTables> {
-  if (cachedTables && Date.now() - cachedTables.timestamp < CACHE_TTL_MS) {
+  if (cachedTables && Date.now() - cachedTables.timestamp < CACHE_TTL_MS && cachedTables.timestamp > getLastCacheInvalidationTime()) {
     return cachedTables;
   }
 
@@ -1122,6 +1124,9 @@ export async function GET(req: NextRequest) {
     const nome = searchParams.get("nome");
     const nomesBatch = searchParams.get("nomes");
     const dataNasc = searchParams.get("data_nascimento") || undefined;
+    if (searchParams.get("refresh") === "true") {
+      cachedTables = null;
+    }
 
     const tables = await getReferenceTables();
 
