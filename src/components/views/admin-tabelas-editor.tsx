@@ -29,7 +29,7 @@ import { Input } from "@/components/ui/input";
 export interface TabelaOption {
   key: string;
   nome: string;
-  grupo: "Diagnóstico Ampliado" | "Pesos & Regras de Cálculo" | "Tabelas Complementares";
+  grupo: "Diagnóstico Ampliado" | "Pesos & Regras de Cálculo" | "Tabelas Complementares" | "Cadastros Principais (CRUD Admin)";
   primaryKey: string;
   descricao: string;
 }
@@ -158,6 +158,43 @@ const TABELAS_LISTA: TabelaOption[] = [
     grupo: "Tabelas Complementares",
     primaryKey: "dia_nascimento",
     descricao: "Desafios comportamentais por dia de nascimento (1 a 31).",
+  },
+
+  // 4. Cadastros Principais (CRUD Completo com Exclusão Admin)
+  {
+    key: "mapas_salvos",
+    nome: "Talentos (Mapas Salvos)",
+    grupo: "Cadastros Principais (CRUD Admin)",
+    primaryKey: "id",
+    descricao: "Cadastro de talentos corporativos, cargos, empresas e perfis KAN gravados no Supabase.",
+  },
+  {
+    key: "processos_seletivos",
+    nome: "Processos Seletivos",
+    grupo: "Cadastros Principais (CRUD Admin)",
+    primaryKey: "id",
+    descricao: "Processos seletivos, pipeline de candidatos e compatibilidade com vagas.",
+  },
+  {
+    key: "vagas",
+    nome: "Vagas Corporativas",
+    grupo: "Cadastros Principais (CRUD Admin)",
+    primaryKey: "id",
+    descricao: "Vagas abertas com requisitos KAN, senioridade e departamentos.",
+  },
+  {
+    key: "hierarquia_departamentos",
+    nome: "Departamentos (Hierarquia)",
+    grupo: "Cadastros Principais (CRUD Admin)",
+    primaryKey: "id",
+    descricao: "Árvore de governança, departamentos e organograma corporativo.",
+  },
+  {
+    key: "equipes",
+    nome: "Equipes Cadastradas",
+    grupo: "Cadastros Principais (CRUD Admin)",
+    primaryKey: "id",
+    descricao: "Equipes, departamentos associados, líderes e integrantes.",
   },
 ];
 
@@ -517,6 +554,7 @@ export function AdminTabelasEditor() {
                 "Diagnóstico Ampliado",
                 "Pesos & Regras de Cálculo",
                 "Tabelas Complementares",
+                "Cadastros Principais (CRUD Admin)",
               ] as const
             ).map((grp) => (
               <button
@@ -535,6 +573,7 @@ export function AdminTabelasEditor() {
                 {grp === "Diagnóstico Ampliado" && <Sparkles className="h-3.5 w-3.5" />}
                 {grp === "Pesos & Regras de Cálculo" && <Sliders className="h-3.5 w-3.5" />}
                 {grp === "Tabelas Complementares" && <Layers className="h-3.5 w-3.5" />}
+                {grp === "Cadastros Principais (CRUD Admin)" && <ShieldCheck className="h-3.5 w-3.5" />}
                 {grp}
               </button>
             ))}

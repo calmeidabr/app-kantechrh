@@ -8,7 +8,7 @@ const TABELAS_METADATA: Record<
   string,
   {
     nomeAmigavel: string;
-    grupo: "Diagnóstico Ampliado" | "Pesos & Regras de Cálculo" | "Tabelas Complementares";
+    grupo: "Diagnóstico Ampliado" | "Pesos & Regras de Cálculo" | "Tabelas Complementares" | "Cadastros Principais (CRUD Admin)";
     primaryKey: string;
     descricao: string;
     orderColumn?: string;
@@ -145,6 +145,43 @@ const TABELAS_METADATA: Record<
     primaryKey: "dia_nascimento",
     descricao: "Mapeamento de desafios comportamentais por dia de nascimento (1 a 31).",
     orderColumn: "dia_nascimento",
+  },
+
+  // 4. Cadastros Principais (CRUD Completo com Exclusão no Painel de Controle)
+  mapas_salvos: {
+    nomeAmigavel: "Talentos (Mapas Salvos)",
+    grupo: "Cadastros Principais (CRUD Admin)",
+    primaryKey: "id",
+    descricao: "Cadastro de talentos corporativos, cargos, empresas e perfis KAN gravados no Supabase.",
+    orderColumn: "nome",
+  },
+  processos_seletivos: {
+    nomeAmigavel: "Processos Seletivos",
+    grupo: "Cadastros Principais (CRUD Admin)",
+    primaryKey: "id",
+    descricao: "Processos seletivos, pipeline de candidatos e compatibilidade com vagas.",
+    orderColumn: "id",
+  },
+  vagas: {
+    nomeAmigavel: "Vagas Corporativas",
+    grupo: "Cadastros Principais (CRUD Admin)",
+    primaryKey: "id",
+    descricao: "Vagas abertas com requisitos KAN, senioridade e departamentos.",
+    orderColumn: "id",
+  },
+  hierarquia_departamentos: {
+    nomeAmigavel: "Departamentos (Hierarquia)",
+    grupo: "Cadastros Principais (CRUD Admin)",
+    primaryKey: "id",
+    descricao: "Árvore de governança, departamentos e organograma corporativo.",
+    orderColumn: "ordem",
+  },
+  equipes: {
+    nomeAmigavel: "Equipes Cadastradas",
+    grupo: "Cadastros Principais (CRUD Admin)",
+    primaryKey: "id",
+    descricao: "Equipes, departamentos associados, líderes e integrantes.",
+    orderColumn: "nome",
   },
 };
 
@@ -401,6 +438,16 @@ export async function DELETE(req: NextRequest) {
     }
 
     const supabase = getSupabaseAdmin();
+
+    // Cascade delete related records if applicable
+    if (tabela === "mapas_salvos") {
+      const { data: talRow } = await supabase.from("mapas_salvos").select("nome").eq("id", pkValue).maybeSingle();
+      if (talRow?.nome) {
+        await supabase.from("mapas_salvos_valores").delete().eq("nome", talRow.nome);
+      }
+    } else if (tabela === "vagas") {
+      await supabase.from("processos_seletivos").delete().eq("vaga_id", Number(pkValue));
+    }
 
     const { error } = await supabase
       .from(tabela)

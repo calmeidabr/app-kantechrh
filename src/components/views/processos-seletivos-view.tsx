@@ -13,6 +13,8 @@ import {
   SlidersHorizontal,
   ExternalLink,
   Trash2,
+  Pencil,
+  X,
   CheckCircle2,
   Calendar,
   Award,
@@ -38,6 +40,7 @@ import {
   CATEGORIAS_OPCOES,
   QUALIDADES_OPCOES,
   type VagaData,
+  type KanType,
   type TalentoProfile,
   type EquipeData,
 } from "@/lib/mock-data";
@@ -63,6 +66,77 @@ export function VagasView({
 }) {
   const [empresaSel, setEmpresaSel] = useState(EMPRESAS_TENANT[0].nome);
   const [formOpen, setFormOpen] = useState(false);
+  // Edit Vaga Modal State
+  const [editingVaga, setEditingVaga] = useState<VagaData | null>(null);
+  const [editVagaNome, setEditVagaNome] = useState("");
+  const [editVagaSenioridade, setEditVagaSenioridade] = useState("");
+  const [editVagaDepto, setEditVagaDepto] = useState("");
+  const [editVagaEmpresa, setEditVagaEmpresa] = useState("");
+  const [editVagaLink, setEditVagaLink] = useState("");
+  const [editVagaDesc, setEditVagaDesc] = useState("");
+  const [editVagaKan, setEditVagaKan] = useState<string[]>([]);
+  const [editVagaPerfis, setEditVagaPerfis] = useState<string[]>([]);
+  const [editVagaCats, setEditVagaCats] = useState<string[]>([]);
+  const [isSavingVaga, setIsSavingVaga] = useState(false);
+
+  const handleOpenEditVaga = (vg: VagaData) => {
+    setEditingVaga(vg);
+    setEditVagaNome(vg.nome_vaga);
+    setEditVagaSenioridade(vg.senioridade);
+    setEditVagaDepto(vg.departamento);
+    setEditVagaEmpresa(vg.empresa);
+    setEditVagaLink(vg.link_vaga || "");
+    setEditVagaDesc(vg.descricao_vaga || "");
+    setEditVagaKan(vg.kan_ideal || []);
+    setEditVagaPerfis(vg.perfis_ideais || []);
+    setEditVagaCats(vg.categorias_ideais || []);
+  };
+
+  const handleSaveEditVaga = async () => {
+    if (!editingVaga) return;
+    if (!editVagaNome.trim()) {
+      setToastMsg("⚠️ O nome da vaga é obrigatório.");
+      return;
+    }
+
+    setIsSavingVaga(true);
+    const updatedPayload: VagaData = {
+      ...editingVaga,
+      nome_vaga: editVagaNome.trim(),
+      senioridade: (editVagaSenioridade || "Senior") as VagaData["senioridade"],
+      departamento: editVagaDepto,
+      empresa: editVagaEmpresa,
+      link_vaga: editVagaLink.trim(),
+      descricao_vaga: editVagaDesc.trim(),
+      kan_ideal: editVagaKan,
+      perfis_ideais: editVagaPerfis,
+      categorias_ideais: editVagaCats,
+    };
+
+    try {
+      const res = await fetch("/api/vagas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedPayload),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Erro ao salvar vaga.");
+      }
+
+      setVagas((prev) =>
+        prev.map((v) => (v.id === editingVaga.id ? { ...v, ...updatedPayload } : v))
+      );
+      setToastMsg(`✅ Vaga "${editVagaNome.trim()}" atualizada com sucesso!`);
+      setEditingVaga(null);
+    } catch (err) {
+      setToastMsg(`❌ Erro ao atualizar: ${err instanceof Error ? err.message : "Erro desconhecido"}`);
+    } finally {
+      setIsSavingVaga(false);
+      setTimeout(() => setToastMsg(null), 4000);
+    }
+  };
+
   const [buscaVaga, setBuscaVaga] = useState("");
   const [expandedVagaId, setExpandedVagaId] = useState<number | null>(
     vagas[0]?.id || null

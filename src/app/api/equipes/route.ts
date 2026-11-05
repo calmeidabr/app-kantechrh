@@ -127,7 +127,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { nome, empresa, departamento, membros, tenant_id } = body;
+    const { id, nome, empresa, departamento, membros, tenant_id } = body;
 
     if (!nome) {
       return NextResponse.json(
@@ -147,6 +147,9 @@ export async function POST(req: NextRequest) {
 
     if (tenant_id) {
       payload.tenant_id = tenant_id;
+    }
+    if (id && !isNaN(Number(id))) {
+      payload.id = Number(id);
     }
 
     const { data, error } = await supabaseAdmin
@@ -184,6 +187,14 @@ export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const nome = searchParams.get("nome");
+    const isAdmin = searchParams.get("admin") === "true";
+
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: "Ação não permitida: A exclusão de equipes é restrita ao Painel de Controle com perfil Administrador." },
+        { status: 403 }
+      );
+    }
     if (!nome) {
       return NextResponse.json(
         { error: "Parâmetro 'nome' obrigatório." },

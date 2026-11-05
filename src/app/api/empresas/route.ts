@@ -251,6 +251,14 @@ export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const departamentoId = searchParams.get("departamento_id");
+    const isAdmin = searchParams.get("admin") === "true";
+
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: "Ação não permitida: A exclusão de departamentos é restrita ao Painel de Controle com perfil Administrador." },
+        { status: 403 }
+      );
+    }
     if (!departamentoId) {
       return NextResponse.json({ error: "departamento_id obrigatório" }, { status: 400 });
     }

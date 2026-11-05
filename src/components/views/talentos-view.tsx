@@ -14,6 +14,8 @@ import {
   Calendar,
   Eye,
   Pencil,
+  X,
+  Save,
   RotateCcw,
   CheckCircle2,
   Building2,
@@ -62,6 +64,157 @@ export function TalentosView({
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Search & Consultation State
+  // Dedicated Edit Modal State
+  const [editingTalento, setEditingTalento] = useState<TalentoProfile | null>(null);
+  const [editNome, setEditNome] = useState("");
+  const [editData, setEditData] = useState("");
+  const [editProfissao, setEditProfissao] = useState("");
+  const [editCargo, setEditCargo] = useState("");
+  const [editGrupo, setEditGrupo] = useState("");
+  const [editEmpresa, setEditEmpresa] = useState(EMPRESAS_TENANT[0].nome);
+  const [editDepto, setEditDepto] = useState(DEPARTAMENTOS_OPCOES[1]);
+  const [editLinkedin, setEditLinkedin] = useState("");
+  const [editExp, setEditExp] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const handleEditDateChange = (raw: string) => {
+    const digits = raw.replace(/\D/g, "").slice(0, 8);
+    let formatted = digits;
+    if (digits.length > 2 && digits.length <= 4) {
+      formatted = `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    } else if (digits.length > 4) {
+      formatted = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+    }
+    setEditData(formatted);
+  };
+
+  const handleOpenEditModal = (t: TalentoProfile) => {
+    setEditingTalento(t);
+    setEditNome(t.nome);
+    setEditData(t.data_nascimento);
+    setEditProfissao(t.profissao);
+    setEditCargo(t.cargo || t.profissao || "");
+    setEditGrupo(t.grupo || "Geral");
+    setEditEmpresa(t.empresa || EMPRESAS_TENANT[0].nome);
+    setEditDepto(t.departamento || DEPARTAMENTOS_OPCOES[1]);
+    setEditLinkedin(t.linkedin_url || "");
+    setEditExp(t.experiencias || "");
+  };
+
+  const handleSaveModalEdit = async () => {
+    if (!editingTalento) return;
+    if (!editNome.trim()) {
+      setToastMsg("⚠️ O campo 'Nome Completo' é obrigatório.");
+      return;
+    }
+    if (editData.split("/").length !== 3 || editData.length < 10) {
+      setToastMsg("⚠️ Formato de data inválido. Use dd/mm/aaaa.");
+      return;
+    }
+
+    setIsSavingEdit(true);
+    setToastMsg("⏳ Atualizando e recalculando matriz comportamental no Supabase...");
+
+    try {
+      const res = await fetch("/api/talentos", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingTalento.id,
+          originalNome: editingTalento.nome,
+          nome: editNome.trim(),
+          data_nascimento: editData,
+          profissao: editProfissao || "Especialista Corporativo",
+          cargo: editCargo || editProfissao || "Analista Sênior",
+          grupo: editGrupo || "Geral",
+          departamento: editDepto,
+          empresa: editEmpresa,
+          linkedin_url: editLinkedin,
+          experiencias: editExp,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        throw new Error(json.error || "Falha ao salvar alterações no Supabase.");
+      }
+
+      const c = json.calculated;
+      let calcKanNum = editingTalento.kan_numero;
+      let calcKanNome = editingTalento.kan_nome;
+      let calcEstrutural = editingTalento.estrutural;
+      let calcDirecionamento = editingTalento.direcionamento;
+      let calcVertices = editingTalento.vertices_triangulo;
+      let calcPerfis = editingTalento.perfis_lista;
+      let calcCats = editingTalento.categorias_lista;
+      let calcQuals = editingTalento.qualidades_lista;
+
+      if (c) {
+        calcKanNum = Number(c.kan_numero) || calcKanNum;
+        const kn = String(c.kan_nome || "").toLowerCase();
+        calcKanNome = kn.includes("cria")
+          ? "Criação"
+          : kn.includes("mov")
+          ? "Movimento"
+          : "Finalidade";
+        calcEstrutural = Number(c.estrutural) || calcEstrutural;
+        calcDirecionamento = Number(c.direcionamento) || calcDirecionamento;
+        if (Array.isArray(c.vertices_triangulo) && c.vertices_triangulo.length >= 3) {
+          calcVertices = [
+            Number(c.vertices_triangulo[0]),
+            Number(c.vertices_triangulo[1]),
+            Number(c.vertices_triangulo[2]),
+          ];
+        }
+        const vr = c.valores_resumo || {};
+        if (vr.perfil) {
+          calcPerfis = String(vr.perfil).split(",").map((s: string) => s.trim()).filter(Boolean);
+        }
+        if (vr.categoria) {
+          calcCats = String(vr.categoria).split(",").map((s: string) => s.trim()).filter(Boolean);
+        }
+        if (vr.qualidades) {
+          calcQuals = String(vr.qualidades).split(",").map((s: string) => s.trim()).filter(Boolean);
+        }
+      }
+
+      setTalentos((prev) =>
+        prev.map((item) =>
+          item.id === editingTalento.id || item.nome === editingTalento.nome
+            ? {
+                ...item,
+                nome: editNome.trim(),
+                data_nascimento: editData,
+                profissao: editProfissao || item.profissao,
+                cargo: editCargo || item.cargo,
+                grupo: editGrupo || item.grupo,
+                empresa: editEmpresa,
+                departamento: editDepto,
+                linkedin_url: editLinkedin,
+                experiencias: editExp,
+                kan_numero: calcKanNum,
+                kan_nome: calcKanNome,
+                estrutural: calcEstrutural,
+                direcionamento: calcDirecionamento,
+                vertices_triangulo: calcVertices,
+                perfis_lista: calcPerfis.length ? calcPerfis : item.perfis_lista,
+                categorias_lista: calcCats.length ? calcCats : item.categorias_lista,
+                qualidades_lista: calcQuals.length ? calcQuals : item.qualidades_lista,
+              }
+            : item
+        )
+      );
+
+      setToastMsg(`✅ Talento "${editNome.trim()}" atualizado com sucesso no Supabase!`);
+      setEditingTalento(null);
+    } catch (err) {
+      setToastMsg(`❌ Erro ao salvar: ${err instanceof Error ? err.message : "Erro desconhecido"}`);
+    } finally {
+      setIsSavingEdit(false);
+      setTimeout(() => setToastMsg(null), 4500);
+    }
+  };
+
   const [buscaTalento, setBuscaTalento] = useState("");
   const [ultimosConsultados, setUltimosConsultados] = useState<string[]>([
     "Cristiano Corrêa de Almeida",

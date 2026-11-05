@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin, callMamEngine, normalizeKey } from "@/lib/supabase";
 import { TALENTOS_MOCK, TalentoProfile, KanType } from "@/lib/mock-data";
 import { obterVerticesTriangulo } from "@/lib/numerologia";
+import { invalidateDiagnosticoCache } from "@/lib/diagnostico-cache";
 
 export const dynamic = "force-dynamic";
 
@@ -560,12 +561,188 @@ export async function POST(req: NextRequest) {
 }
 
 /**
+ * PUT /api/talentos
+ * Atualiza um Talento existente no Supabase + recalcula matriz comportamental no `mam-kantechrh`.
+ */
+export async function PUT(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const {
+      id,
+      originalNome,
+      nome,
+      data_nascimento,
+      profissao,
+      cargo,
+      grupo,
+      departamento,
+      empresa,
+      linkedin_url,
+      experiencias,
+      lider,
+      tenant_id,
+    } = body;
+
+    if (!nome || !data_nascimento) {
+      return NextResponse.json(
+        { error: "Campos obrigatórios: nome e data_nascimento (dd/mm/aaaa)." },
+        { status: 400 }
+      );
+    }
+
+    const mamResponse = await callMamEngine<Record<string, unknown>>(
+      "/api/v1/calcular-completo",
+      {
+        nome,
+        data_nascimento,
+        cargo: cargo || profissao || "",
+        empresa: empresa || "Mundo Kan",
+      }
+    );
+
+    const calcData = mamResponse.ok && mamResponse.data ? mamResponse.data : null;
+    const supabaseAdmin = getSupabaseAdmin();
+
+    const perfilJsonStr = calcData?.perfil_json
+      ? typeof calcData.perfil_json === "string"
+        ? calcData.perfil_json
+        : JSON.stringify(calcData.perfil_json)
+      : null;
+
+    const updatePayload: Record<string, unknown> = {
+      nome: String(nome).trim(),
+      data_nascimento: String(data_nascimento).trim(),
+      profissao: profissao || cargo || "Especialista Corporativo",
+      cargo: cargo || profissao || "Analista Sênior",
+      grupo: grupo || departamento || "Geral",
+      departamento: departamento || grupo || "Diretoria Executiva",
+      empresa: empresa || "Mundo Kan",
+      linkedin_url: linkedin_url || "",
+      experiencias: experiencias || "",
+      lider: Boolean(lider),
+      updated_at: new Date().toISOString(),
+    };
+
+    if (tenant_id) updatePayload.tenant_id = tenant_id;
+    if (perfilJsonStr) updatePayload.perfil_json = perfilJsonStr;
+
+    let savedMapa = null;
+    let saveError = null;
+
+    // Update by ID if provided and valid
+    if (id && !String(id).startsWith("mock-") && !isNaN(Number(id))) {
+      const res = await supabaseAdmin
+        .from("mapas_salvos")
+        .update(updatePayload)
+        .eq("id", Number(id))
+        .select()
+        .maybeSingle();
+      savedMapa = res.data;
+      saveError = res.error;
+    }
+
+    // Fallback: update by originalNome or nome
+    if (!savedMapa) {
+      const searchName = originalNome || nome;
+      const res = await supabaseAdmin
+        .from("mapas_salvos")
+        .update(updatePayload)
+        .eq("nome", searchName)
+        .select()
+        .maybeSingle();
+      savedMapa = res.data;
+      saveError = res.error;
+    }
+
+    // If still not found, upsert
+    if (!savedMapa && !saveError) {
+      const res = await supabaseAdmin
+        .from("mapas_salvos")
+        .upsert(updatePayload, { onConflict: "nome" })
+        .select()
+        .single();
+      savedMapa = res.data;
+      saveError = res.error;
+    }
+
+    // Update mapas_salvos_valores
+    if (calcData) {
+      const vertices = Array.isArray(calcData.vertices_triangulo)
+        ? calcData.vertices_triangulo
+        : [8, 1, 7];
+
+      // Clean old values if name changed
+      if (originalNome && originalNome !== nome) {
+        await supabaseAdmin.from("mapas_salvos_valores").delete().eq("nome", originalNome);
+      }
+
+      await supabaseAdmin.from("mapas_salvos_valores").upsert(
+        {
+          nome: String(nome).trim(),
+          data_nascimento: String(data_nascimento).trim(),
+          kan: String(calcData.kan_nome || calcData.kan_numero || "FINALIDADE").toUpperCase(),
+          perfil: Array.isArray(calcData.perfis_lista)
+            ? calcData.perfis_lista.join(", ")
+            : String(calcData.perfil || "Lider, Resultado"),
+          categoria: Array.isArray(calcData.categorias_lista)
+            ? calcData.categorias_lista.join(", ")
+            : String(calcData.categoria || "Realizador"),
+          qualidades: Array.isArray(calcData.qualidades_lista)
+            ? calcData.qualidades_lista.join(", ")
+            : String(calcData.qualidades || "Execução, Análise"),
+          estrutural: String(calcData.estrutural ?? 1),
+          direcionamento: String(calcData.direcionamento ?? 7),
+          vertice_triangulo_1: String(vertices[0] ?? 8),
+          vertice_triangulo_2: String(vertices[1] ?? 1),
+          vertice_triangulo_3: String(vertices[2] ?? 7),
+        },
+        { onConflict: "nome" }
+      );
+    }
+
+    // Invalidate Diagnóstico Ampliado cache so new values appear immediately
+    try {
+      invalidateDiagnosticoCache();
+    } catch {
+      // ignore
+    }
+
+    return NextResponse.json({
+      success: !saveError,
+      mamEngineUsed: mamResponse.ok,
+      calculated: calcData,
+      savedRecord: savedMapa,
+      dbError: saveError?.message,
+    });
+  } catch (err) {
+    return NextResponse.json(
+      {
+        error:
+          err instanceof Error
+            ? err.message
+            : "Erro interno ao atualizar talento.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * DELETE /api/talentos?nome=...
  */
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const nome = searchParams.get("nome");
+    const id = searchParams.get("id");
+    const isAdmin = searchParams.get("admin") === "true";
+
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: "Ação não permitida: A exclusão de talentos é restrita ao Painel de Controle com perfil Administrador." },
+        { status: 403 }
+      );
+    }
 
     if (!nome) {
       return NextResponse.json(

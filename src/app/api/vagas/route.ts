@@ -288,6 +288,14 @@ export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
+    const isAdmin = searchParams.get("admin") === "true";
+
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: "Ação não permitida: A exclusão de vagas e processos seletivos é restrita ao Painel de Controle com perfil Administrador." },
+        { status: 403 }
+      );
+    }
     if (!id) {
       return NextResponse.json({ error: "ID da vaga obrigatório." }, { status: 400 });
     }

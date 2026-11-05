@@ -8,10 +8,11 @@ import {
   Crown,
   Trash2,
   Pencil,
+  Edit3,
+  X,
   Triangle,
   UserPlus,
   CheckCircle2,
-  X,
   UploadCloud,
   Filter,
 } from "lucide-react";
