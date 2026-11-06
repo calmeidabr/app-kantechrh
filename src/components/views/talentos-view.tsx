@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   Search,
   Plus,
@@ -14,6 +14,7 @@ import {
   Calendar,
   Eye,
   Pencil,
+  Trash2,
   X,
   Save,
   RotateCcw,
@@ -36,6 +37,41 @@ import {
   type TalentoProfile,
   type EquipeData,
 } from "@/lib/mock-data";
+
+function processImageFile(file: File, maxDim = 400, quality = 0.85): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(String(e.target?.result || ""));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => reject(new Error("Falha ao abrir imagem"));
+      img.src = String(e.target?.result);
+    };
+    reader.onerror = () => reject(new Error("Falha ao ler arquivo"));
+    reader.readAsDataURL(file);
+  });
+}
 
 export function TalentosView({
   talentos,
@@ -63,7 +99,11 @@ export function TalentosView({
   const [ocrLoading, setOcrLoading] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  // Search & Consultation State
+  // Cadastro form photo state
+  const [cadFotoPreview, setCadFotoPreview] = useState<string | null>(null);
+  const [cadFotoBase64, setCadFotoBase64] = useState<string | null>(null);
+  const cadFileInputRef = useRef<HTMLInputElement>(null);
+
   // Dedicated Edit Modal State
   const [editingTalento, setEditingTalento] = useState<TalentoProfile | null>(null);
   const [editNome, setEditNome] = useState("");
@@ -75,7 +115,62 @@ export function TalentosView({
   const [editDepto, setEditDepto] = useState(DEPARTAMENTOS_OPCOES[1]);
   const [editLinkedin, setEditLinkedin] = useState("");
   const [editExp, setEditExp] = useState("");
+  const [editFotoPreview, setEditFotoPreview] = useState<string | null>(null);
+  const [editFotoBase64, setEditFotoBase64] = useState<string | null | undefined>(undefined);
+  const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleEditFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setToastMsg("⚠️ Selecione um arquivo de imagem válido (PNG, JPG, WEBP).");
+      return;
+    }
+
+    try {
+      setIsProcessingPhoto(true);
+      const b64 = await processImageFile(file);
+      setEditFotoPreview(b64);
+      setEditFotoBase64(b64);
+    } catch {
+      setToastMsg("❌ Erro ao processar a foto. Tente outro arquivo.");
+    } finally {
+      setIsProcessingPhoto(false);
+      if (editFileInputRef.current) {
+        editFileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleRemoveEditPhoto = () => {
+    setEditFotoPreview(null);
+    setEditFotoBase64(""); // Empty string signals deletion in Supabase
+  };
+
+  const handleCadFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setToastMsg("⚠️ Selecione um arquivo de imagem válido (PNG, JPG, WEBP).");
+      return;
+    }
+
+    try {
+      const b64 = await processImageFile(file);
+      setCadFotoPreview(b64);
+      setCadFotoBase64(b64);
+    } catch {
+      setToastMsg("❌ Erro ao processar a foto.");
+    } finally {
+      if (cadFileInputRef.current) {
+        cadFileInputRef.current.value = "";
+      }
+    }
+  };
 
   const handleEditDateChange = (raw: string) => {
     const digits = raw.replace(/\D/g, "").slice(0, 8);
@@ -99,6 +194,8 @@ export function TalentosView({
     setEditDepto(t.departamento || DEPARTAMENTOS_OPCOES[1]);
     setEditLinkedin(t.linkedin_url || "");
     setEditExp(t.experiencias || "");
+    setEditFotoPreview(t.avatar || null);
+    setEditFotoBase64(undefined);
   };
 
   const handleSaveModalEdit = async () => {
@@ -116,22 +213,28 @@ export function TalentosView({
     setToastMsg("⏳ Atualizando e recalculando matriz comportamental no Supabase...");
 
     try {
+      const editPayload: Record<string, unknown> = {
+        id: editingTalento.id,
+        originalNome: editingTalento.nome,
+        nome: editNome.trim(),
+        data_nascimento: editData,
+        profissao: editProfissao || "Especialista Corporativo",
+        cargo: editCargo || editProfissao || "Analista Sênior",
+        grupo: editGrupo || "Geral",
+        departamento: editDepto,
+        empresa: editEmpresa,
+        linkedin_url: editLinkedin,
+        experiencias: editExp,
+      };
+
+      if (editFotoBase64 !== undefined) {
+        editPayload.foto_base64 = editFotoBase64;
+      }
+
       const res = await fetch("/api/talentos", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: editingTalento.id,
-          originalNome: editingTalento.nome,
-          nome: editNome.trim(),
-          data_nascimento: editData,
-          profissao: editProfissao || "Especialista Corporativo",
-          cargo: editCargo || editProfissao || "Analista Sênior",
-          grupo: editGrupo || "Geral",
-          departamento: editDepto,
-          empresa: editEmpresa,
-          linkedin_url: editLinkedin,
-          experiencias: editExp,
-        }),
+        body: JSON.stringify(editPayload),
       });
 
       const json = await res.json();
@@ -178,6 +281,12 @@ export function TalentosView({
         }
       }
 
+      const cacheBust = Date.now();
+      const updatedAvatar =
+        editFotoBase64 !== undefined
+          ? editFotoPreview || `/api/talentos/foto?id=${encodeURIComponent(editingTalento.id)}&nome=${encodeURIComponent(editNome.trim())}&t=${cacheBust}`
+          : editingTalento.avatar;
+
       setTalentos((prev) =>
         prev.map((item) =>
           item.id === editingTalento.id || item.nome === editingTalento.nome
@@ -192,6 +301,11 @@ export function TalentosView({
                 departamento: editDepto,
                 linkedin_url: editLinkedin,
                 experiencias: editExp,
+                avatar: updatedAvatar,
+                foto_base64:
+                  editFotoBase64 !== undefined
+                    ? editFotoBase64 || undefined
+                    : item.foto_base64,
                 kan_numero: calcKanNum,
                 kan_nome: calcKanNome,
                 estrutural: calcEstrutural,
@@ -260,6 +374,8 @@ export function TalentosView({
     setCadEmpresa(EMPRESAS_TENANT[0].nome);
     setCadLinkedin("");
     setCadExp("");
+    setCadFotoPreview(null);
+    setCadFotoBase64(null);
     setCameraOpen(false);
   };
 
@@ -312,6 +428,7 @@ export function TalentosView({
           empresa: cadEmpresa,
           linkedin_url: cadLinkedin,
           experiencias: cadExp,
+          foto_base64: cadFotoBase64 || undefined,
         }),
       });
       const json = await res.json();
@@ -395,7 +512,8 @@ export function TalentosView({
         empresa: cadEmpresa,
         status: "Ativo",
         avatar:
-          "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80",
+          cadFotoPreview || `/api/talentos/foto?nome=${encodeURIComponent(cadNome.trim())}`,
+        foto_base64: cadFotoBase64 || undefined,
         linkedin_url: cadLinkedin,
         experiencias: cadExp,
         kan_numero: calcKanNum,
@@ -601,11 +719,36 @@ export function TalentosView({
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                 Foto do Perfil (Opcional)
               </label>
-              <label className="flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900 px-3 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100">
-                <UploadCloud className="h-3.5 w-3.5 text-[#510851]" />
-                <span>Carregar PNG/JPG</span>
-                <input type="file" accept="image/*" className="hidden" />
-              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  ref={cadFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleCadFileSelect}
+                />
+                <button
+                  type="button"
+                  onClick={() => cadFileInputRef.current?.click()}
+                  className="flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900 px-3 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 truncate"
+                >
+                  <UploadCloud className="h-3.5 w-3.5 text-[#510851] shrink-0" />
+                  <span className="truncate">{cadFotoPreview ? "Foto selecionada" : "Carregar PNG/JPG"}</span>
+                </button>
+                {cadFotoPreview && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCadFotoPreview(null);
+                      setCadFotoBase64(null);
+                    }}
+                    title="Remover foto"
+                    className="h-9 w-9 shrink-0 flex items-center justify-center rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -948,14 +1091,15 @@ export function TalentosView({
             <div className="flex items-start justify-between border-b pb-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#510851] text-sm font-bold text-white shadow-sm overflow-hidden ring-2 ring-[#ea580c]">
-                  {editingTalento.avatar && editingTalento.avatar.startsWith("http") ? (
+                  {editFotoPreview ? (
                     <img
-                      src={editingTalento.avatar}
-                      alt={editingTalento.nome}
+                      src={editFotoPreview}
+                      alt={editNome || editingTalento.nome}
                       className="h-full w-full object-cover"
+                      onError={() => setEditFotoPreview(null)}
                     />
                   ) : (
-                    editingTalento.nome.slice(0, 2).toUpperCase()
+                    (editNome || editingTalento.nome).slice(0, 2).toUpperCase()
                   )}
                 </div>
                 <div>
@@ -980,7 +1124,95 @@ export function TalentosView({
               </button>
             </div>
 
-            <div className="space-y-4 py-4">
+            <div className="space-y-5 py-4">
+              {/* Foto do Talento (Upload, Trocar ou Remover) */}
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40">
+                <div className="relative group shrink-0">
+                  <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-[#510851]/30 dark:border-purple-500/40 shadow-sm bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                    {editFotoPreview ? (
+                      <img
+                        src={editFotoPreview}
+                        alt={editNome || "Foto do Talento"}
+                        className="h-full w-full object-cover object-top"
+                        onError={() => setEditFotoPreview(null)}
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-[#510851] to-purple-800 text-white font-bold text-xl">
+                        {editNome
+                          ? editNome
+                              .split(" ")
+                              .filter(Boolean)
+                              .slice(0, 2)
+                              .map((p) => p[0])
+                              .join("")
+                              .toUpperCase()
+                          : "TK"}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => editFileInputRef.current?.click()}
+                    title="Carregar ou trocar foto"
+                    className="absolute -bottom-1 -right-1 rounded-full bg-[#510851] p-1.5 text-white shadow hover:bg-[#510851]/90 transition-transform active:scale-95"
+                  >
+                    <Camera className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                <div className="flex-1 text-center sm:text-left space-y-2">
+                  <div>
+                    <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                      Foto de Perfil do Talento
+                    </h4>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Faça upload de uma nova foto ou troque a atual (PNG, JPG ou WEBP). Ao salvar, a imagem será guardada diretamente na tabela do Supabase.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
+                    <input
+                      ref={editFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleEditFileSelect}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => editFileInputRef.current?.click()}
+                      disabled={isProcessingPhoto || isSavingEdit}
+                      className="h-7 text-xs gap-1.5 border-slate-300 dark:border-slate-700 hover:border-[#510851]"
+                    >
+                      <UploadCloud className="h-3.5 w-3.5 text-[#510851]" />
+                      {editFotoPreview ? "Trocar Foto" : "Carregar Nova Foto"}
+                    </Button>
+
+                    {editFotoPreview && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRemoveEditPhoto}
+                        disabled={isProcessingPhoto || isSavingEdit}
+                        className="h-7 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 gap-1.5"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Remover Foto
+                      </Button>
+                    )}
+
+                    {editFotoBase64 !== undefined && (
+                      <Badge variant="outline" className="text-[10px] bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-300">
+                        Foto atualizada (será salva no Supabase)
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5 sm:col-span-2">
                   <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">

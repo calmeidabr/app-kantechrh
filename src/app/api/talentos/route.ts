@@ -3,6 +3,7 @@ import { getSupabaseAdmin, callMamEngine, normalizeKey } from "@/lib/supabase";
 import { TALENTOS_MOCK, TalentoProfile, KanType } from "@/lib/mock-data";
 import { obterVerticesTriangulo } from "@/lib/numerologia";
 import { invalidateDiagnosticoCache } from "@/lib/diagnostico-cache";
+import { invalidateFotoCache, setFotoCache } from "@/lib/foto-cache";
 
 export const dynamic = "force-dynamic";
 
@@ -328,6 +329,7 @@ function mapSupabaseRowToTalento(
     empresa: empresaClean,
     status: "Ativo",
     avatar: `/api/talentos/foto?id=${encodeURIComponent(rowId)}&nome=${encodeURIComponent(nome)}`,
+    foto_base64: cleanStr(row.foto_base64) || undefined,
     linkedin_url: cleanStr(row.linkedin_url),
     experiencias: cleanStr(row.experiencias),
     kan_numero: v1,
@@ -454,6 +456,7 @@ export async function POST(req: NextRequest) {
       experiencias,
       lider,
       tenant_id,
+      foto_base64,
     } = body;
 
     if (!nome || !data_nascimento) {
@@ -499,6 +502,10 @@ export async function POST(req: NextRequest) {
       upsertMapaPayload.tenant_id = tenant_id;
     }
 
+    if (foto_base64) {
+      upsertMapaPayload.foto_base64 = String(foto_base64).trim();
+    }
+
     if (perfilJsonStr) {
       upsertMapaPayload.perfil_json = perfilJsonStr;
     }
@@ -508,6 +515,10 @@ export async function POST(req: NextRequest) {
       .upsert(upsertMapaPayload, { onConflict: "nome" })
       .select()
       .single();
+
+    if (savedMapa && foto_base64) {
+      setFotoCache(savedMapa.id, String(foto_base64).trim(), nome);
+    }
 
     if (calcData) {
       const vertices = Array.isArray(calcData.vertices_triangulo)
@@ -581,6 +592,7 @@ export async function PUT(req: NextRequest) {
       experiencias,
       lider,
       tenant_id,
+      foto_base64,
     } = body;
 
     if (!nome || !data_nascimento) {
@@ -625,6 +637,9 @@ export async function PUT(req: NextRequest) {
 
     if (tenant_id) updatePayload.tenant_id = tenant_id;
     if (perfilJsonStr) updatePayload.perfil_json = perfilJsonStr;
+    if (foto_base64 !== undefined) {
+      updatePayload.foto_base64 = foto_base64 ? String(foto_base64).trim() : null;
+    }
 
     let savedMapa = null;
     let saveError = null;
@@ -705,6 +720,16 @@ export async function PUT(req: NextRequest) {
       invalidateDiagnosticoCache();
     } catch {
       // ignore
+    }
+
+    // Update foto cache if foto was updated or deleted
+    if (foto_base64 !== undefined) {
+      const finalB64 = foto_base64 ? String(foto_base64).trim() : null;
+      const targetId = savedMapa?.id ?? id;
+      if (targetId) setFotoCache(targetId, finalB64, nome);
+      if (originalNome && originalNome !== nome) {
+        invalidateFotoCache(undefined, originalNome);
+      }
     }
 
     return NextResponse.json({

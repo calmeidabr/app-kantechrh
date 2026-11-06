@@ -25,6 +25,7 @@ export interface TalentoProfile {
   empresa: string;
   status: "Ativo" | "Em Avaliação" | "Candidato";
   avatar: string;
+  foto_base64?: string;
   linkedin_url?: string;
   experiencias?: string;
   kan_numero: number;

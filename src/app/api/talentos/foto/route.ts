@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { fotoCache } from "@/lib/foto-cache";
 
-// Server-side in-memory cache for talent photos to avoid repeated DB queries
-const fotoCache = new Map<string, string | null>();
 let batchPreloadPromise: Promise<void> | null = null;
 
 async function ensurePhotosPreloaded() {
