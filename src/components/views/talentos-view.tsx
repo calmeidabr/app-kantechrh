@@ -238,6 +238,7 @@ export function TalentosView({
   };
 
   const handleLoadIntoForm = (t: TalentoProfile) => {
+    handleOpenEditModal(t);
     setCadNome(t.nome);
     setCadData(t.data_nascimento);
     setCadProfissao(t.profissao);
@@ -823,7 +824,7 @@ export function TalentosView({
                   <div className="min-w-0 flex-1 space-y-1.5">
                     <div className="flex items-start justify-between gap-2">
                       <button
-                        onClick={() => handleLoadIntoForm(t)}
+                        onClick={() => handleOpenEditModal(t)}
                         title={t.nome}
                         className="line-clamp-2 break-words text-sm font-bold leading-snug text-slate-900 dark:text-white hover:text-[#510851] dark:hover:text-[#a78bfa] text-left"
                       >
@@ -902,9 +903,10 @@ export function TalentosView({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleLoadIntoForm(t)}
+                      onClick={() => handleOpenEditModal(t)}
+                      className="border-[#510851]/40 text-[#510851] hover:bg-[#510851]/10 dark:text-purple-300"
                     >
-                      <Pencil className="h-3 w-3" />
+                      <Pencil className="h-3 w-3 mr-1" />
                       Editar
                     </Button>
                     <Button size="sm" onClick={() => onInspectTalento(t)}>
@@ -937,6 +939,210 @@ export function TalentosView({
           </div>
         )}
       </div>
+      {/* =====================================================================
+          MODAL DEDICADO: EDITAR CADASTRO DE TALENTO
+         ===================================================================== */}
+      {editingTalento && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border bg-background p-6 shadow-2xl">
+            <div className="flex items-start justify-between border-b pb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#510851] text-sm font-bold text-white shadow-sm overflow-hidden ring-2 ring-[#ea580c]">
+                  {editingTalento.avatar && editingTalento.avatar.startsWith("http") ? (
+                    <img
+                      src={editingTalento.avatar}
+                      alt={editingTalento.nome}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    editingTalento.nome.slice(0, 2).toUpperCase()
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">
+                    Editar Cadastro de Talento
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    ID #{editingTalento.codigo || editingTalento.id} • KAN:{" "}
+                    <strong className="text-[#510851] dark:text-[#a78bfa]">
+                      {editingTalento.kan_nome} (Vértices {editingTalento.vertices_triangulo.join("-")})
+                    </strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingTalento(null)}
+                disabled={isSavingEdit}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Nome Completo (Conforme certidão) *
+                  </label>
+                  <Input
+                    value={editNome}
+                    onChange={(e) => setEditNome(e.target.value)}
+                    placeholder="Nome completo..."
+                    className="h-9 text-xs font-medium"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Data de Nascimento (dd/mm/aaaa) *
+                  </label>
+                  <Input
+                    value={editData}
+                    onChange={(e) => handleEditDateChange(e.target.value)}
+                    placeholder="Ex: 15/05/1985"
+                    maxLength={10}
+                    className="h-9 font-mono text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Profissão Principal
+                  </label>
+                  <Input
+                    value={editProfissao}
+                    onChange={(e) => setEditProfissao(e.target.value)}
+                    placeholder="Ex: Desenvolvedor, Engenheiro..."
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Cargo Corporativo Atual
+                  </label>
+                  <Input
+                    value={editCargo}
+                    onChange={(e) => setEditCargo(e.target.value)}
+                    placeholder="Ex: Analista Sênior..."
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Empresa / Workspace
+                  </label>
+                  <select
+                    value={editEmpresa}
+                    onChange={(e) => setEditEmpresa(e.target.value)}
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs"
+                  >
+                    {EMPRESAS_TENANT.map((emp) => (
+                      <option key={emp.id} value={emp.nome}>
+                        {emp.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Departamento
+                  </label>
+                  <select
+                    value={editDepto}
+                    onChange={(e) => setEditDepto(e.target.value)}
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs"
+                  >
+                    {DEPARTAMENTOS_OPCOES.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Grupo / Segmento
+                  </label>
+                  <Input
+                    value={editGrupo}
+                    onChange={(e) => setEditGrupo(e.target.value)}
+                    placeholder="Ex: Geral, Tecnologia, Comercial..."
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    LinkedIn URL
+                  </label>
+                  <Input
+                    value={editLinkedin}
+                    onChange={(e) => setEditLinkedin(e.target.value)}
+                    placeholder="https://linkedin.com/in/usuario"
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Experiências & Observações Profissionais
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={editExp}
+                    onChange={(e) => setEditExp(e.target.value)}
+                    placeholder="Trajetória, conquistas e certificações do profissional..."
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between border-t pt-4">
+              <span className="text-[11px] text-muted-foreground">
+                Ao salvar, os vértices e eixos KAN serão recalculados automaticamente no Supabase.
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditingTalento(null)}
+                  disabled={isSavingEdit}
+                  className="text-xs"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleSaveModalEdit}
+                  disabled={isSavingEdit}
+                  className="bg-[#510851] text-xs font-semibold text-white hover:bg-[#510851]/90"
+                >
+                  {isSavingEdit ? (
+                    <>
+                      <RotateCcw className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      Recalculando e Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-1.5 h-3.5 w-3.5" />
+                      Salvar Alterações
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
