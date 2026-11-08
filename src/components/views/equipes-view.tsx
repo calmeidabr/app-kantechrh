@@ -1398,8 +1398,48 @@ export function EquipesView({
                           </div>
 
                           {/* Squircle Heatmap Grid */}
-                          <div className="overflow-x-auto pb-1">
-                            <div className="max-w-3xl space-y-1.5 sm:space-y-2">
+                          <div className="overflow-x-auto pb-2">
+                            <div className="min-w-[340px] sm:min-w-[540px] max-w-3xl space-y-1.5 sm:space-y-2">
+                              {/* CABEÇALHO SUPERIOR DAS COLUNAS (INTEGRANTES + COLUNA MÉDIA EM DESTAQUE) */}
+                              <div className="grid grid-cols-[68px_1fr] sm:grid-cols-[110px_1fr] items-end gap-1.5 sm:gap-3 pb-1 border-b border-slate-200/60 dark:border-slate-800">
+                                <span className="text-[8px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                  Dimensões
+                                </span>
+                                <div
+                                  className="grid gap-1 sm:gap-2 items-end"
+                                  style={{
+                                    gridTemplateColumns: `repeat(${
+                                      equipeMembrosTalentos.length + 1
+                                    }, minmax(0, 1fr))`,
+                                  }}
+                                >
+                                  {equipeMembrosTalentos.map((m) => (
+                                    <div
+                                      key={m.id}
+                                      className="flex flex-col items-center text-center px-0.5"
+                                      title={`${m.nome} (${m.cargo})`}
+                                    >
+                                      <img
+                                        src={m.avatar}
+                                        alt={m.nome}
+                                        className="h-5 w-5 sm:h-6 sm:w-6 rounded-full object-cover ring-1 ring-[#fb923c]/40 mb-0.5"
+                                      />
+                                      <span className="text-[8px] sm:text-[10px] font-bold text-slate-700 dark:text-slate-300 truncate w-full">
+                                        {m.nome.split(" ")[0]}
+                                      </span>
+                                    </div>
+                                  ))}
+
+                                  {/* Coluna Média no Cabeçalho Superior */}
+                                  <div className="flex flex-col items-center justify-end text-center px-0.5 pb-0.5">
+                                    <span className="inline-flex items-center justify-center rounded-md bg-amber-500/15 dark:bg-amber-400/20 px-1 py-0.5 text-[8px] sm:text-[10px] font-black text-amber-700 dark:text-amber-300 uppercase tracking-tight ring-1 ring-amber-500/30">
+                                      Média
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* LINHAS DOS EIXOS COMPORTAMENTAIS */}
                               {EIXOS_COMPORTAMENTAIS.map((eixo) => {
                                 const rowScores = equipeMembrosTalentos.map(
                                   (m) => calcularScoresEixos(m)[eixo] || 0
@@ -1423,7 +1463,7 @@ export function EquipesView({
                                   >
                                     {/* Left Y-Axis Label */}
                                     <span
-                                      className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate"
+                                      className="text-[10px] sm:text-[11px] font-semibold text-slate-600 dark:text-slate-300 truncate"
                                       title={eixo}
                                     >
                                       {eixo}
@@ -1431,7 +1471,7 @@ export function EquipesView({
 
                                     {/* Rounded Squircle Tiles Row */}
                                     <div
-                                      className="grid gap-1 sm:gap-2"
+                                      className="grid gap-1 sm:gap-2 items-center"
                                       style={{
                                         gridTemplateColumns: `repeat(${
                                           equipeMembrosTalentos.length + 1
@@ -1486,7 +1526,7 @@ export function EquipesView({
                                         );
                                       })}
 
-                                      {/* Média da Equipe (Última coluna de síntese) */}
+                                      {/* Média da Equipe (Coluna de síntese SEMPRE VISÍVEL) */}
                                       <div
                                         onMouseEnter={() =>
                                           setHoveredCell({
@@ -1512,15 +1552,10 @@ export function EquipesView({
                                           backgroundColor: avgStyle.bg,
                                           color: avgStyle.text,
                                         }}
-                                        className="group relative flex h-[28px] sm:h-[38px] w-full cursor-pointer items-center justify-center rounded-[7px] sm:rounded-[12px] border sm:border-2 border-dashed border-slate-300 dark:border-slate-700 text-[9px] sm:text-[11px] font-extrabold transition-all duration-200 hover:scale-[1.04]"
+                                        className="group relative flex h-[28px] sm:h-[38px] w-full cursor-pointer items-center justify-center rounded-[7px] sm:rounded-[12px] border-2 border-amber-500/70 dark:border-amber-400/70 text-[9px] sm:text-[11px] font-black transition-all duration-200 hover:scale-[1.05] shadow-2xs ring-1 ring-amber-500/20"
                                       >
-                                        <span
-                                          className={`transition-opacity duration-150 ${
-                                            showHeatmapValues
-                                              ? "opacity-100"
-                                              : "opacity-0 group-hover:opacity-100"
-                                          }`}
-                                        >
+                                        {/* A pontuação da média fica sempre visível para rápida leitura */}
+                                        <span className="opacity-100 font-extrabold tracking-tight">
                                           {avgScore}
                                         </span>
                                       </div>
@@ -1528,33 +1563,33 @@ export function EquipesView({
                                   </div>
                                 );
                               })}
-                            </div>
-                          </div>
 
-                          {/* Member Headers & Media Footer Row */}
-                          <div className="mt-2 sm:mt-3 grid grid-cols-[68px_1fr] sm:grid-cols-[110px_1fr] items-center gap-1.5 sm:gap-3">
-                            <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-wider text-slate-400 truncate">
-                              Integrantes:
-                            </span>
-                            <div
-                              className="grid gap-1 sm:gap-2"
-                              style={{
-                                gridTemplateColumns: `repeat(${
-                                  equipeMembrosTalentos.length + 1
-                                }, minmax(0, 1fr))`,
-                              }}
-                            >
-                              {equipeMembrosTalentos.map((m) => (
+                              {/* Member Headers & Media Footer Row */}
+                              <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800 grid grid-cols-[68px_1fr] sm:grid-cols-[110px_1fr] items-center gap-1.5 sm:gap-3">
+                                <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-wider text-slate-400 truncate">
+                                  Síntese:
+                                </span>
                                 <div
-                                  key={m.id}
-                                  className="text-center truncate text-[8px] sm:text-[10px] font-bold text-slate-700 dark:text-slate-300 px-0.5"
-                                  title={m.nome}
+                                  className="grid gap-1 sm:gap-2 items-center"
+                                  style={{
+                                    gridTemplateColumns: `repeat(${
+                                      equipeMembrosTalentos.length + 1
+                                    }, minmax(0, 1fr))`,
+                                  }}
                                 >
-                                  {m.nome.split(" ")[0]}
+                                  {equipeMembrosTalentos.map((m) => (
+                                    <div
+                                      key={m.id}
+                                      className="text-center truncate text-[8px] sm:text-[10px] font-bold text-slate-700 dark:text-slate-300 px-0.5"
+                                      title={m.nome}
+                                    >
+                                      {m.nome.split(" ")[0]}
+                                    </div>
+                                  ))}
+                                  <div className="text-center text-[8px] sm:text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-tight">
+                                    Média
+                                  </div>
                                 </div>
-                              ))}
-                              <div className="text-center text-[8px] sm:text-[10px] font-black text-amber-600 dark:text-amber-400">
-                                Média
                               </div>
                             </div>
                           </div>
