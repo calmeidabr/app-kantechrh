@@ -103,6 +103,40 @@ type RouteKey =
   | "SaaS Multi-Tenant"
   | "Painel de Controle";
 
+const ROUTE_TO_SLUG: Record<RouteKey, string> = {
+  Home: "home",
+  Diagnósticos: "diagnosticos",
+  Talentos: "talentos",
+  Equipes: "equipes",
+  "Processo seletivo": "processos",
+  Analytics: "analytics",
+  Vagas: "vagas",
+  "Empresa e Organograma": "organograma",
+  "SaaS Multi-Tenant": "saas",
+  "Painel de Controle": "admin",
+};
+
+const SLUG_TO_ROUTE: Record<string, RouteKey> = {
+  home: "Home",
+  diagnosticos: "Diagnósticos",
+  diagnostico: "Diagnósticos",
+  talentos: "Talentos",
+  talento: "Talentos",
+  equipes: "Equipes",
+  equipe: "Equipes",
+  processos: "Processo seletivo",
+  "processo-seletivo": "Processo seletivo",
+  processo: "Processo seletivo",
+  analytics: "Analytics",
+  vagas: "Vagas",
+  vaga: "Vagas",
+  organograma: "Empresa e Organograma",
+  empresa: "Empresa e Organograma",
+  saas: "SaaS Multi-Tenant",
+  admin: "Painel de Controle",
+  painel: "Painel de Controle",
+};
+
 interface AuthUserSession {
   id: string;
   usuario: string;
@@ -187,10 +221,85 @@ export default function KantechApp() {
     }
   };
 
+  // Selection & navigation states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sidebarQuery, setSidebarQuery] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("Todos");
+  const [selectedTalento, setSelectedTalento] = useState<TalentoProfile>(
+    TALENTOS_MOCK[0]
+  );
+  const [selectedVagaId, setSelectedVagaId] = useState<number>(
+    VAGAS_MOCK[0].id
+  );
+  const [initialOpenEquipe, setInitialOpenEquipe] = useState<string | null>(
+    null
+  );
+  const [isGeneratingIA, setIsGeneratingIA] = useState(false);
+  const [showNewTalentModal, setShowNewTalentModal] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Unified history-aware navigateTo with URL search params support
+  const navigateTo = (
+    route: RouteKey,
+    options?: {
+      extraParams?: Record<string, string | number | undefined | null>;
+      replace?: boolean;
+    }
+  ) => {
+    setActiveRoute(route);
+    setMobileMenuOpen(false);
+
+    if (typeof window !== "undefined") {
+      try {
+        const url = new URL(window.location.href);
+        const slug = ROUTE_TO_SLUG[route] || "home";
+
+        if (slug === "home" && !options?.extraParams) {
+          url.search = "";
+        } else {
+          url.searchParams.set("aba", slug);
+        }
+
+        // Limpa parâmetros de contexto antigos se não foram explicitamente passados
+        const contextKeys = ["equipe", "talento", "vaga"];
+        contextKeys.forEach((key) => {
+          if (!options?.extraParams || options.extraParams[key] === undefined) {
+            url.searchParams.delete(key);
+          }
+        });
+
+        // Aplica novos extraParams
+        if (options?.extraParams) {
+          Object.entries(options.extraParams).forEach(([k, v]) => {
+            if (v !== undefined && v !== null && v !== "") {
+              url.searchParams.set(k, String(v));
+            }
+          });
+        }
+
+        const nextUrl = url.pathname + (url.search ? url.search : "");
+        const stateObj = {
+          route,
+          extraParams: options?.extraParams || {},
+        };
+
+        if (options?.replace) {
+          window.history.replaceState(stateObj, "", nextUrl);
+        } else {
+          if (window.location.pathname + window.location.search !== nextUrl) {
+            window.history.pushState(stateObj, "", nextUrl);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+  };
+
   const handleLogout = () => {
     setAuthUser(null);
     setLoginPassword("");
-    setActiveRoute("Home");
+    navigateTo("Home", { replace: true });
     try {
       localStorage.removeItem("kan_auth_user");
     } catch {
@@ -218,21 +327,104 @@ export default function KantechApp() {
     source: "mock",
   });
 
-  // Selection & navigation states
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sidebarQuery, setSidebarQuery] = useState("");
-  const [departmentFilter, setDepartmentFilter] = useState("Todos");
-  const [selectedTalento, setSelectedTalento] = useState<TalentoProfile>(
-    TALENTOS_MOCK[0]
-  );
-  const [selectedVagaId, setSelectedVagaId] = useState<number>(
-    VAGAS_MOCK[0].id
-  );
-  const [initialOpenEquipe, setInitialOpenEquipe] = useState<string | null>(
-    null
-  );
-  const [isGeneratingIA, setIsGeneratingIA] = useState(false);
-  const [showNewTalentModal, setShowNewTalentModal] = useState(false);
+  // Sincronização inicial da URL (restauração de aba e parâmetros via query params ao carregar / F5)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const url = new URL(window.location.href);
+      const abaSlug = url.searchParams.get("aba");
+      const initialRoute =
+        (abaSlug && SLUG_TO_ROUTE[abaSlug.toLowerCase()]) || "Home";
+
+      if (initialRoute !== "Home") {
+        setActiveRoute(initialRoute);
+      }
+
+      const eqParam = url.searchParams.get("equipe");
+      if (eqParam) {
+        setInitialOpenEquipe(eqParam);
+      }
+
+      const vagParam = url.searchParams.get("vaga");
+      if (vagParam) {
+        const parsed = parseInt(vagParam, 10);
+        if (!isNaN(parsed)) setSelectedVagaId(parsed);
+      }
+
+      const talParam = url.searchParams.get("talento");
+      if (talParam) {
+        const found = talentos.find(
+          (t) =>
+            String(t.id) === talParam ||
+            t.codigo === talParam ||
+            t.nome.toLowerCase() === talParam.toLowerCase()
+        );
+        if (found) setSelectedTalento(found);
+      }
+
+      window.history.replaceState(
+        {
+          route: initialRoute,
+          extraParams: {
+            equipe: eqParam,
+            vaga: vagParam,
+            talento: talParam,
+          },
+        },
+        "",
+        window.location.href
+      );
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Listener popstate para os botões Voltar (←) e Avançar (→) do navegador
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handlePopState = (event: PopStateEvent) => {
+      try {
+        const url = new URL(window.location.href);
+        const abaSlug = url.searchParams.get("aba");
+        const targetRoute =
+          event.state?.route ||
+          (abaSlug && SLUG_TO_ROUTE[abaSlug.toLowerCase()]) ||
+          "Home";
+
+        setActiveRoute(targetRoute);
+        setMobileMenuOpen(false);
+
+        const eqParam = url.searchParams.get("equipe");
+        if (eqParam) {
+          setInitialOpenEquipe(eqParam);
+        }
+
+        const vagParam = url.searchParams.get("vaga");
+        if (vagParam) {
+          const parsed = parseInt(vagParam, 10);
+          if (!isNaN(parsed)) setSelectedVagaId(parsed);
+        }
+
+        const talParam = url.searchParams.get("talento");
+        if (talParam) {
+          const found = talentos.find(
+            (t) =>
+              String(t.id) === talParam ||
+              t.codigo === talParam ||
+              t.nome.toLowerCase() === talParam.toLowerCase()
+          );
+          if (found) setSelectedTalento(found);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [talentos]);
 
   // Sync live data from Next.js BFF API routes (Supabase + mam-kantechrh)
   useEffect(() => {
@@ -265,7 +457,22 @@ export default function KantechApp() {
           talRes.talentos.length > 0
         ) {
           setTalentos(talRes.talentos);
-          setSelectedTalento(talRes.talentos[0]);
+          let chosen = talRes.talentos[0];
+          if (typeof window !== "undefined") {
+            const talParam = new URL(window.location.href).searchParams.get(
+              "talento"
+            );
+            if (talParam) {
+              const found = talRes.talentos.find(
+                (t: TalentoProfile) =>
+                  String(t.id) === talParam ||
+                  t.codigo === talParam ||
+                  t.nome.toLowerCase() === talParam.toLowerCase()
+              );
+              if (found) chosen = found;
+            }
+          }
+          setSelectedTalento(chosen);
         }
         if (
           eqRes?.equipes &&
@@ -273,6 +480,14 @@ export default function KantechApp() {
           eqRes.equipes.length > 0
         ) {
           setEquipes(eqRes.equipes);
+          if (typeof window !== "undefined") {
+            const eqParam = new URL(window.location.href).searchParams.get(
+              "equipe"
+            );
+            if (eqParam) {
+              setInitialOpenEquipe(eqParam);
+            }
+          }
         }
         if (
           vagRes?.vagas &&
@@ -280,7 +495,22 @@ export default function KantechApp() {
           vagRes.vagas.length > 0
         ) {
           setVagas(vagRes.vagas);
-          setSelectedVagaId(vagRes.vagas[0].id);
+          let initialVId = vagRes.vagas[0].id;
+          if (typeof window !== "undefined") {
+            const vagParam = new URL(window.location.href).searchParams.get(
+              "vaga"
+            );
+            if (vagParam) {
+              const parsed = parseInt(vagParam, 10);
+              if (
+                !isNaN(parsed) &&
+                vagRes.vagas.some((v: VagaData) => v.id === parsed)
+              ) {
+                initialVId = parsed;
+              }
+            }
+          }
+          setSelectedVagaId(initialVId);
         }
         if (
           empRes?.empresas &&
@@ -336,12 +566,16 @@ export default function KantechApp() {
 
   const handleInspectTalento = (talento: TalentoProfile) => {
     setSelectedTalento(talento);
-    setActiveRoute("Diagnósticos");
+    navigateTo("Diagnósticos", {
+      extraParams: { talento: talento.codigo || talento.id },
+    });
   };
 
   const handleNavigateEquipe = (equipeNome: string) => {
     setInitialOpenEquipe(equipeNome);
-    setActiveRoute("Equipes");
+    navigateTo("Equipes", {
+      extraParams: { equipe: equipeNome },
+    });
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -349,7 +583,9 @@ export default function KantechApp() {
 
   const handleAnalisarProcesso = (vagaId: number) => {
     setSelectedVagaId(vagaId);
-    setActiveRoute("Processo seletivo");
+    navigateTo("Processo seletivo", {
+      extraParams: { vaga: vagaId },
+    });
   };
 
   const normSearch = (s?: string | null) =>
@@ -492,13 +728,6 @@ export default function KantechApp() {
     [3, 3, 4, 3, 4, 4],
     [5, 5, 5, 5, 5, 5],
   ];
-
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const navigateTo = (route: RouteKey) => {
-    setActiveRoute(route);
-    setMobileMenuOpen(false);
-  };
 
   const renderSidebarNavigationContent = (isCollapsed: boolean) => (
     <>
@@ -978,7 +1207,7 @@ export default function KantechApp() {
             </div>
 
             <button
-              onClick={() => setActiveRoute("Processo seletivo")}
+              onClick={() => navigateTo("Processo seletivo")}
               className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-[#510851] dark:text-[#a78bfa] hover:underline px-2 py-1"
             >
               <Sparkles className="h-3.5 w-3.5 text-[#ea580c]" />
@@ -1226,7 +1455,7 @@ export default function KantechApp() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setActiveRoute("Talentos")}
+                              onClick={() => navigateTo("Talentos")}
                               className="w-full sm:w-auto"
                             >
                               <Plus className="h-3.5 w-3.5 text-[#510851]" />
@@ -1441,7 +1670,7 @@ export default function KantechApp() {
                                       </button>
                                       <button
                                         onClick={() =>
-                                          setActiveRoute("Talentos")
+                                          navigateTo("Talentos")
                                         }
                                         className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                                         title="Editar Talento"
@@ -1463,7 +1692,7 @@ export default function KantechApp() {
                   <div className="xl:col-span-4 space-y-6">
                     <Card className="p-4 space-y-3">
                       <button
-                        onClick={() => setActiveRoute("Talentos")}
+                        onClick={() => navigateTo("Talentos")}
                         className="flex w-full items-center justify-between rounded-xl border border-slate-200/80 dark:border-slate-800 p-3.5 hover:border-[#510851]/40 hover:bg-slate-50/70 dark:hover:bg-slate-900/50 transition-all text-left"
                       >
                         <div className="flex items-center gap-3.5">
@@ -1483,7 +1712,7 @@ export default function KantechApp() {
                       </button>
 
                       <button
-                        onClick={() => setActiveRoute("Equipes")}
+                        onClick={() => navigateTo("Equipes")}
                         className="flex w-full items-center justify-between rounded-xl border border-slate-200/80 dark:border-slate-800 p-3.5 hover:border-[#510851]/40 hover:bg-slate-50/70 dark:hover:bg-slate-900/50 transition-all text-left"
                       >
                         <div className="flex items-center gap-3.5">
@@ -1542,7 +1771,7 @@ export default function KantechApp() {
                         </div>
 
                         <Button
-                          onClick={() => setActiveRoute("Processo seletivo")}
+                          onClick={() => navigateTo("Processo seletivo")}
                           className="w-full bg-slate-950 hover:bg-[#510851] dark:bg-[#8b5cf6] dark:hover:bg-[#7c3aed] text-white font-semibold h-10 rounded-xl"
                         >
                           Analisar Processo Seletivo
@@ -1677,7 +1906,7 @@ export default function KantechApp() {
                 selectedVagaId={selectedVagaId}
                 setSelectedVagaId={setSelectedVagaId}
                 onInspectTalento={handleInspectTalento}
-                onGoToVagas={() => setActiveRoute("Vagas")}
+                onGoToVagas={() => navigateTo("Vagas")}
               />
             )}
 
@@ -1687,7 +1916,13 @@ export default function KantechApp() {
                 talentos={talentos}
                 equipes={equipes}
                 selectedTalento={selectedTalento}
-                onSelectTalento={(t) => setSelectedTalento(t)}
+                onSelectTalento={(t) => {
+                  setSelectedTalento(t);
+                  navigateTo("Diagnósticos", {
+                    extraParams: { talento: t.codigo || t.id },
+                    replace: true,
+                  });
+                }}
                 showAdminSections={false}
               />
             )}
