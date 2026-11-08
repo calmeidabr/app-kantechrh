@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Search,
   Plus,
@@ -174,6 +174,14 @@ function getIndicador(t: TalentoProfile, campo: string): string {
   return found?.Valor || found?.Descricao || "";
 }
 
+function normText(s?: string | null): string {
+  return (s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 export function EquipesView({
   equipes,
   setEquipes,
@@ -188,18 +196,55 @@ export function EquipesView({
   onInspectTalento: (t: TalentoProfile) => void;
 }) {
   const [addMode, setAddMode] = useState(false);
-  const [buscaEquipe, setBuscaEquipe] = useState("");
+  const [buscaEquipe, setBuscaEquipe] = useState(() => initialOpenEquipe || "");
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Expanded states per team ID (Edit Drawer & Triangles Drawer)
-  const [openEditId, setOpenEditId] = useState<string | null>(
-    initialOpenEquipe
-      ? equipes.find((e) => e.nome === initialOpenEquipe)?.id || null
-      : null
-  );
-  const [openTrianglesId, setOpenTrianglesId] = useState<string | null>(
-    equipes[0]?.id || null
-  );
+  const [openEditId, setOpenEditId] = useState<string | null>(() => {
+    if (!initialOpenEquipe) return null;
+    return (
+      equipes.find((e) => normText(e.nome) === normText(initialOpenEquipe))?.id ||
+      null
+    );
+  });
+  const [openTrianglesId, setOpenTrianglesId] = useState<string | null>(() => {
+    if (!initialOpenEquipe) return equipes[0]?.id || null;
+    const directMatch = equipes.find(
+      (e) => normText(e.nome) === normText(initialOpenEquipe)
+    );
+    if (directMatch) return directMatch.id;
+    const withMember = equipes.find((e) =>
+      e.membros.some((m) => {
+        const mNorm = normText(m.nome);
+        const qNorm = normText(initialOpenEquipe);
+        return mNorm === qNorm || mNorm.includes(qNorm) || qNorm.includes(mNorm);
+      })
+    );
+    return withMember?.id || equipes[0]?.id || null;
+  });
+
+  useEffect(() => {
+    if (!initialOpenEquipe) return;
+    setBuscaEquipe(initialOpenEquipe);
+    const directMatch = equipes.find(
+      (e) => normText(e.nome) === normText(initialOpenEquipe)
+    );
+    if (directMatch) {
+      setOpenTrianglesId(directMatch.id);
+      setOpenEditId(directMatch.id);
+    } else {
+      const withMember = equipes.find((e) =>
+        e.membros.some((m) => {
+          const mNorm = normText(m.nome);
+          const qNorm = normText(initialOpenEquipe);
+          return mNorm === qNorm || mNorm.includes(qNorm) || qNorm.includes(mNorm);
+        })
+      );
+      if (withMember) {
+        setOpenTrianglesId(withMember.id);
+      }
+    }
+  }, [initialOpenEquipe, equipes]);
 
   // Estados do Mapa de Calor (Paleta e Exibição de Pontos)
   const [heatmapPalette, setHeatmapPalette] = useState<HeatmapPalette>("emerald");
@@ -230,13 +275,6 @@ export function EquipesView({
   const [buscaMembroAdd, setBuscaMembroAdd] = useState<Record<string, string>>(
     {}
   );
-
-  const normText = (s?: string | null) =>
-    (s || "")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .trim();
 
   // Eligible talents in New Team Wizard
   const candidatosElegiveis = talentos.filter((t) => {

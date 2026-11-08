@@ -942,10 +942,16 @@ export function TalentosView({
         {/* 3-Column Cards Grid matching talentos_menu.py */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {talentosExibidos.map((t) => {
+            const tNomeNorm = normText(t.nome);
             const membroDe = equipes.filter((eq) =>
-              eq.membros.some(
-                (m) => m.nome.trim().toLowerCase() === t.nome.trim().toLowerCase()
-              )
+              eq.membros.some((m) => {
+                const mNorm = normText(m.nome);
+                return (
+                  mNorm === tNomeNorm ||
+                  (tNomeNorm.length > 5 && mNorm.includes(tNomeNorm)) ||
+                  (mNorm.length > 5 && tNomeNorm.includes(mNorm))
+                );
+              })
             );
 
             return (
@@ -1000,29 +1006,28 @@ export function TalentosView({
                   </div>
                 </div>
 
-                {/* Equipes Links inside Talent Card */}
-                <div className="space-y-1.5 border-t border-slate-100 dark:border-slate-800/80 pt-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                    Equipes Vinculadas:
-                  </span>
-                  {membroDe.length > 0 ? (
+                {/* Equipes Links inside Talent Card (exibido apenas se o talento participar de equipes) */}
+                {membroDe.length > 0 && (
+                  <div className="space-y-1.5 border-t border-slate-100 dark:border-slate-800/80 pt-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Equipes Vinculadas ({membroDe.length}):
+                      </span>
+                    </div>
                     <div className="flex flex-wrap gap-1.5">
                       {membroDe.map((eq) => (
                         <button
                           key={eq.id}
                           onClick={() => onNavigateEquipe(eq.nome)}
-                          className="rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[11px] font-medium text-[#510851] dark:text-[#a78bfa] hover:underline"
+                          className="rounded-md bg-purple-50 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/50 px-2 py-0.5 text-[11px] font-medium text-[#510851] dark:text-[#a78bfa] hover:bg-purple-100 dark:hover:bg-purple-900/60 transition-colors"
+                          title={`Ver detalhes da equipe ${eq.nome}`}
                         >
                           {eq.nome}
                         </button>
                       ))}
                     </div>
-                  ) : (
-                    <span className="text-[11px] text-slate-400 italic">
-                      Nenhuma equipe vinculada
-                    </span>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Card Footer Actions */}
                 <div className="flex items-center justify-between pt-1">
@@ -1042,18 +1047,39 @@ export function TalentosView({
                     </span>
                   )}
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                    {membroDe.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onNavigateEquipe(t.nome)}
+                        className="border-[#510851]/40 text-[#510851] hover:bg-[#510851]/10 dark:text-purple-300 font-semibold gap-1 text-xs"
+                        title={
+                          membroDe.length === 1
+                            ? `Ver equipe "${membroDe[0].nome}" na sessão Equipes`
+                            : `Ver as ${membroDe.length} equipes de ${t.nome} na sessão Equipes`
+                        }
+                      >
+                        <UsersRound className="h-3.5 w-3.5 text-[#510851] dark:text-[#a78bfa]" />
+                        <span>Equipes</span>
+                        {membroDe.length > 1 && (
+                          <span className="ml-0.5 rounded-full bg-[#510851]/15 dark:bg-purple-900/60 text-[#510851] dark:text-purple-200 px-1.5 py-0.2 text-[10px] font-bold">
+                            {membroDe.length}
+                          </span>
+                        )}
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleOpenEditModal(t)}
-                      className="border-[#510851]/40 text-[#510851] hover:bg-[#510851]/10 dark:text-purple-300"
+                      className="border-[#510851]/40 text-[#510851] hover:bg-[#510851]/10 dark:text-purple-300 text-xs"
                     >
                       <Pencil className="h-3 w-3 mr-1" />
                       Editar
                     </Button>
-                    <Button size="sm" onClick={() => onInspectTalento(t)}>
-                      <Eye className="h-3 w-3" />
+                    <Button size="sm" onClick={() => onInspectTalento(t)} className="text-xs">
+                      <Eye className="h-3 w-3 mr-1" />
                       Diagnóstico
                     </Button>
                   </div>

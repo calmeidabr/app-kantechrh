@@ -342,6 +342,9 @@ export default function KantechApp() {
   const handleNavigateEquipe = (equipeNome: string) => {
     setInitialOpenEquipe(equipeNome);
     setActiveRoute("Equipes");
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   const handleAnalisarProcesso = (vagaId: number) => {
