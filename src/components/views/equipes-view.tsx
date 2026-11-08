@@ -869,7 +869,7 @@ export function EquipesView({
                       }
                     >
                       <Triangle className="h-3.5 w-3.5" />
-                      {isTriOpen ? "Ocultar Triângulos" : "Triângulos Harmônicos"}
+                      {isTriOpen ? "Ocultar Detalhes" : "Ver Detalhes"}
                     </Button>
 
                     <Button
@@ -1019,7 +1019,7 @@ export function EquipesView({
                     DRAWER 2: TRIÂNGULOS HARMÔNICOS INTERATIVOS (PLANO KAN)
                 ============================================================ */}
                 {isTriOpen && (
-                  <div className="border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#0d111d] p-6 space-y-4">
+                  <div className="border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#0d111d] p-3.5 sm:p-6 space-y-4">
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -1043,7 +1043,7 @@ export function EquipesView({
                     {equipeMembrosTalentos.length > 0 && (
                       <div className="mt-8 space-y-6">
                         <div className="overflow-hidden rounded-xl border-[1.5px] border-[#fb923c] bg-white dark:bg-[#0d111d] shadow-xs">
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#fb923c]/35 bg-[#fb923c]/[0.03] px-5 py-3.5">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#fb923c]/35 bg-[#fb923c]/[0.03] px-4 sm:px-5 py-3 sm:py-3.5">
                             <div>
                               <div className="text-xs font-extrabold uppercase tracking-[1.5px] text-[#f97316]">
                                 PERFIL COMPORTAMENTAL — {eq.nome}
@@ -1053,9 +1053,137 @@ export function EquipesView({
                                 membros vinculados)
                               </p>
                             </div>
+                            <div className="md:hidden text-[10px] text-slate-400 flex items-center gap-1 font-medium">
+                              ← deslize para o lado →
+                            </div>
                           </div>
 
-                          <div className="overflow-x-auto">
+                          {/* VERSÃO MOBILE: CARROSSEL DESLIZANTE (1 INTEGRANTE POR VEZ) */}
+                          <div className="block md:hidden p-3 bg-slate-50/50 dark:bg-slate-900/30">
+                            <div className="flex gap-3 overflow-x-auto pb-2 pt-1 px-0.5 snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                              {equipeMembrosTalentos.map((m, idx) => {
+                                const isLider = eq.membros.find(
+                                  (em) =>
+                                    em.nome.trim().toLowerCase() ===
+                                    m.nome.trim().toLowerCase()
+                                )?.lider;
+
+                                return (
+                                  <div
+                                    key={m.id}
+                                    className="w-[84vw] max-w-[320px] shrink-0 snap-center rounded-xl border border-[#fb923c]/40 bg-white dark:bg-[#0d111d] p-4 shadow-xs flex flex-col justify-between"
+                                  >
+                                    {/* Header do Membro */}
+                                    <div>
+                                      <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                          <div className="relative h-12 w-12 shrink-0">
+                                            <img
+                                              src={m.avatar}
+                                              alt={m.nome}
+                                              className="h-12 w-12 rounded-full border-2 border-[#fb923c]/70 object-cover shadow-2xs"
+                                            />
+                                            {isLider && (
+                                              <span
+                                                title="Líder da Equipe"
+                                                className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[9px] text-black shadow"
+                                              >
+                                                👑
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="min-w-0">
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                                                {m.nome}
+                                              </span>
+                                            </div>
+                                            <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                                              {m.cargo}
+                                            </div>
+                                            {isLider && (
+                                              <span className="inline-flex mt-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 px-1.5 py-0.2 text-[9px] font-bold">
+                                                👑 Líder da Equipe
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full shrink-0">
+                                          {idx + 1}/{equipeMembrosTalentos.length}
+                                        </span>
+                                      </div>
+
+                                      {/* Atributos Comportamentais */}
+                                      <div className="mt-3 space-y-2.5">
+                                        <div>
+                                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+                                            Perfil Predominante
+                                          </span>
+                                          <span className="font-bold text-slate-900 dark:text-slate-100 text-xs leading-snug block">
+                                            {m.perfis_lista.join(", ")} • {m.categorias_lista.join(", ")}
+                                          </span>
+                                        </div>
+
+                                        <div>
+                                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+                                            Forças Centrais
+                                          </span>
+                                          <span className="text-slate-700 dark:text-slate-300 text-[11px] leading-relaxed block">
+                                            {getIndicador(m, "Fortaleza") ||
+                                              getIndicador(m, "Força") ||
+                                              "Liderança, execução estruturada e visão analítica"}
+                                          </span>
+                                        </div>
+
+                                        <div>
+                                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+                                            Contexto de Maior Aderência
+                                          </span>
+                                          <span className="text-slate-700 dark:text-slate-300 text-[11px] block">
+                                            {m.qualidades_lista.slice(0, 3).join(", ")}
+                                          </span>
+                                        </div>
+
+                                        <div>
+                                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+                                            Risco Prioritário
+                                          </span>
+                                          <span className="text-slate-700 dark:text-slate-300 text-[11px] leading-relaxed block">
+                                            {getIndicador(m, "Risco") ||
+                                              getIndicador(m, "Ponto") ||
+                                              "Excesso de autocobrança em prazos críticos"}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Footer do Card com o KAN */}
+                                    <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                        Elemento KAN:
+                                      </span>
+                                      <span className="text-xs font-black tracking-tight text-[#f97316]">
+                                        {m.kan_nome.toUpperCase()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Indicadores de Paginação / Dots */}
+                            <div className="mt-2 flex items-center justify-center gap-1.5">
+                              {equipeMembrosTalentos.map((m) => (
+                                <span
+                                  key={m.id}
+                                  className="h-1.5 w-1.5 rounded-full bg-[#fb923c]/40"
+                                />
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* VERSÃO DESKTOP: TABELA MATRICIAL */}
+                          <div className="hidden md:block overflow-x-auto">
                             <table className="w-full min-w-[720px] border-collapse">
                               <thead>
                                 <tr className="border-b border-[#fb923c]/35">
@@ -1195,7 +1323,7 @@ export function EquipesView({
                         {/* ===========================================================
                             2. MAPA DE CALOR INTERATIVO - 9 EIXOS COMPORTAMENTAIS
                         ============================================================ */}
-                        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-[#0d111d]">
+                        <div className="rounded-2xl border border-slate-200/80 bg-white p-3 sm:p-5 shadow-xs dark:border-slate-800 dark:bg-[#0d111d]">
                           <div className="mb-4 flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
                             <div>
                               <div className="flex items-center gap-2">
@@ -1219,19 +1347,19 @@ export function EquipesView({
                             </div>
 
                             {/* Controls: Palette Switcher + Toggle Values */}
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                               <div className="flex items-center rounded-lg border border-slate-200/80 bg-slate-50 p-0.5 dark:border-slate-800 dark:bg-slate-900">
                                 {(
                                   [
                                     {
                                       id: "emerald",
-                                      label: "Verde Shadcn",
+                                      label: "Verde",
                                       dot: "#009e3c",
                                     },
-                                    { id: "purple", label: "Roxo KAN", dot: "#7e22ce" },
+                                    { id: "purple", label: "Roxo", dot: "#7e22ce" },
                                     {
                                       id: "orange",
-                                      label: "Laranja Kantech",
+                                      label: "Laranja",
                                       dot: "#ea580c",
                                     },
                                   ] as const
@@ -1240,14 +1368,14 @@ export function EquipesView({
                                     key={pal.id}
                                     type="button"
                                     onClick={() => setHeatmapPalette(pal.id)}
-                                    className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-all ${
+                                    className={`flex items-center gap-1 sm:gap-1.5 rounded-md px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-medium transition-all ${
                                       heatmapPalette === pal.id
                                         ? "bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white"
                                         : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
                                     }`}
                                   >
                                     <span
-                                      className="h-2 w-2 rounded-full"
+                                      className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full shrink-0"
                                       style={{ backgroundColor: pal.dot }}
                                     />
                                     {pal.label}
@@ -1258,7 +1386,7 @@ export function EquipesView({
                               <button
                                 type="button"
                                 onClick={() => setShowHeatmapValues(!showHeatmapValues)}
-                                className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                                className={`rounded-lg border px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-semibold transition-colors ${
                                   showHeatmapValues
                                     ? "border-[#510851] bg-[#510851] text-white dark:border-[#ea580c] dark:bg-[#ea580c]"
                                     : "border-slate-200/80 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
@@ -1271,7 +1399,7 @@ export function EquipesView({
 
                           {/* Squircle Heatmap Grid */}
                           <div className="overflow-x-auto pb-1">
-                            <div className="max-w-3xl space-y-2">
+                            <div className="max-w-3xl space-y-1.5 sm:space-y-2">
                               {EIXOS_COMPORTAMENTAIS.map((eixo) => {
                                 const rowScores = equipeMembrosTalentos.map(
                                   (m) => calcularScoresEixos(m)[eixo] || 0
@@ -1291,20 +1419,23 @@ export function EquipesView({
                                 return (
                                   <div
                                     key={eixo}
-                                    className="grid grid-cols-[110px_1fr] items-center gap-3"
+                                    className="grid grid-cols-[68px_1fr] sm:grid-cols-[110px_1fr] items-center gap-1.5 sm:gap-3"
                                   >
                                     {/* Left Y-Axis Label */}
-                                    <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                    <span
+                                      className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate"
+                                      title={eixo}
+                                    >
                                       {eixo}
                                     </span>
 
                                     {/* Rounded Squircle Tiles Row */}
                                     <div
-                                      className="grid gap-2"
+                                      className="grid gap-1 sm:gap-2"
                                       style={{
                                         gridTemplateColumns: `repeat(${
                                           equipeMembrosTalentos.length + 1
-                                        }, minmax(56px, 86px))`,
+                                        }, minmax(0, 1fr))`,
                                       }}
                                     >
                                       {equipeMembrosTalentos.map((m) => {
@@ -1325,13 +1456,22 @@ export function EquipesView({
                                                 label: style.label,
                                               })
                                             }
+                                            onClick={() =>
+                                              setHoveredCell({
+                                                membro: m.nome,
+                                                cargo: m.cargo,
+                                                eixo,
+                                                pts,
+                                                label: style.label,
+                                              })
+                                            }
                                             onMouseLeave={() => setHoveredCell(null)}
                                             title={`${m.nome} (${m.cargo}) • ${eixo}: ${pts} pts — ${style.label}`}
                                             style={{
                                               backgroundColor: style.bg,
                                               color: style.text,
                                             }}
-                                            className="group relative flex h-[38px] w-full cursor-pointer items-center justify-center rounded-[12px] text-[11px] font-bold transition-all duration-200 hover:scale-[1.04] hover:shadow-sm"
+                                            className="group relative flex h-[28px] sm:h-[38px] w-full cursor-pointer items-center justify-center rounded-[7px] sm:rounded-[12px] text-[9px] sm:text-[11px] font-bold transition-all duration-200 hover:scale-[1.04] hover:shadow-sm"
                                           >
                                             <span
                                               className={`transition-opacity duration-150 ${
@@ -1357,13 +1497,22 @@ export function EquipesView({
                                             label: avgStyle.label,
                                           })
                                         }
+                                        onClick={() =>
+                                          setHoveredCell({
+                                            membro: "Média da Equipe",
+                                            cargo: "Consolidado Geral",
+                                            eixo,
+                                            pts: avgScore,
+                                            label: avgStyle.label,
+                                          })
+                                        }
                                         onMouseLeave={() => setHoveredCell(null)}
                                         title={`Média da Equipe • ${eixo}: ${avgScore} pts — ${avgStyle.label}`}
                                         style={{
                                           backgroundColor: avgStyle.bg,
                                           color: avgStyle.text,
                                         }}
-                                        className="group relative flex h-[38px] w-full cursor-pointer items-center justify-center rounded-[12px] border-2 border-dashed border-slate-300 dark:border-slate-700 text-[11px] font-extrabold transition-all duration-200 hover:scale-[1.04]"
+                                        className="group relative flex h-[28px] sm:h-[38px] w-full cursor-pointer items-center justify-center rounded-[7px] sm:rounded-[12px] border sm:border-2 border-dashed border-slate-300 dark:border-slate-700 text-[9px] sm:text-[11px] font-extrabold transition-all duration-200 hover:scale-[1.04]"
                                       >
                                         <span
                                           className={`transition-opacity duration-150 ${
@@ -1383,28 +1532,28 @@ export function EquipesView({
                           </div>
 
                           {/* Member Headers & Media Footer Row */}
-                          <div className="mt-3 grid grid-cols-[110px_1fr] items-center gap-3">
-                            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                          <div className="mt-2 sm:mt-3 grid grid-cols-[68px_1fr] sm:grid-cols-[110px_1fr] items-center gap-1.5 sm:gap-3">
+                            <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-wider text-slate-400 truncate">
                               Integrantes:
                             </span>
                             <div
-                              className="grid gap-2"
+                              className="grid gap-1 sm:gap-2"
                               style={{
                                 gridTemplateColumns: `repeat(${
                                   equipeMembrosTalentos.length + 1
-                                }, minmax(56px, 86px))`,
+                                }, minmax(0, 1fr))`,
                               }}
                             >
                               {equipeMembrosTalentos.map((m) => (
                                 <div
                                   key={m.id}
-                                  className="text-center truncate text-[10px] font-bold text-slate-700 dark:text-slate-300"
+                                  className="text-center truncate text-[8px] sm:text-[10px] font-bold text-slate-700 dark:text-slate-300 px-0.5"
                                   title={m.nome}
                                 >
                                   {m.nome.split(" ")[0]}
                                 </div>
                               ))}
-                              <div className="text-center text-[10px] font-black text-amber-600 dark:text-amber-400">
+                              <div className="text-center text-[8px] sm:text-[10px] font-black text-amber-600 dark:text-amber-400">
                                 Média
                               </div>
                             </div>
@@ -1412,17 +1561,17 @@ export function EquipesView({
 
                           {/* Floating Hover Context Card */}
                           {hoveredCell && (
-                            <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-200/90 bg-slate-50/80 px-4 py-2 text-xs dark:border-slate-800 dark:bg-slate-900/60">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-slate-900 dark:text-white">
+                            <div className="mt-3 sm:mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 rounded-xl border border-slate-200/90 bg-slate-50/90 p-2 sm:px-4 sm:py-2 text-[10px] sm:text-xs dark:border-slate-800 dark:bg-slate-900/80">
+                              <div className="flex items-center gap-1.5 truncate">
+                                <span className="font-bold text-slate-900 dark:text-white truncate">
                                   {hoveredCell.membro}
                                 </span>
                                 <span className="text-slate-400">•</span>
-                                <span className="text-slate-500 dark:text-slate-400">
+                                <span className="text-slate-500 dark:text-slate-400 truncate">
                                   {hoveredCell.cargo}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-3 font-semibold">
+                              <div className="flex items-center gap-2 font-semibold text-[10px] sm:text-xs shrink-0">
                                 <span className="text-slate-600 dark:text-slate-300">
                                   Eixo {hoveredCell.eixo}:
                                 </span>
