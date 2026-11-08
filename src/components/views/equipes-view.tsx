@@ -200,13 +200,7 @@ export function EquipesView({
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Expanded states per team ID (Edit Drawer & Triangles Drawer)
-  const [openEditId, setOpenEditId] = useState<string | null>(() => {
-    if (!initialOpenEquipe) return null;
-    return (
-      equipes.find((e) => normText(e.nome) === normText(initialOpenEquipe))?.id ||
-      null
-    );
-  });
+  const [openEditId, setOpenEditId] = useState<string | null>(null);
   const [openTrianglesId, setOpenTrianglesId] = useState<string | null>(() => {
     if (!initialOpenEquipe) return equipes[0]?.id || null;
     const directMatch = equipes.find(
@@ -225,13 +219,15 @@ export function EquipesView({
 
   useEffect(() => {
     if (!initialOpenEquipe) return;
-    setBuscaEquipe(initialOpenEquipe);
     const directMatch = equipes.find(
       (e) => normText(e.nome) === normText(initialOpenEquipe)
     );
+    let targetId: string | null = null;
     if (directMatch) {
+      setBuscaEquipe(directMatch.nome);
       setOpenTrianglesId(directMatch.id);
-      setOpenEditId(directMatch.id);
+      setOpenEditId(null);
+      targetId = directMatch.id;
     } else {
       const withMember = equipes.find((e) =>
         e.membros.some((m) => {
@@ -241,8 +237,24 @@ export function EquipesView({
         })
       );
       if (withMember) {
+        setBuscaEquipe(initialOpenEquipe);
         setOpenTrianglesId(withMember.id);
+        setOpenEditId(null);
+        targetId = withMember.id;
       }
+    }
+
+    if (typeof window !== "undefined") {
+      setTimeout(() => {
+        if (targetId) {
+          const el = document.getElementById(`equipe-card-${targetId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+            return;
+          }
+        }
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }, 100);
     }
   }, [initialOpenEquipe, equipes]);
 
@@ -432,6 +444,11 @@ export function EquipesView({
       return tokens.every((tk) => searchable.includes(tk));
     })
     .sort((a, b) => {
+      // 1. A equipe com os triângulos abertos/selecionados sempre fica no topo absoluto
+      if (openTrianglesId) {
+        if (a.id === openTrianglesId) return -1;
+        if (b.id === openTrianglesId) return 1;
+      }
       if (!queryEq) return 0;
       const na = normText(a.nome);
       const nb = normText(b.nome);
@@ -784,7 +801,15 @@ export function EquipesView({
             );
 
             return (
-              <Card key={eq.id} className="overflow-hidden">
+              <Card
+                key={eq.id}
+                id={`equipe-card-${eq.id}`}
+                className={`overflow-hidden transition-all duration-300 ${
+                  isTriOpen
+                    ? "ring-2 ring-[#ea580c]/60 dark:ring-[#ea580c]/70 shadow-md"
+                    : ""
+                }`}
+              >
                 {/* Horizontal Team Row matching equipes_menu.py */}
                 <div className="p-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-center gap-4">

@@ -1052,7 +1052,7 @@ export function TalentosView({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => onNavigateEquipe(t.nome)}
+                        onClick={() => onNavigateEquipe(membroDe[0].nome)}
                         className="border-[#510851]/40 text-[#510851] hover:bg-[#510851]/10 dark:text-purple-300 font-semibold gap-1 text-xs"
                         title={
                           membroDe.length === 1
