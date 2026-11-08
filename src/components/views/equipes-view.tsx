@@ -1397,201 +1397,212 @@ export function EquipesView({
                             </div>
                           </div>
 
-                          {/* Squircle Heatmap Grid */}
+                          {/* Squircle Heatmap Table (Alinhamento 100% rigoroso) */}
                           <div className="overflow-x-auto pb-2">
-                            <div className="min-w-[340px] sm:min-w-[540px] max-w-3xl space-y-1.5 sm:space-y-2">
-                              {/* CABEÇALHO SUPERIOR DAS COLUNAS (INTEGRANTES + COLUNA MÉDIA EM DESTAQUE) */}
-                              <div className="grid grid-cols-[68px_1fr] sm:grid-cols-[110px_1fr] items-end gap-1.5 sm:gap-3 pb-1 border-b border-slate-200/60 dark:border-slate-800">
-                                <span className="text-[8px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                  Dimensões
-                                </span>
-                                <div
-                                  className="grid gap-1 sm:gap-2 items-end"
-                                  style={{
-                                    gridTemplateColumns: `repeat(${
-                                      equipeMembrosTalentos.length + 1
-                                    }, minmax(0, 1fr))`,
-                                  }}
-                                >
+                            <table className="w-full min-w-[340px] sm:min-w-[560px] max-w-3xl table-fixed border-separate border-spacing-x-1 sm:border-spacing-x-2 border-spacing-y-1 sm:border-spacing-y-1.5">
+                              {/* Definição rigorosa de colunas compartilhadas */}
+                              <colgroup>
+                                <col className="w-[78px] sm:w-[115px]" />
+                                {equipeMembrosTalentos.map((m) => (
+                                  <col key={m.id} />
+                                ))}
+                                <col /> {/* Coluna Média */}
+                              </colgroup>
+
+                              {/* CABEÇALHO SUPERIOR COM FOTOS E NOMES */}
+                              <thead>
+                                <tr>
+                                  <th className="text-left align-bottom pb-1 px-0.5">
+                                    <span className="text-[8px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                      Dimensões
+                                    </span>
+                                  </th>
                                   {equipeMembrosTalentos.map((m) => (
-                                    <div
+                                    <th
                                       key={m.id}
-                                      className="flex flex-col items-center text-center px-0.5"
-                                      title={`${m.nome} (${m.cargo})`}
+                                      className="text-center align-bottom pb-1 px-0.5"
                                     >
-                                      <img
-                                        src={m.avatar}
-                                        alt={m.nome}
-                                        className="h-5 w-5 sm:h-6 sm:w-6 rounded-full object-cover ring-1 ring-[#fb923c]/40 mb-0.5"
-                                      />
-                                      <span className="text-[8px] sm:text-[10px] font-bold text-slate-700 dark:text-slate-300 truncate w-full">
-                                        {m.nome.split(" ")[0]}
+                                      <div
+                                        className="flex flex-col items-center justify-end"
+                                        title={`${m.nome} (${m.cargo})`}
+                                      >
+                                        <img
+                                          src={m.avatar}
+                                          alt={m.nome}
+                                          className="h-5 w-5 sm:h-6 sm:w-6 rounded-full object-cover ring-1 ring-[#fb923c]/40 mb-1"
+                                        />
+                                        <span className="block w-full truncate text-[8px] sm:text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                                          {m.nome.split(" ")[0]}
+                                        </span>
+                                      </div>
+                                    </th>
+                                  ))}
+                                  <th className="text-center align-bottom pb-1 px-0.5">
+                                    <div className="flex flex-col items-center justify-end">
+                                      <span className="inline-flex items-center justify-center rounded-md bg-amber-500/15 dark:bg-amber-400/20 px-1.5 py-0.5 text-[8px] sm:text-[10px] font-black text-amber-700 dark:text-amber-300 uppercase tracking-tight ring-1 ring-amber-500/30">
+                                        Média
                                       </span>
                                     </div>
-                                  ))}
+                                  </th>
+                                </tr>
+                              </thead>
 
-                                  {/* Coluna Média no Cabeçalho Superior */}
-                                  <div className="flex flex-col items-center justify-end text-center px-0.5 pb-0.5">
-                                    <span className="inline-flex items-center justify-center rounded-md bg-amber-500/15 dark:bg-amber-400/20 px-1 py-0.5 text-[8px] sm:text-[10px] font-black text-amber-700 dark:text-amber-300 uppercase tracking-tight ring-1 ring-amber-500/30">
-                                      Média
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
+                              {/* LINHAS DOS 9 EIXOS COMPORTAMENTAIS */}
+                              <tbody>
+                                {EIXOS_COMPORTAMENTAIS.map((eixo) => {
+                                  const rowScores = equipeMembrosTalentos.map(
+                                    (m) => calcularScoresEixos(m)[eixo] || 0
+                                  );
+                                  const avgScore =
+                                    rowScores.length > 0
+                                      ? Math.round(
+                                          rowScores.reduce((a, b) => a + b, 0) /
+                                            rowScores.length
+                                        )
+                                      : 0;
+                                  const avgStyle = getHeatmapCellStyle(
+                                    avgScore,
+                                    heatmapPalette
+                                  );
 
-                              {/* LINHAS DOS EIXOS COMPORTAMENTAIS */}
-                              {EIXOS_COMPORTAMENTAIS.map((eixo) => {
-                                const rowScores = equipeMembrosTalentos.map(
-                                  (m) => calcularScoresEixos(m)[eixo] || 0
-                                );
-                                const avgScore =
-                                  rowScores.length > 0
-                                    ? Math.round(
-                                        rowScores.reduce((a, b) => a + b, 0) /
-                                          rowScores.length
-                                      )
-                                    : 0;
-                                const avgStyle = getHeatmapCellStyle(
-                                  avgScore,
-                                  heatmapPalette
-                                );
+                                  return (
+                                    <tr key={eixo}>
+                                      {/* Rótulo do Eixo */}
+                                      <td className="text-left align-middle pr-1">
+                                        <span
+                                          className="block truncate text-[10px] sm:text-[11px] font-semibold text-slate-600 dark:text-slate-300"
+                                          title={eixo}
+                                        >
+                                          {eixo}
+                                        </span>
+                                      </td>
 
-                                return (
-                                  <div
-                                    key={eixo}
-                                    className="grid grid-cols-[68px_1fr] sm:grid-cols-[110px_1fr] items-center gap-1.5 sm:gap-3"
-                                  >
-                                    {/* Left Y-Axis Label */}
-                                    <span
-                                      className="text-[10px] sm:text-[11px] font-semibold text-slate-600 dark:text-slate-300 truncate"
-                                      title={eixo}
-                                    >
-                                      {eixo}
-                                    </span>
-
-                                    {/* Rounded Squircle Tiles Row */}
-                                    <div
-                                      className="grid gap-1 sm:gap-2 items-center"
-                                      style={{
-                                        gridTemplateColumns: `repeat(${
-                                          equipeMembrosTalentos.length + 1
-                                        }, minmax(0, 1fr))`,
-                                      }}
-                                    >
+                                      {/* Células individuais dos membros */}
                                       {equipeMembrosTalentos.map((m) => {
-                                        const pts = calcularScoresEixos(m)[eixo] || 0;
+                                        const pts =
+                                          calcularScoresEixos(m)[eixo] || 0;
                                         const style = getHeatmapCellStyle(
                                           pts,
                                           heatmapPalette
                                         );
                                         return (
-                                          <div
+                                          <td
                                             key={m.id}
-                                            onMouseEnter={() =>
-                                              setHoveredCell({
-                                                membro: m.nome,
-                                                cargo: m.cargo,
-                                                eixo,
-                                                pts,
-                                                label: style.label,
-                                              })
-                                            }
-                                            onClick={() =>
-                                              setHoveredCell({
-                                                membro: m.nome,
-                                                cargo: m.cargo,
-                                                eixo,
-                                                pts,
-                                                label: style.label,
-                                              })
-                                            }
-                                            onMouseLeave={() => setHoveredCell(null)}
-                                            title={`${m.nome} (${m.cargo}) • ${eixo}: ${pts} pts — ${style.label}`}
-                                            style={{
-                                              backgroundColor: style.bg,
-                                              color: style.text,
-                                            }}
-                                            className="group relative flex h-[28px] sm:h-[38px] w-full cursor-pointer items-center justify-center rounded-[7px] sm:rounded-[12px] text-[9px] sm:text-[11px] font-bold transition-all duration-200 hover:scale-[1.04] hover:shadow-sm"
+                                            className="p-0 align-middle"
                                           >
-                                            <span
-                                              className={`transition-opacity duration-150 ${
-                                                showHeatmapValues
-                                                  ? "opacity-100"
-                                                  : "opacity-0 group-hover:opacity-100"
-                                              }`}
+                                            <div
+                                              onMouseEnter={() =>
+                                                setHoveredCell({
+                                                  membro: m.nome,
+                                                  cargo: m.cargo,
+                                                  eixo,
+                                                  pts,
+                                                  label: style.label,
+                                                })
+                                              }
+                                              onClick={() =>
+                                                setHoveredCell({
+                                                  membro: m.nome,
+                                                  cargo: m.cargo,
+                                                  eixo,
+                                                  pts,
+                                                  label: style.label,
+                                                })
+                                              }
+                                              onMouseLeave={() =>
+                                                setHoveredCell(null)
+                                              }
+                                              title={`${m.nome} (${m.cargo}) • ${eixo}: ${pts} pts — ${style.label}`}
+                                              style={{
+                                                backgroundColor: style.bg,
+                                                color: style.text,
+                                              }}
+                                              className="group relative flex h-[28px] sm:h-[38px] w-full cursor-pointer items-center justify-center rounded-[7px] sm:rounded-[12px] text-[9px] sm:text-[11px] font-bold transition-all duration-200 hover:scale-[1.04] hover:shadow-sm"
                                             >
-                                              {pts}
-                                            </span>
-                                          </div>
+                                              <span
+                                                className={`transition-opacity duration-150 ${
+                                                  showHeatmapValues
+                                                    ? "opacity-100"
+                                                    : "opacity-0 group-hover:opacity-100"
+                                                }`}
+                                              >
+                                                {pts}
+                                              </span>
+                                            </div>
+                                          </td>
                                         );
                                       })}
 
-                                      {/* Média da Equipe (Coluna de síntese SEMPRE VISÍVEL) */}
-                                      <div
-                                        onMouseEnter={() =>
-                                          setHoveredCell({
-                                            membro: "Média da Equipe",
-                                            cargo: "Consolidado Geral",
-                                            eixo,
-                                            pts: avgScore,
-                                            label: avgStyle.label,
-                                          })
-                                        }
-                                        onClick={() =>
-                                          setHoveredCell({
-                                            membro: "Média da Equipe",
-                                            cargo: "Consolidado Geral",
-                                            eixo,
-                                            pts: avgScore,
-                                            label: avgStyle.label,
-                                          })
-                                        }
-                                        onMouseLeave={() => setHoveredCell(null)}
-                                        title={`Média da Equipe • ${eixo}: ${avgScore} pts — ${avgStyle.label}`}
-                                        style={{
-                                          backgroundColor: avgStyle.bg,
-                                          color: avgStyle.text,
-                                        }}
-                                        className="group relative flex h-[28px] sm:h-[38px] w-full cursor-pointer items-center justify-center rounded-[7px] sm:rounded-[12px] border-2 border-amber-500/70 dark:border-amber-400/70 text-[9px] sm:text-[11px] font-black transition-all duration-200 hover:scale-[1.05] shadow-2xs ring-1 ring-amber-500/20"
-                                      >
-                                        {/* A pontuação da média fica sempre visível para rápida leitura */}
-                                        <span className="opacity-100 font-extrabold tracking-tight">
-                                          {avgScore}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                                      {/* Célula da Média da Equipe (SEMPRE VISÍVEL) */}
+                                      <td className="p-0 align-middle">
+                                        <div
+                                          onMouseEnter={() =>
+                                            setHoveredCell({
+                                              membro: "Média da Equipe",
+                                              cargo: "Consolidado Geral",
+                                              eixo,
+                                              pts: avgScore,
+                                              label: avgStyle.label,
+                                            })
+                                          }
+                                          onClick={() =>
+                                            setHoveredCell({
+                                              membro: "Média da Equipe",
+                                              cargo: "Consolidado Geral",
+                                              eixo,
+                                              pts: avgScore,
+                                              label: avgStyle.label,
+                                            })
+                                          }
+                                          onMouseLeave={() =>
+                                            setHoveredCell(null)
+                                          }
+                                          title={`Média da Equipe • ${eixo}: ${avgScore} pts — ${avgStyle.label}`}
+                                          style={{
+                                            backgroundColor: avgStyle.bg,
+                                            color: avgStyle.text,
+                                          }}
+                                          className="group relative flex h-[28px] sm:h-[38px] w-full cursor-pointer items-center justify-center rounded-[7px] sm:rounded-[12px] border-2 border-amber-500/70 dark:border-amber-400/70 text-[9px] sm:text-[11px] font-black transition-all duration-200 hover:scale-[1.05] shadow-2xs ring-1 ring-amber-500/20"
+                                        >
+                                          <span className="opacity-100 font-extrabold tracking-tight">
+                                            {avgScore}
+                                          </span>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
 
-                              {/* Member Headers & Media Footer Row */}
-                              <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800 grid grid-cols-[68px_1fr] sm:grid-cols-[110px_1fr] items-center gap-1.5 sm:gap-3">
-                                <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-wider text-slate-400 truncate">
-                                  Síntese:
-                                </span>
-                                <div
-                                  className="grid gap-1 sm:gap-2 items-center"
-                                  style={{
-                                    gridTemplateColumns: `repeat(${
-                                      equipeMembrosTalentos.length + 1
-                                    }, minmax(0, 1fr))`,
-                                  }}
-                                >
+                              {/* RODAPÉ INFERIOR: INTEGRANTES ALINHADOS COM AS COLUNAS */}
+                              <tfoot>
+                                <tr>
+                                  <td className="pt-2 text-left align-middle pr-1">
+                                    <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                                      INTEGRANTES:
+                                    </span>
+                                  </td>
                                   {equipeMembrosTalentos.map((m) => (
-                                    <div
+                                    <td
                                       key={m.id}
-                                      className="text-center truncate text-[8px] sm:text-[10px] font-bold text-slate-700 dark:text-slate-300 px-0.5"
-                                      title={m.nome}
+                                      className="pt-2 text-center align-middle px-0.5"
                                     >
-                                      {m.nome.split(" ")[0]}
-                                    </div>
+                                      <span
+                                        className="block truncate text-[8px] sm:text-[10px] font-bold text-slate-700 dark:text-slate-300"
+                                        title={m.nome}
+                                      >
+                                        {m.nome.split(" ")[0]}
+                                      </span>
+                                    </td>
                                   ))}
-                                  <div className="text-center text-[8px] sm:text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-tight">
-                                    Média
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
+                                  <td className="pt-2 text-center align-middle px-0.5">
+                                    <span className="block truncate text-[8px] sm:text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-tight">
+                                      Média
+                                    </span>
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            </table>
                           </div>
 
                           {/* Floating Hover Context Card */}
