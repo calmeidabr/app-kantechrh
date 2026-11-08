@@ -225,6 +225,7 @@ export default function KantechApp() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarQuery, setSidebarQuery] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("Todos");
+  const [homeTalentosVisibleCount, setHomeTalentosVisibleCount] = useState(10);
   const [selectedTalento, setSelectedTalento] = useState<TalentoProfile>(
     TALENTOS_MOCK[0]
   );
@@ -633,6 +634,10 @@ export default function KantechApp() {
       const rank = rankByName(normSearch(searchQuery));
       return rank(a) - rank(b);
     });
+
+  const visibleHomeTalentos = useMemo(() => {
+    return filteredTalentos.slice(0, homeTalentosVisibleCount);
+  }, [filteredTalentos, homeTalentosVisibleCount]);
 
   const sidebarSearchResults =
     sidebarTerms.length > 0
@@ -1503,8 +1508,8 @@ export default function KantechApp() {
                             </Button>
                           </div>
                           <span className="text-xs text-slate-400">
-                            Exibindo {filteredTalentos.length} de{" "}
-                            {talentos.length} perfis sincronizados
+                            Exibindo {Math.min(homeTalentosVisibleCount, filteredTalentos.length)} de{" "}
+                            {filteredTalentos.length} perfis sincronizados
                           </span>
                         </div>
                       </CardHeader>
@@ -1512,7 +1517,7 @@ export default function KantechApp() {
                       <CardContent className="px-4 md:px-0 pb-4 md:pb-2">
                         {/* MOBILE VIEW: Vertical Stacked Shadcn UI Cards (block md:hidden) */}
                         <div className="block md:hidden space-y-3">
-                          {filteredTalentos.slice(0, 25).map((t) => (
+                          {visibleHomeTalentos.map((t) => (
                             <Card
                               key={t.id}
                               onClick={() => handleInspectTalento(t)}
@@ -1600,7 +1605,7 @@ export default function KantechApp() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {filteredTalentos.slice(0, 50).map((t) => (
+                              {visibleHomeTalentos.map((t) => (
                                 <TableRow key={t.id} className="group">
                                   <TableCell className="pl-6 pr-3">
                                     <input
@@ -1684,6 +1689,30 @@ export default function KantechApp() {
                             </TableBody>
                           </Table>
                         </div>
+
+                        {/* Botões de paginação: Carregar mais talentos (10), mostrar todos */}
+                        {homeTalentosVisibleCount < filteredTalentos.length && (
+                          <div className="flex flex-wrap items-center justify-center gap-3 pt-4 pb-2 border-t border-slate-100 dark:border-slate-800/80 mt-3">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setHomeTalentosVisibleCount((prev) => prev + 10)
+                              }
+                            >
+                              Carregar mais talentos (+10)
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                setHomeTalentosVisibleCount(filteredTalentos.length)
+                              }
+                            >
+                              Mostrar todos ({filteredTalentos.length})
+                            </Button>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </div>
