@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Search,
   Briefcase,
@@ -163,36 +163,7 @@ export function VagasView({
   >("Senior");
   const [linkVaga, setLinkVaga] = useState("");
   const [depto, setDepto] = useState(DEPARTAMENTOS_OPCOES[1]);
-  const [kanIdeal, setKanIdeal] = useState<string[]>(["Movimento"]);
-  const [perfisIdeais, setPerfisIdeais] = useState<string[]>([
-    "Lider",
-    "Resultado",
-  ]);
-  const [catsIdeais, setCatsIdeais] = useState<string[]>([
-    "Realizador",
-    "Inovador",
-  ]);
-  const [qualsIdeais, setQualsIdeais] = useState<string[]>([
-    "Execução",
-    "Comunicação",
-  ]);
-  const [softSkillsIdeais, setSoftSkillsIdeais] = useState<string[]>([
-    "Liderança",
-    "Comunicação assertiva",
-    "Resolução de problemas",
-    "Proatividade",
-  ]);
   const [descVaga, setDescVaga] = useState("");
-
-  const toggleItem = (
-    list: string[],
-    setList: React.Dispatch<React.SetStateAction<string[]>>,
-    item: string
-  ) => {
-    setList((prev) =>
-      prev.includes(item) ? prev.filter((x) => x !== item) : [...prev, item]
-    );
-  };
 
   const handleSaveVaga = async () => {
     if (!nomeVaga.trim()) {
@@ -213,11 +184,11 @@ export function VagasView({
           link_vaga: linkVaga.trim() || undefined,
           empresa: chosenEmpresa,
           departamento: depto,
-          kan_ideal: kanIdeal,
-          perfis_ideais: perfisIdeais,
-          categorias_ideais: catsIdeais,
-          qualidades_ideais: qualsIdeais,
-          soft_skills_ideais: softSkillsIdeais,
+          kan_ideal: [],
+          perfis_ideais: [],
+          categorias_ideais: [],
+          qualidades_ideais: [],
+          soft_skills_ideais: [],
           descricao_vaga: descVaga.trim(),
           candidatos_associados: [],
         }),
@@ -411,44 +382,16 @@ export function VagasView({
               </div>
             </div>
 
-            {/* Seletores de Pílulas: KAN, Perfis, Categorias, Qualidades, Soft Skills */}
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <PillMultiSelect
-                label="KAN Ideal"
-                options={KAN_OPCOES}
-                selected={kanIdeal}
-                onToggle={(v) => toggleItem(kanIdeal, setKanIdeal, v)}
-                accent="orange"
-              />
-              <PillMultiSelect
-                label="Tipos de Perfis Ideais"
-                options={PERFIS_OPCOES}
-                selected={perfisIdeais}
-                onToggle={(v) => toggleItem(perfisIdeais, setPerfisIdeais, v)}
-                accent="purple"
-              />
-              <PillMultiSelect
-                label="Categorias de Perfil Ideais"
-                options={CATEGORIAS_OPCOES}
-                selected={catsIdeais}
-                onToggle={(v) => toggleItem(catsIdeais, setCatsIdeais, v)}
-                accent="purple"
-              />
-              <PillMultiSelect
-                label="Soft Skills Ideais"
-                options={SOFT_SKILLS_OPCOES}
-                selected={softSkillsIdeais}
-                onToggle={(v) => toggleItem(softSkillsIdeais, setSoftSkillsIdeais, v)}
-                accent="orange"
-              />
-              <div className="lg:col-span-2">
-                <PillMultiSelect
-                  label="Qualidades Ideais (Matriz Clássica)"
-                  options={QUALIDADES_OPCOES}
-                  selected={qualsIdeais}
-                  onToggle={(v) => toggleItem(qualsIdeais, setQualsIdeais, v)}
-                  accent="emerald"
-                />
+            {/* Mensagem explicativa: Requisitos são definidos no Processo Seletivo */}
+            <div className="rounded-xl border border-[#510851]/20 dark:border-purple-900/40 bg-[#510851]/5 dark:bg-purple-950/20 p-4 flex items-start gap-3">
+              <span className="text-xl">🎯</span>
+              <div className="text-xs space-y-1">
+                <strong className="text-[#510851] dark:text-purple-300 font-semibold block">
+                  Requisitos Comportamentais & Matriz de Avaliação
+                </strong>
+                <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                  A definição dos requisitos (KAN Ideal, Perfis, Categorias, Soft Skills e Qualidades) será realizada na etapa de <strong>Processo Seletivo</strong>, onde você poderá personalizá-los livremente ou utilizar a <strong>Inteligência Artificial (IA)</strong> para sugerir a matriz ideal para a vaga.
+                </p>
               </div>
             </div>
 
@@ -689,6 +632,15 @@ export function ProcessoSeletivoView({
   const [novaQualidade, setNovaQualidade] = useState("");
   const [novaSoftSkill, setNovaSoftSkill] = useState("");
   const [isSavingRequisitos, setIsSavingRequisitos] = useState(false);
+
+  // States para Paginação de Candidatos (10 iniciais, +20, todos)
+  const [visibleCandidatosCount, setVisibleCandidatosCount] = useState(10);
+  const [visibleRankingCount, setVisibleRankingCount] = useState(10);
+
+  useEffect(() => {
+    setVisibleCandidatosCount(10);
+    setVisibleRankingCount(10);
+  }, [selectedVagaId]);
 
   if (!vagaAtiva) return null;
 
@@ -1325,6 +1277,19 @@ export function ProcessoSeletivoView({
                 <SlidersHorizontal className="h-3.5 w-3.5" />
                 {customizeOpen ? "Ocultar Ajustes" : "Personalizar Requisitos"}
               </Button>
+              <Button
+                size="sm"
+                onClick={() => salvarRequisitosNoBanco(vagaAtiva)}
+                disabled={isSavingRequisitos}
+                className="bg-[#510851] text-white hover:bg-[#510851]/90 shadow-xs"
+              >
+                {isSavingRequisitos ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                ) : (
+                  <Save className="h-3.5 w-3.5 mr-1" />
+                )}
+                {isSavingRequisitos ? "Salvando..." : "Salvar Alterações"}
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -1866,7 +1831,7 @@ export function ProcessoSeletivoView({
         <div className="space-y-6">
           {/* 4-Column Candidate Cards matching processo_seletivo_analise_menu.py */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {candidatosAssociadosRank.map((item) => {
+            {candidatosAssociadosRank.slice(0, visibleCandidatosCount).map((item) => {
               const c = item.talento;
               return (
                 <Card
@@ -1983,15 +1948,67 @@ export function ProcessoSeletivoView({
             })}
           </div>
 
+          {/* Controles de Paginação dos Candidatos Associados */}
+          {candidatosAssociadosRank.length > 10 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1 pb-2">
+              <span className="text-xs text-slate-500">
+                Apresentando <strong>{Math.min(visibleCandidatosCount, candidatosAssociadosRank.length)}</strong> de <strong>{candidatosAssociadosRank.length}</strong> candidatos associados
+              </span>
+              <div className="flex items-center gap-2">
+                {visibleCandidatosCount < candidatosAssociadosRank.length && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setVisibleCandidatosCount((prev) =>
+                          Math.min(prev + 20, candidatosAssociadosRank.length)
+                        )
+                      }
+                      className="text-xs h-8"
+                    >
+                      Apresentar próximos 20
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setVisibleCandidatosCount(candidatosAssociadosRank.length)
+                      }
+                      className="text-xs h-8 border-[#510851]/30 text-[#510851] dark:text-purple-300 hover:bg-[#510851]/5"
+                    >
+                      Apresentar todos ({candidatosAssociadosRank.length})
+                    </Button>
+                  </>
+                )}
+                {visibleCandidatosCount > 10 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setVisibleCandidatosCount(10)}
+                    className="text-xs h-8 text-slate-500"
+                  >
+                    Mostrar menos (10)
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Tabela Geral de Ranking por Aderência (com botão circular + / ✓) */}
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>
-                Ranking Geral da Base de Talentos por Aderência à Vaga
-              </CardTitle>
-              <CardDescription>
-                Clique no botão circular à esquerda para associar (+) ou remover (✓) qualquer talento do processo seletivo.
-              </CardDescription>
+            <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <CardTitle>
+                  Ranking Geral da Base de Talentos por Aderência à Vaga
+                </CardTitle>
+                <CardDescription>
+                  Clique no botão circular à esquerda para associar (+) ou remover (✓) qualquer talento do processo seletivo.
+                </CardDescription>
+              </div>
+              <span className="text-xs font-semibold text-slate-500 shrink-0">
+                Mostrando {Math.min(visibleRankingCount, todosRankeados.length)} de {todosRankeados.length} talentos
+              </span>
             </CardHeader>
             <CardContent className="px-0 pb-2">
               <div className="overflow-x-auto">
@@ -2009,7 +2026,7 @@ export function ProcessoSeletivoView({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/60">
-                    {todosRankeados.map((r) => {
+                    {todosRankeados.slice(0, visibleRankingCount).map((r) => {
                       const isAssoc = vagaAtiva.candidatos_associados.includes(
                         r.talento.nome
                       );
@@ -2057,6 +2074,51 @@ export function ProcessoSeletivoView({
                   </tbody>
                 </table>
               </div>
+
+              {/* Controles de Paginação do Ranking Geral */}
+              {todosRankeados.length > 10 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-t border-slate-100 dark:border-slate-800">
+                  <span className="text-xs text-slate-500">
+                    Exibindo <strong>{Math.min(visibleRankingCount, todosRankeados.length)}</strong> de <strong>{todosRankeados.length}</strong> talentos
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {visibleRankingCount < todosRankeados.length && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setVisibleRankingCount((prev) =>
+                              Math.min(prev + 20, todosRankeados.length)
+                            )
+                          }
+                          className="text-xs h-8"
+                        >
+                          Apresentar próximos 20
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setVisibleRankingCount(todosRankeados.length)}
+                          className="text-xs h-8 border-[#510851]/30 text-[#510851] dark:text-purple-300 hover:bg-[#510851]/5"
+                        >
+                          Apresentar todos ({todosRankeados.length})
+                        </Button>
+                      </>
+                    )}
+                    {visibleRankingCount > 10 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setVisibleRankingCount(10)}
+                        className="text-xs h-8 text-slate-500"
+                      >
+                        Mostrar menos (10)
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
