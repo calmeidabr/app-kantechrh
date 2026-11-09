@@ -261,6 +261,7 @@ export function EquipesView({
   // Estados do Mapa de Calor (Paleta e Exibição de Pontos)
   const [heatmapPalette, setHeatmapPalette] = useState<HeatmapPalette>("emerald");
   const [showHeatmapValues, setShowHeatmapValues] = useState(false);
+  const [revealedAverageRows, setRevealedAverageRows] = useState<Record<string, boolean>>({});
   const [hoveredCell, setHoveredCell] = useState<{
     membro: string;
     cargo: string;
@@ -1533,41 +1534,71 @@ export function EquipesView({
                                         );
                                       })}
 
-                                      {/* Célula da Média da Equipe (SEMPRE VISÍVEL) */}
+                                      {/* Célula da Média da Equipe (Oculta por padrão, exibe apenas ao clicar) */}
                                       <td className="p-0 align-middle">
-                                        <div
-                                          onMouseEnter={() =>
-                                            setHoveredCell({
-                                              membro: "Média da Equipe",
-                                              cargo: "Consolidado Geral",
-                                              eixo,
-                                              pts: avgScore,
-                                              label: avgStyle.label,
-                                            })
-                                          }
-                                          onClick={() =>
-                                            setHoveredCell({
-                                              membro: "Média da Equipe",
-                                              cargo: "Consolidado Geral",
-                                              eixo,
-                                              pts: avgScore,
-                                              label: avgStyle.label,
-                                            })
-                                          }
-                                          onMouseLeave={() =>
-                                            setHoveredCell(null)
-                                          }
-                                          title={`Média da Equipe • ${eixo}: ${avgScore} pts — ${avgStyle.label}`}
-                                          style={{
-                                            backgroundColor: avgStyle.bg,
-                                            color: avgStyle.text,
-                                          }}
-                                          className="group relative flex h-[28px] sm:h-[38px] w-full cursor-pointer items-center justify-center rounded-[7px] sm:rounded-[12px] border-2 border-amber-500/70 dark:border-amber-400/70 text-[9px] sm:text-[11px] font-black transition-all duration-200 hover:scale-[1.05] shadow-2xs ring-1 ring-amber-500/20"
-                                        >
-                                          <span className="opacity-100 font-extrabold tracking-tight">
-                                            {avgScore}
-                                          </span>
-                                        </div>
+                                        {(() => {
+                                          const avgRowKey = `${eq.id}-${eixo}`;
+                                          const isAvgVisible =
+                                            showHeatmapValues ||
+                                            Boolean(revealedAverageRows[avgRowKey]);
+
+                                          return (
+                                            <div
+                                              onClick={() => {
+                                                const nextState = !revealedAverageRows[avgRowKey];
+                                                setRevealedAverageRows((prev) => ({
+                                                  ...prev,
+                                                  [avgRowKey]: nextState,
+                                                }));
+                                                if (nextState || showHeatmapValues) {
+                                                  setHoveredCell({
+                                                    membro: "Média da Equipe",
+                                                    cargo: "Consolidado Geral",
+                                                    eixo,
+                                                    pts: avgScore,
+                                                    label: avgStyle.label,
+                                                  });
+                                                } else {
+                                                  setHoveredCell(null);
+                                                }
+                                              }}
+                                              onMouseEnter={() => {
+                                                if (isAvgVisible) {
+                                                  setHoveredCell({
+                                                    membro: "Média da Equipe",
+                                                    cargo: "Consolidado Geral",
+                                                    eixo,
+                                                    pts: avgScore,
+                                                    label: avgStyle.label,
+                                                  });
+                                                }
+                                              }}
+                                              onMouseLeave={() =>
+                                                setHoveredCell(null)
+                                              }
+                                              title={
+                                                isAvgVisible
+                                                  ? `Média da Equipe • ${eixo}: ${avgScore} pts — ${avgStyle.label} (Clique para ocultar)`
+                                                  : `Média da Equipe • ${eixo} (Clique para ver a pontuação)`
+                                              }
+                                              style={{
+                                                backgroundColor: avgStyle.bg,
+                                                color: avgStyle.text,
+                                              }}
+                                              className="group relative flex h-[28px] sm:h-[38px] w-full cursor-pointer select-none items-center justify-center rounded-[7px] sm:rounded-[12px] border-2 border-amber-500/70 dark:border-amber-400/70 text-[9px] sm:text-[11px] font-black transition-all duration-200 hover:scale-[1.05] shadow-2xs ring-1 ring-amber-500/20"
+                                            >
+                                              <span
+                                                className={`transition-opacity duration-150 font-extrabold tracking-tight ${
+                                                  isAvgVisible
+                                                    ? "opacity-100"
+                                                    : "opacity-0"
+                                                }`}
+                                              >
+                                                {avgScore}
+                                              </span>
+                                            </div>
+                                          );
+                                        })()}
                                       </td>
                                     </tr>
                                   );
