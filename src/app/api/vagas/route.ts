@@ -326,6 +326,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const supabaseAdmin = getSupabaseAdmin();
+    const empresaNome = (empresa && String(empresa).trim()) || "Mundo Kan";
+
+    // Resolução de tenant_id:
+    // 1. Se fornecido UUID válido, utiliza-o.
+    // 2. Senão, busca na tabela public.empresas pelo nome da empresa.
+    // 3. Fallback para tenant padrão '00000000-0000-0000-0000-000000000000'.
+    let resolvedTenantId = typeof tenant_id === "string" && tenant_id.length > 20 ? tenant_id : null;
+    if (!resolvedTenantId && empresaNome) {
+      const { data: empMatch } = await supabaseAdmin
+        .from("empresas")
+        .select("tenant_id")
+        .ilike("nome_empresa", empresaNome)
+        .maybeSingle();
+      if (empMatch?.tenant_id) {
+        resolvedTenantId = empMatch.tenant_id;
+      }
+    }
+    if (!resolvedTenantId) {
+      resolvedTenantId = "00000000-0000-0000-0000-000000000000";
+    }
+
     const combinedQuals = [
       ...(Array.isArray(qualidades_ideais) ? qualidades_ideais : []),
       ...(Array.isArray(soft_skills_ideais)
@@ -335,83 +357,119 @@ export async function POST(req: NextRequest) {
         : []),
     ];
 
-    const supabaseAdmin = getSupabaseAdmin();
     const vagaPayload: Record<string, unknown> = {
       nome_vaga,
       senioridade: senioridade || "Senior",
       link_vaga: link_vaga || "",
-      empresa: empresa || "Mundo Kan",
+      empresa: empresaNome,
       departamento: departamento || "Comercial",
       kan_ideal: Array.isArray(kan_ideal) ? kan_ideal.join(", ") : String(kan_ideal || ""),
       perfis_ideais: JSON.stringify(Array.isArray(perfis_ideais) ? perfis_ideais : []),
       categorias_ideais: JSON.stringify(Array.isArray(categorias_ideais) ? categorias_ideais : []),
       qualidades_ideais: JSON.stringify(combinedQuals),
       descricao_vaga: descricao_vaga || "",
+      tenant_id: resolvedTenantId,
       updated_at: new Date().toISOString(),
     };
 
-    if (tenant_id) {
-      vagaPayload.tenant_id = tenant_id;
-    }
+    const isEdit = id && Number(id) > 0 && Number(id) < 1000000000;
+    let savedVaga: any = null;
+    let vagaError: any = null;
 
-    if (id && Number(id) < 1000000000) {
+    if (isEdit) {
       vagaPayload.id = Number(id);
+      const res = await supabaseAdmin
+        .from("vagas")
+        .upsert(vagaPayload)
+        .select()
+        .single();
+      savedVaga = res.data;
+      vagaError = res.error;
+    } else {
+      const res = await supabaseAdmin
+        .from("vagas")
+        .insert(vagaPayload)
+        .select()
+        .single();
+      savedVaga = res.data;
+      vagaError = res.error;
     }
 
-    const { data: savedVaga, error: vagaError } = await supabaseAdmin
-      .from("vagas")
-      .upsert(vagaPayload)
-      .select()
-      .single();
-
-    if (vagaError) {
+    if (vagaError || !savedVaga) {
+      console.error("Erro ao salvar vaga no Supabase:", vagaError);
       return NextResponse.json(
-        { success: false, error: vagaError.message },
+        { success: false, error: vagaError?.message || "Falha ao gravar vaga no banco de dados." },
         { status: 400 }
       );
     }
 
-    if (savedVaga?.id) {
-      // Check if processos_seletivos row already exists for this vaga_id
-      const { data: existingProc } = await supabaseAdmin
+    // Sincronizar public.processos_seletivos
+    const { data: existingProc } = await supabaseAdmin
+      .from("processos_seletivos")
+      .select("id, historico_harmonia")
+      .eq("vaga_id", savedVaga.id)
+      .maybeSingle();
+
+    const procPayload: Record<string, unknown> = {
+      vaga_id: savedVaga.id,
+      empresa: empresaNome,
+      candidatos: Array.isArray(candidatos_associados) ? candidatos_associados : [],
+      perfis_ideais: Array.isArray(perfis_ideais) ? perfis_ideais : [],
+      categorias_ideais: Array.isArray(categorias_ideais) ? categorias_ideais : [],
+      qualidades_ideais: combinedQuals,
+      kan_ideal: JSON.stringify(Array.isArray(kan_ideal) ? kan_ideal : []),
+      equipe: equipe_associada || null,
+      historico_harmonia:
+        historico_harmonia !== undefined
+          ? historico_harmonia
+          : existingProc?.historico_harmonia || [],
+      tenant_id: resolvedTenantId,
+      updated_at: new Date().toISOString(),
+    };
+
+    let savedProcId = existingProc?.id;
+    if (existingProc?.id) {
+      await supabaseAdmin
         .from("processos_seletivos")
-        .select("id, historico_harmonia")
-        .eq("vaga_id", savedVaga.id)
+        .update(procPayload)
+        .eq("id", existingProc.id);
+    } else {
+      const { data: newProc } = await supabaseAdmin
+        .from("processos_seletivos")
+        .insert({
+          ...procPayload,
+          created_at: new Date().toISOString(),
+        })
+        .select("id")
         .maybeSingle();
-
-      const procPayload: Record<string, unknown> = {
-        vaga_id: savedVaga.id,
-        empresa: empresa || "Mundo Kan",
-        candidatos: Array.isArray(candidatos_associados) ? candidatos_associados : [],
-        perfis_ideais: Array.isArray(perfis_ideais) ? perfis_ideais : [],
-        categorias_ideais: Array.isArray(categorias_ideais) ? categorias_ideais : [],
-        qualidades_ideais: combinedQuals,
-        kan_ideal: JSON.stringify(Array.isArray(kan_ideal) ? kan_ideal : []),
-        equipe: equipe_associada || null,
-        historico_harmonia:
-          historico_harmonia !== undefined
-            ? historico_harmonia
-            : existingProc?.historico_harmonia || [],
-        updated_at: new Date().toISOString(),
-      };
-
-      if (tenant_id) {
-        procPayload.tenant_id = tenant_id;
-      }
-
-      if (existingProc?.id) {
-        await supabaseAdmin
-          .from("processos_seletivos")
-          .update(procPayload)
-          .eq("id", existingProc.id);
-      } else {
-        await supabaseAdmin.from("processos_seletivos").insert(procPayload);
-      }
+      if (newProc?.id) savedProcId = newProc.id;
     }
+
+    // Retornar objeto completo estruturado como VagaData
+    const completeVaga = {
+      id: Number(savedVaga.id),
+      processo_id: savedProcId ? Number(savedProcId) : undefined,
+      nome_vaga: String(savedVaga.nome_vaga),
+      senioridade: String(savedVaga.senioridade || "Senior"),
+      link_vaga: savedVaga.link_vaga ? String(savedVaga.link_vaga) : undefined,
+      empresa: String(savedVaga.empresa || empresaNome),
+      departamento: String(savedVaga.departamento || "Comercial"),
+      kan_ideal: Array.isArray(kan_ideal) && kan_ideal.length > 0 ? kan_ideal : parseArr(savedVaga.kan_ideal),
+      perfis_ideais: Array.isArray(perfis_ideais) && perfis_ideais.length > 0 ? perfis_ideais : parseArr(savedVaga.perfis_ideais),
+      categorias_ideais: Array.isArray(categorias_ideais) && categorias_ideais.length > 0 ? categorias_ideais : parseArr(savedVaga.categorias_ideais),
+      qualidades_ideais: Array.isArray(qualidades_ideais) ? qualidades_ideais : [],
+      soft_skills_ideais: Array.isArray(soft_skills_ideais) ? soft_skills_ideais : [],
+      descricao_vaga: String(savedVaga.descricao_vaga || ""),
+      equipe_associada: equipe_associada || undefined,
+      candidatos_associados: Array.isArray(candidatos_associados) ? candidatos_associados : [],
+      historico_harmonia: Array.isArray(historico_harmonia) ? historico_harmonia : (existingProc?.historico_harmonia || []),
+      created_at: String(savedVaga.created_at || new Date().toISOString()),
+      tenant_id: String(savedVaga.tenant_id || resolvedTenantId),
+    };
 
     return NextResponse.json({
       success: true,
-      vaga: savedVaga,
+      vaga: completeVaga,
     });
   } catch (err) {
     return NextResponse.json(

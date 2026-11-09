@@ -71,8 +71,10 @@ export function VagasView({
   setVagas: React.Dispatch<React.SetStateAction<VagaData[]>>;
   onAnalisarProcesso: (vagaId: number) => void;
 }) {
-  const [empresaSel, setEmpresaSel] = useState(EMPRESAS_TENANT[0].nome);
+  const [empresaSel, setEmpresaSel] = useState("Todas");
+  const [empresaVaga, setEmpresaVaga] = useState(EMPRESAS_TENANT[0].nome);
   const [formOpen, setFormOpen] = useState(false);
+  const [isCreatingVaga, setIsCreatingVaga] = useState(false);
   // Edit Vaga Modal State
   const [editingVaga, setEditingVaga] = useState<VagaData | null>(null);
   const [editVagaNome, setEditVagaNome] = useState("");
@@ -118,6 +120,8 @@ export function VagasView({
       kan_ideal: editVagaKan,
       perfis_ideais: editVagaPerfis,
       categorias_ideais: editVagaCats,
+      qualidades_ideais: editingVaga.qualidades_ideais || [],
+      soft_skills_ideais: editingVaga.soft_skills_ideais || [],
     };
 
     try {
@@ -127,12 +131,13 @@ export function VagasView({
         body: JSON.stringify(updatedPayload),
       });
       const data = await res.json();
-      if (!res.ok || data.error) {
-        throw new Error(data.error || "Erro ao salvar vaga.");
+      if (!res.ok || data.error || !data.success) {
+        throw new Error(data.error || "Erro ao salvar vaga no banco de dados.");
       }
 
+      const savedV: VagaData = data.vaga || updatedPayload;
       setVagas((prev) =>
-        prev.map((v) => (v.id === editingVaga.id ? { ...v, ...updatedPayload } : v))
+        prev.map((v) => (v.id === editingVaga.id ? { ...v, ...savedV } : v))
       );
       setToastMsg(`✅ Vaga "${editVagaNome.trim()}" atualizada com sucesso!`);
       setEditingVaga(null);
@@ -194,53 +199,85 @@ export function VagasView({
       return;
     }
 
-    const nova: VagaData = {
-      id: Date.now(),
-      nome_vaga: nomeVaga.trim(),
-      senioridade,
-      link_vaga: linkVaga.trim() || undefined,
-      empresa: empresaSel,
-      departamento: depto,
-      kan_ideal: kanIdeal,
-      perfis_ideais: perfisIdeais,
-      categorias_ideais: catsIdeais,
-      qualidades_ideais: qualsIdeais,
-      descricao_vaga: descVaga.trim(),
-      candidatos_associados: [],
-      created_at: new Date().toISOString().slice(0, 10),
-    };
+    setIsCreatingVaga(true);
+    const chosenEmpresa = empresaVaga || (empresaSel !== "Todas" ? empresaSel : "Mundo Kan");
 
     try {
-      await fetch("/api/vagas", {
+      const res = await fetch("/api/vagas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(nova),
+        body: JSON.stringify({
+          nome_vaga: nomeVaga.trim(),
+          senioridade,
+          link_vaga: linkVaga.trim() || undefined,
+          empresa: chosenEmpresa,
+          departamento: depto,
+          kan_ideal: kanIdeal,
+          perfis_ideais: perfisIdeais,
+          categorias_ideais: catsIdeais,
+          qualidades_ideais: qualsIdeais,
+          soft_skills_ideais: softSkillsIdeais,
+          descricao_vaga: descVaga.trim(),
+          candidatos_associados: [],
+        }),
       });
-    } catch {
-      // Keep local state if offline
-    }
 
-    setVagas((prev) => [nova, ...prev]);
-    setFormOpen(false);
-    setNomeVaga("");
-    setDescVaga("");
-    setExpandedVagaId(nova.id);
-    setToastMsg(`✅ Vaga "${nova.nome_vaga}" cadastrada com sucesso!`);
-    setTimeout(() => setToastMsg(null), 4000);
+      const data = await res.json();
+      if (!res.ok || !data.success || !data.vaga) {
+        throw new Error(data.error || "Erro ao salvar vaga no banco de dados.");
+      }
+
+      const createdVaga: VagaData = data.vaga;
+      setVagas((prev) => [createdVaga, ...prev.filter((v) => v.id !== createdVaga.id)]);
+      setFormOpen(false);
+      setNomeVaga("");
+      setLinkVaga("");
+      setDescVaga("");
+      setExpandedVagaId(createdVaga.id);
+      setToastMsg(`✅ Vaga "${createdVaga.nome_vaga}" salva e persistida no Supabase com sucesso!`);
+    } catch (err) {
+      setToastMsg(`❌ ${err instanceof Error ? err.message : "Erro ao cadastrar vaga"}`);
+    } finally {
+      setIsCreatingVaga(false);
+      setTimeout(() => setToastMsg(null), 5000);
+    }
   };
 
-  const handleDeleteVaga = (id: number) => {
-    setVagas((prev) => prev.filter((v) => v.id !== id));
-    setToastMsg("Vaga excluída.");
-    setTimeout(() => setToastMsg(null), 3000);
+  const handleDeleteVaga = async (id: number) => {
+    const vg = vagas.find((v) => v.id === id);
+    const confirmMsg = vg
+      ? `Tem certeza que deseja excluir a vaga "${vg.nome_vaga}"?`
+      : "Tem certeza que deseja excluir esta vaga?";
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch(`/api/vagas?id=${id}&admin=true`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Erro ao excluir vaga.");
+      }
+      setVagas((prev) => prev.filter((v) => v.id !== id));
+      setToastMsg("✅ Vaga excluída com sucesso.");
+    } catch (err) {
+      setToastMsg(`❌ ${err instanceof Error ? err.message : "Erro ao excluir vaga"}`);
+    } finally {
+      setTimeout(() => setToastMsg(null), 4000);
+    }
   };
 
   const qVaga = normText(buscaVaga);
   const vagasFiltradas = vagas.filter((vg) => {
+    if (empresaSel !== "Todas") {
+      if (normText(vg.empresa) !== normText(empresaSel)) {
+        return false;
+      }
+    }
     if (!qVaga) return true;
     const tokens = qVaga.split(/\s+/).filter(Boolean);
     const searchable = normText(
-      `${vg.nome_vaga} ${vg.senioridade} ${vg.departamento} ${vg.kan_ideal.join(" ")} ${vg.perfis_ideais.join(" ")} ${vg.categorias_ideais.join(" ")}`
+      `${vg.nome_vaga} ${vg.senioridade} ${vg.empresa} ${vg.departamento} ${(vg.kan_ideal || []).join(" ")} ${(vg.perfis_ideais || []).join(" ")} ${(vg.categorias_ideais || []).join(" ")}`
     );
     return tokens.every((tk) => searchable.includes(tk));
   });
@@ -263,9 +300,16 @@ export function VagasView({
         <div className="flex items-center gap-2.5">
           <select
             value={empresaSel}
-            onChange={(e) => setEmpresaSel(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setEmpresaSel(val);
+              if (val !== "Todas") {
+                setEmpresaVaga(val);
+              }
+            }}
             className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-card px-3 text-xs font-semibold"
           >
+            <option value="Todas">Todas as Empresas</option>
             {EMPRESAS_TENANT.map((emp) => (
               <option key={emp.id} value={emp.nome}>
                 {emp.nome}
@@ -273,7 +317,14 @@ export function VagasView({
             ))}
           </select>
 
-          <Button onClick={() => setFormOpen(!formOpen)}>
+          <Button
+            onClick={() => {
+              if (!formOpen && empresaSel !== "Todas") {
+                setEmpresaVaga(empresaSel);
+              }
+              setFormOpen(!formOpen);
+            }}
+          >
             <Plus className="h-4 w-4" />
             {formOpen ? "Fechar Formulário" : "Cadastrar Nova Vaga"}
           </Button>
@@ -307,6 +358,20 @@ export function VagasView({
                 />
               </div>
               <div className="space-y-1.5">
+                <label className="text-xs font-semibold">Empresa da Vaga *</label>
+                <select
+                  value={empresaVaga}
+                  onChange={(e) => setEmpresaVaga(e.target.value)}
+                  className="flex h-9 w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-card px-3 text-xs"
+                >
+                  {EMPRESAS_TENANT.map((emp) => (
+                    <option key={emp.id} value={emp.nome}>
+                      {emp.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
                 <label className="text-xs font-semibold">Senioridade *</label>
                 <select
                   value={senioridade}
@@ -319,7 +384,7 @@ export function VagasView({
                   <option value="Executivo">Executivo</option>
                 </select>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 md:col-span-2">
                 <label className="text-xs font-semibold">Departamento *</label>
                 <select
                   value={depto}
@@ -333,9 +398,19 @@ export function VagasView({
                   ))}
                 </select>
               </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-xs font-semibold">
+                  Link da Vaga (URL Opcional)
+                </label>
+                <Input
+                  value={linkVaga}
+                  onChange={(e) => setLinkVaga(e.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
             </div>
 
-            {/* Seletores de Pílulas: KAN, Perfis, Categorias, Qualidades */}
+            {/* Seletores de Pílulas: KAN, Perfis, Categorias, Qualidades, Soft Skills */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <PillMultiSelect
                 label="KAN Ideal"
@@ -359,42 +434,41 @@ export function VagasView({
                 accent="purple"
               />
               <PillMultiSelect
-                label="Qualidades Ideais"
-                options={QUALIDADES_OPCOES}
-                selected={qualsIdeais}
-                onToggle={(v) => toggleItem(qualsIdeais, setQualsIdeais, v)}
-                accent="emerald"
+                label="Soft Skills Ideais"
+                options={SOFT_SKILLS_OPCOES}
+                selected={softSkillsIdeais}
+                onToggle={(v) => toggleItem(softSkillsIdeais, setSoftSkillsIdeais, v)}
+                accent="orange"
+              />
+              <div className="lg:col-span-2">
+                <PillMultiSelect
+                  label="Qualidades Ideais (Matriz Clássica)"
+                  options={QUALIDADES_OPCOES}
+                  selected={qualsIdeais}
+                  onToggle={(v) => toggleItem(qualsIdeais, setQualsIdeais, v)}
+                  accent="emerald"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold">
+                Descrição da Vaga (Usada pela IA para sugerir requisitos)
+              </label>
+              <textarea
+                value={descVaga}
+                onChange={(e) => setDescVaga(e.target.value)}
+                rows={2}
+                placeholder="Responsabilidades, desafios da posição e cultura da área..."
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-card p-3 text-xs"
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="md:col-span-2 space-y-1.5">
-                <label className="text-xs font-semibold">
-                  Descrição da Vaga (Usada pela IA para sugerir requisitos)
-                </label>
-                <textarea
-                  value={descVaga}
-                  onChange={(e) => setDescVaga(e.target.value)}
-                  rows={2}
-                  placeholder="Responsabilidades, desafios da posição e cultura da área..."
-                  className="w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-card p-3 text-xs"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold">
-                  Link da Vaga (URL Opcional)
-                </label>
-                <Input
-                  value={linkVaga}
-                  onChange={(e) => setLinkVaga(e.target.value)}
-                  placeholder="https://..."
-                />
-              </div>
-            </div>
-
             <div className="flex items-center gap-2 pt-2">
-              <Button onClick={handleSaveVaga}>Salvar Vaga</Button>
-              <Button variant="outline" onClick={() => setFormOpen(false)}>
+              <Button onClick={handleSaveVaga} disabled={isCreatingVaga}>
+                {isCreatingVaga ? "Gravando no Supabase..." : "Salvar Vaga"}
+              </Button>
+              <Button variant="outline" onClick={() => setFormOpen(false)} disabled={isCreatingVaga}>
                 Cancelar
               </Button>
             </div>
@@ -438,6 +512,9 @@ export function VagasView({
                     <h3 className="text-base font-bold text-slate-900 dark:text-white">
                       {vg.nome_vaga} ({vg.senioridade})
                     </h3>
+                    <Badge variant="outline" className="border-[#510851]/30 bg-[#510851]/5 text-[#510851] dark:text-purple-300 font-semibold text-[11px]">
+                      {vg.empresa}
+                    </Badge>
                     <Badge variant="secondary">{vg.departamento}</Badge>
                     <Badge variant="success">
                       {vg.candidatos_associados.length} Candidatos
@@ -461,6 +538,17 @@ export function VagasView({
                         {p}
                       </Badge>
                     ))}
+                    {vg.soft_skills_ideais && vg.soft_skills_ideais.length > 0 && (
+                      <>
+                        <span className="mx-1 text-slate-300">|</span>
+                        <span className="font-bold text-amber-700 dark:text-amber-400">SOFT SKILLS:</span>
+                        {vg.soft_skills_ideais.slice(0, 3).map((sk) => (
+                          <Badge key={sk} variant="outline" className="border-amber-300 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-[11px]">
+                            {sk}
+                          </Badge>
+                        ))}
+                      </>
+                    )}
                     <span className="mx-1 text-slate-300">|</span>
                     <span className="font-bold text-slate-500">QUALIDADES:</span>
                     {vg.qualidades_ideais.slice(0, 3).map((q) => (
@@ -498,6 +586,14 @@ export function VagasView({
                       </strong>{" "}
                       {vg.categorias_ideais.join(", ")}
                     </div>
+                    {vg.soft_skills_ideais && vg.soft_skills_ideais.length > 0 && (
+                      <div>
+                        <strong className="text-slate-700 dark:text-slate-300">
+                          Soft Skills Ideais:
+                        </strong>{" "}
+                        {vg.soft_skills_ideais.join(", ")}
+                      </div>
+                    )}
                     <div>
                       <strong className="text-slate-700 dark:text-slate-300">
                         Qualidades Completas:
