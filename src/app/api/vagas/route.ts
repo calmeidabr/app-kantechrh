@@ -131,6 +131,17 @@ export async function GET(req: NextRequest) {
 
       const candidatosAssociados = parseArr(proc?.candidatos);
 
+      let histHarmonia: unknown[] = [];
+      if (Array.isArray(proc?.historico_harmonia)) {
+        histHarmonia = proc.historico_harmonia;
+      } else if (typeof proc?.historico_harmonia === "string") {
+        try {
+          histHarmonia = JSON.parse(proc.historico_harmonia);
+        } catch {
+          histHarmonia = [];
+        }
+      }
+
       return {
         id,
         processo_id: proc?.id ? Number(proc.id) : undefined,
@@ -146,6 +157,7 @@ export async function GET(req: NextRequest) {
         descricao_vaga: String(row.descricao_vaga || ""),
         equipe_associada: equipeAssociada,
         candidatos_associados: candidatosAssociados,
+        historico_harmonia: histHarmonia,
         created_at: String(row.created_at || new Date().toISOString()),
         tenant_id: String(row.tenant_id || "00000000-0000-0000-0000-000000000000"),
       };
@@ -172,6 +184,113 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+
+    // 1. AÇÃO ESPECÍFICA: Confirmar e Salvar Análise de Harmonia no Histórico
+    if (body.action === "salvar_analise_harmonia") {
+      const { vaga_id, analise } = body;
+      if (!vaga_id || !analise) {
+        return NextResponse.json(
+          { success: false, error: "vaga_id e analise são obrigatórios." },
+          { status: 400 }
+        );
+      }
+
+      const supabaseAdmin = getSupabaseAdmin();
+      const { data: existingProc, error: procFetchErr } = await supabaseAdmin
+        .from("processos_seletivos")
+        .select("id, historico_harmonia")
+        .eq("vaga_id", Number(vaga_id))
+        .maybeSingle();
+
+      if (procFetchErr) {
+        return NextResponse.json(
+          { success: false, error: procFetchErr.message },
+          { status: 500 }
+        );
+      }
+
+      let currentHist: unknown[] = [];
+      if (Array.isArray(existingProc?.historico_harmonia)) {
+        currentHist = existingProc.historico_harmonia;
+      } else if (typeof existingProc?.historico_harmonia === "string") {
+        try {
+          currentHist = JSON.parse(existingProc.historico_harmonia);
+        } catch {
+          currentHist = [];
+        }
+      }
+
+      const updatedHist = [analise, ...currentHist];
+
+      if (existingProc?.id) {
+        const { error: updErr } = await supabaseAdmin
+          .from("processos_seletivos")
+          .update({
+            historico_harmonia: updatedHist,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingProc.id);
+
+        if (updErr) {
+          return NextResponse.json(
+            { success: false, error: updErr.message },
+            { status: 400 }
+          );
+        }
+      } else {
+        const { error: insErr } = await supabaseAdmin
+          .from("processos_seletivos")
+          .insert({
+            vaga_id: Number(vaga_id),
+            historico_harmonia: updatedHist,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+
+        if (insErr) {
+          return NextResponse.json(
+            { success: false, error: insErr.message },
+            { status: 400 }
+          );
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        historico_harmonia: updatedHist,
+      });
+    }
+
+    // 2. AÇÃO ESPECÍFICA: Excluir item do Histórico de Harmonia
+    if (body.action === "excluir_analise_harmonia") {
+      const { vaga_id, analise_id } = body;
+      const supabaseAdmin = getSupabaseAdmin();
+      const { data: existingProc } = await supabaseAdmin
+        .from("processos_seletivos")
+        .select("id, historico_harmonia")
+        .eq("vaga_id", Number(vaga_id))
+        .maybeSingle();
+
+      if (existingProc?.id) {
+        let currentHist: Array<{ id?: string }> = [];
+        if (Array.isArray(existingProc.historico_harmonia)) {
+          currentHist = existingProc.historico_harmonia as Array<{ id?: string }>;
+        }
+        const updatedHist = currentHist.filter((item) => item?.id !== analise_id);
+        await supabaseAdmin
+          .from("processos_seletivos")
+          .update({
+            historico_harmonia: updatedHist,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingProc.id);
+
+        return NextResponse.json({ success: true, historico_harmonia: updatedHist });
+      }
+      return NextResponse.json({ success: true, historico_harmonia: [] });
+    }
+
+    // 3. FLUXO PADRÃO: Criação ou atualização completa de Vaga
     const {
       id,
       nome_vaga,
@@ -186,6 +305,7 @@ export async function POST(req: NextRequest) {
       descricao_vaga,
       equipe_associada,
       candidatos_associados,
+      historico_harmonia,
       tenant_id,
     } = body;
 
@@ -236,7 +356,7 @@ export async function POST(req: NextRequest) {
       // Check if processos_seletivos row already exists for this vaga_id
       const { data: existingProc } = await supabaseAdmin
         .from("processos_seletivos")
-        .select("id")
+        .select("id, historico_harmonia")
         .eq("vaga_id", savedVaga.id)
         .maybeSingle();
 
@@ -249,6 +369,10 @@ export async function POST(req: NextRequest) {
         qualidades_ideais: Array.isArray(qualidades_ideais) ? qualidades_ideais : [],
         kan_ideal: JSON.stringify(Array.isArray(kan_ideal) ? kan_ideal : []),
         equipe: equipe_associada || null,
+        historico_harmonia:
+          historico_harmonia !== undefined
+            ? historico_harmonia
+            : existingProc?.historico_harmonia || [],
         updated_at: new Date().toISOString(),
       };
 

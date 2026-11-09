@@ -20,6 +20,9 @@ import {
   Award,
   Save,
   RotateCcw,
+  Loader2,
+  Clock,
+  History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +43,7 @@ import {
   CATEGORIAS_OPCOES,
   QUALIDADES_OPCOES,
   type VagaData,
+  type AnaliseHarmoniaItem,
   type KanType,
   type TalentoProfile,
   type EquipeData,
@@ -570,6 +574,10 @@ export function ProcessoSeletivoView({
     "Candidato demonstrou excelente abertura para colaborar com a liderança no KAN de Finalidade, confirmando a estabilidade indicada na geometria de triângulos."
   );
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [isSavingHarmonia, setIsSavingHarmonia] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
+  const [harmoniaSuccessMsg, setHarmoniaSuccessMsg] = useState<string | null>(null);
+  const [harmoniaErrorMsg, setHarmoniaErrorMsg] = useState<string | null>(null);
 
   if (!vagaAtiva) return null;
 
@@ -722,6 +730,126 @@ export function ProcessoSeletivoView({
     isLider?: boolean;
     isCandidatoDestaque?: boolean;
   }[];
+
+  const handleConfirmarSalvarHarmonia = async () => {
+    if (!vagaAtiva) return;
+    setIsSavingHarmonia(true);
+    setHarmoniaErrorMsg(null);
+    setHarmoniaSuccessMsg(null);
+
+    const agora = new Date();
+    const dataFormatada = agora.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const novaAnalise: AnaliseHarmoniaItem = {
+      id: `harmonia-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      data: dataFormatada,
+      candidato: candDestaqueObj.nome,
+      candidato_kan: `KAN ${candDestaqueObj.kan_nome} (${candDestaqueObj.vertices_triangulo.join("-")})`,
+      equipe: equipeDaVaga.nome,
+      harmonia_score: 91.8,
+      classificacao: "Encaixe Muito Alto",
+      criterios: [
+        { titulo: "Complementaridade", nota: "4.7/5.0", sub: "Equilíbrio de KANs" },
+        { titulo: "Integração Geométrica", nota: "4.6/5.0", sub: "Conexões de Triângulos" },
+        { titulo: "Balanceamento", nota: "4.5/5.0", sub: "Cobertura de Planos" },
+        { titulo: "Potencial de Entrega", nota: "4.8/5.0", sub: "Materialidade/Praticidade" },
+        { titulo: "Segurança Relacional", nota: "4.4/5.0", sub: "Mitigação de Conflitos" },
+      ],
+      observacoes: obsAnalista.trim(),
+      salvo_em: agora.toISOString(),
+    };
+
+    try {
+      const res = await fetch("/api/vagas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "salvar_analise_harmonia",
+          vaga_id: vagaAtiva.id,
+          analise: novaAnalise,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Erro ao salvar análise de harmonia.");
+      }
+
+      const updatedHist = (data.historico_harmonia as AnaliseHarmoniaItem[]) || [
+        novaAnalise,
+        ...(vagaAtiva.historico_harmonia || []),
+      ];
+
+      setVagas((prev) =>
+        prev.map((v) =>
+          v.id === vagaAtiva.id
+            ? { ...v, historico_harmonia: updatedHist }
+            : v
+        )
+      );
+
+      setSavedSuccess(true);
+      setHarmoniaSuccessMsg(
+        `Análise de harmonia de "${candDestaqueObj.nome}" confirmada e salva com sucesso no histórico da vaga!`
+      );
+      setToastMsg(
+        `💾 Análise de harmonia de "${candDestaqueObj.nome}" confirmada e salva no histórico do processo!`
+      );
+
+      setTimeout(() => setSavedSuccess(false), 3500);
+      setTimeout(() => setHarmoniaSuccessMsg(null), 5000);
+      setTimeout(() => setToastMsg(null), 4000);
+    } catch (err) {
+      console.error("Erro ao salvar análise:", err);
+      setHarmoniaErrorMsg(
+        err instanceof Error
+          ? err.message
+          : "Erro de conexão ao salvar análise de harmonia."
+      );
+      setTimeout(() => setHarmoniaErrorMsg(null), 6000);
+    } finally {
+      setIsSavingHarmonia(false);
+    }
+  };
+
+  const handleExcluirAnaliseHarmonia = async (analiseId: string) => {
+    if (!vagaAtiva) return;
+    try {
+      const res = await fetch("/api/vagas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "excluir_analise_harmonia",
+          vaga_id: vagaAtiva.id,
+          analise_id: analiseId,
+        }),
+      });
+      const data = await res.json();
+      const updatedHist =
+        (data.historico_harmonia as AnaliseHarmoniaItem[]) ||
+        (vagaAtiva.historico_harmonia || []).filter(
+          (item) => item.id !== analiseId
+        );
+
+      setVagas((prev) =>
+        prev.map((v) =>
+          v.id === vagaAtiva.id
+            ? { ...v, historico_harmonia: updatedHist }
+            : v
+        )
+      );
+      setHarmoniaSuccessMsg("Registro removido do histórico da vaga.");
+      setTimeout(() => setHarmoniaSuccessMsg(null), 3500);
+    } catch (err) {
+      console.error("Erro ao excluir análise:", err);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -1526,30 +1654,163 @@ export function ProcessoSeletivoView({
               </div>
 
               {/* Observações Manuais do Analista */}
-              <div className="space-y-2 border-t border-slate-200/80 dark:border-slate-800 pt-4">
-                <label className="text-xs font-bold">
-                  Observações Manuais do Analista (Histórico da Vaga)
-                </label>
+              <div className="space-y-3 border-t border-slate-200/80 dark:border-slate-800 pt-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    Observações Manuais do Analista (Histórico da Vaga)
+                  </label>
+                  <span className="text-[11px] text-slate-400">
+                    Candidato: <strong>{candDestaqueObj.nome}</strong>
+                  </span>
+                </div>
+
                 <textarea
                   value={obsAnalista}
                   onChange={(e) => setObsAnalista(e.target.value)}
-                  rows={2}
-                  className="w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-card p-3 text-xs"
+                  rows={3}
+                  placeholder="Descreva as percepções sobre a integração do candidato com a liderança e equipe..."
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-card p-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#ea580c]/30"
                 />
-                <div className="flex justify-end">
+
+                {/* Mensagens de Sucesso ou Erro Inline */}
+                {harmoniaSuccessMsg && (
+                  <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>{harmoniaSuccessMsg}</span>
+                  </div>
+                )}
+
+                {harmoniaErrorMsg && (
+                  <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-xs font-semibold text-red-700 dark:text-red-300">
+                    <X className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0" />
+                    <span>{harmoniaErrorMsg}</span>
+                  </div>
+                )}
+
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+                  <span className="text-[11px] text-slate-400">
+                    Ao confirmar, a análise completa e as notas são salvas permanentemente no banco de dados.
+                  </span>
                   <Button
                     size="sm"
-                    onClick={() => {
-                      setToastMsg(
-                        `💾 Análise de harmonia de "${candDestaqueObj.nome}" confirmada e salva no histórico do processo!`
-                      );
-                      setTimeout(() => setToastMsg(null), 4000);
-                    }}
+                    disabled={isSavingHarmonia}
+                    onClick={handleConfirmarSalvarHarmonia}
+                    className={`font-bold transition-all shadow-sm ${
+                      savedSuccess
+                        ? "bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-500/30"
+                        : "bg-[#ea580c] hover:bg-[#ea580c]/90 text-white"
+                    }`}
                   >
-                    <Save className="h-3.5 w-3.5" />
-                    Confirmar e Salvar Análise de Harmonia
+                    {isSavingHarmonia ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                        Salvando Análise...
+                      </>
+                    ) : savedSuccess ? (
+                      <>
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                        Confirmada e Salva no Histórico!
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-3.5 w-3.5 mr-1.5" />
+                        Confirmar e Salvar Análise da Harmonia
+                      </>
+                    )}
                   </Button>
                 </div>
+              </div>
+
+              {/* Histórico de Análises Salvas da Vaga */}
+              <div className="space-y-3 border-t border-slate-200/80 dark:border-slate-800 pt-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <History className="h-4 w-4 text-[#ea580c]" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      Histórico de Análises Salvas desta Vaga
+                    </h4>
+                    <Badge variant="secondary" className="text-[10px] h-5 px-2">
+                      {vagaAtiva.historico_harmonia?.length || 0} salva(s)
+                    </Badge>
+                  </div>
+                </div>
+
+                {(!vagaAtiva.historico_harmonia ||
+                  vagaAtiva.historico_harmonia.length === 0) ? (
+                  <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-800 p-4 text-center text-xs text-slate-400">
+                    Nenhuma análise de harmonia gravada ainda para este processo. Preencha suas observações e clique em <strong>Confirmar e Salvar Análise da Harmonia</strong> para registrar.
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                    {vagaAtiva.historico_harmonia.map((item) => (
+                      <div
+                        key={item.id}
+                        className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 p-3.5 space-y-2.5 transition-all hover:border-slate-300"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 border-b border-slate-200/60 dark:border-slate-800/80 pb-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-xs text-slate-900 dark:text-white">
+                              ★ {item.candidato}
+                            </span>
+                            {item.candidato_kan && (
+                              <span className="rounded bg-[#ea580c]/10 text-[#ea580c] px-2 py-0.5 text-[10px] font-bold">
+                                {item.candidato_kan}
+                              </span>
+                            )}
+                            <span className="text-[11px] text-slate-400">
+                              na equipe <strong>{item.equipe}</strong>
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-bold">
+                              {item.classificacao} • {item.harmonia_score}%
+                            </span>
+                            <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {item.data}
+                            </span>
+                            <button
+                              onClick={() => handleExcluirAnaliseHarmonia(item.id)}
+                              title="Excluir este registro do histórico"
+                              className="text-slate-400 hover:text-red-500 transition-colors p-1"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Observações do Analista */}
+                        <div className="text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-950/70 rounded-lg p-2.5 border border-slate-200/60 dark:border-slate-800/60">
+                          <span className="font-semibold text-slate-500 dark:text-slate-400 block text-[10px] uppercase mb-0.5">
+                            Parecer do Analista:
+                          </span>
+                          <p className="whitespace-pre-wrap leading-relaxed">
+                            {item.observacoes || "Sem observações adicionais."}
+                          </p>
+                        </div>
+
+                        {/* Mini resumo dos 5 critérios */}
+                        {item.criterios && item.criterios.length > 0 && (
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 pt-1">
+                            {item.criterios.map((c) => (
+                              <div
+                                key={c.titulo}
+                                className="text-center rounded bg-slate-100/80 dark:bg-slate-800/50 p-1"
+                              >
+                                <span className="text-[9px] text-slate-400 block truncate">
+                                  {c.titulo}
+                                </span>
+                                <span className="text-[10px] font-black text-[#ea580c]">
+                                  {c.nota}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

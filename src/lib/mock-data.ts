@@ -68,6 +68,25 @@ export interface EquipeData {
   tenant_id?: string;
 }
 
+export interface CriterioHarmonia {
+  titulo: string;
+  nota: string;
+  sub: string;
+}
+
+export interface AnaliseHarmoniaItem {
+  id: string;
+  data: string;
+  candidato: string;
+  candidato_kan?: string;
+  equipe: string;
+  harmonia_score: number;
+  classificacao: string;
+  criterios: CriterioHarmonia[];
+  observacoes: string;
+  salvo_em?: string;
+}
+
 export interface VagaData {
   id: number;
   processo_id?: number;
@@ -83,6 +102,7 @@ export interface VagaData {
   descricao_vaga: string;
   equipe_associada?: string;
   candidatos_associados: string[];
+  historico_harmonia?: AnaliseHarmoniaItem[];
   created_at: string;
   tenant_id?: string;
 }
