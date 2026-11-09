@@ -42,6 +42,9 @@ import {
   PERFIS_OPCOES,
   CATEGORIAS_OPCOES,
   QUALIDADES_OPCOES,
+  SOFT_SKILLS_OPCOES,
+  calcularScoresEixos,
+  talentoPossuiSoftSkill,
   type VagaData,
   type AnaliseHarmoniaItem,
   type KanType,
@@ -166,6 +169,12 @@ export function VagasView({
   const [qualsIdeais, setQualsIdeais] = useState<string[]>([
     "Execução",
     "Comunicação",
+  ]);
+  const [softSkillsIdeais, setSoftSkillsIdeais] = useState<string[]>([
+    "Liderança",
+    "Comunicação assertiva",
+    "Resolução de problemas",
+    "Proatividade",
   ]);
   const [descVaga, setDescVaga] = useState("");
 
@@ -583,66 +592,103 @@ export function ProcessoSeletivoView({
 
   // Calculate exact MundoKAN matching score for every talent against active vaga
   const calcularMatchTalento = (t: TalentoProfile) => {
-    // 1. KAN Match (25% / +3 pts)
+    const scoresEixos = calcularScoresEixos(t);
+
+    // 1. KAN Match (peso: até 190 pts)
     const kanCompativel =
       vagaAtiva.kan_ideal.length === 0 ||
       vagaAtiva.kan_ideal.some(
         (k) => k.toLowerCase() === t.kan_nome.toLowerCase()
       );
-    const kanScore = kanCompativel ? 25 : 0;
-    const ptsKan = kanCompativel ? 3 : 0;
+    const ptsKan = kanCompativel ? 190 : 50;
 
-    // 2. Perfis Match (25% / +2 pts per match)
+    // 2. Perfis Ideais Match (peso: até 230 pts)
+    const totalPerfis = vagaAtiva.perfis_ideais.length;
     const perfisHits = vagaAtiva.perfis_ideais.filter((p) =>
       t.perfis_lista.some((tp) => tp.toLowerCase() === p.toLowerCase())
     );
-    const perfilScore =
-      vagaAtiva.perfis_ideais.length > 0
-        ? (perfisHits.length / vagaAtiva.perfis_ideais.length) * 25
-        : 25;
-    const ptsPerfil = perfisHits.length * 2;
+    const taxaPerfil = totalPerfis > 0 ? perfisHits.length / totalPerfis : 1;
+    const ptsPerfil = Math.round(taxaPerfil * 230);
 
-    // 3. Categorias Match (25%)
-    const catsHits = vagaAtiva.categorias_ideais.filter((c) =>
-      t.categorias_lista.some((tc) => tc.toLowerCase() === c.toLowerCase())
+    // 3. Soft Skills Relacionadas Match (peso: até 230 pts)
+    const softSkillsDesejadas = vagaAtiva.soft_skills_ideais || [];
+    const totalSoft = softSkillsDesejadas.length;
+    const softSkillsHits = softSkillsDesejadas.filter((sk) =>
+      talentoPossuiSoftSkill(t, sk, scoresEixos)
     );
-    const catScore =
-      vagaAtiva.categorias_ideais.length > 0
-        ? (catsHits.length / vagaAtiva.categorias_ideais.length) * 25
-        : 25;
+    const taxaSoft = totalSoft > 0 ? softSkillsHits.length / totalSoft : taxaPerfil;
+    const ptsSoft = Math.round(taxaSoft * 230);
 
-    // 4. Qualidades Match (25% / +1 pt per match)
+    // 4. Qualidades & Categorias Match (peso: até 150 pts)
+    const totalQuals = vagaAtiva.qualidades_ideais.length;
     const qualsHits = vagaAtiva.qualidades_ideais.filter((q) =>
       t.qualidades_lista.some((tq) => tq.toLowerCase() === q.toLowerCase())
     );
-    const qualScore =
-      vagaAtiva.qualidades_ideais.length > 0
-        ? (qualsHits.length / vagaAtiva.qualidades_ideais.length) * 25
-        : 25;
-    const ptsQual = qualsHits.length * 1;
+    const taxaQual = totalQuals > 0 ? qualsHits.length / totalQuals : 1;
 
-    const aderenciaPct = Math.round(
-      kanScore + perfilScore + catScore + qualScore
+    const totalCats = vagaAtiva.categorias_ideais.length;
+    const catsHits = vagaAtiva.categorias_ideais.filter((c) =>
+      t.categorias_lista.some((tc) => tc.toLowerCase() === c.toLowerCase())
     );
-    const totalPts = ptsKan + ptsPerfil + ptsQual;
+    const taxaCat = totalCats > 0 ? catsHits.length / totalCats : 1;
+    const ptsQual = Math.round((taxaQual * 0.6 + taxaCat * 0.4) * 150);
+
+    // Pontuação Global no Padrão do Mapa de Calor (escala 100 a 840 pontos, ex: 740, 680, 610, 560...)
+    const totalPts = Math.min(840, Math.max(120, ptsKan + ptsPerfil + ptsSoft + ptsQual));
+
+    // Aderência Percentual (0 a 100%)
+    const aderenciaPct = Math.min(
+      99,
+      Math.max(
+        15,
+        Math.round(
+          (kanCompativel ? 25 : 0) +
+            taxaPerfil * 30 +
+            taxaSoft * 30 +
+            (taxaQual * 0.6 + taxaCat * 0.4) * 15
+        )
+      )
+    );
+
+    // Classificação por Tiers do Mapa de Calor (getHeatmapCellStyle)
+    let tierLabel = "Inicial";
+    let tierBadgeVariant: "secondary" | "orange" | "success" = "secondary";
+    if (totalPts >= 600) {
+      tierLabel = "Muito Alto";
+      tierBadgeVariant = "success";
+    } else if (totalPts >= 450) {
+      tierLabel = "Alto";
+      tierBadgeVariant = "orange";
+    } else if (totalPts >= 300) {
+      tierLabel = "Médio";
+      tierBadgeVariant = "secondary";
+    } else if (totalPts >= 150) {
+      tierLabel = "Discreto";
+      tierBadgeVariant = "secondary";
+    }
 
     return {
       talento: t,
       aderenciaPct,
       totalPts,
+      tierLabel,
+      tierBadgeVariant,
       ptsKan,
       ptsPerfil,
+      ptsSoft,
       ptsQual,
       kanStatus: kanCompativel ? "✓ Compatível" : "✗ Incompatível",
-      perfilStatus: `${perfisHits.length}/${vagaAtiva.perfis_ideais.length} compatíveis`,
-      catStatus: `${catsHits.length}/${vagaAtiva.categorias_ideais.length} compatíveis`,
-      qualStatus: `${qualsHits.length}/${vagaAtiva.qualidades_ideais.length} compatíveis`,
+      perfilStatus: `${perfisHits.length}/${totalPerfis} compatíveis`,
+      softStatus: totalSoft > 0 ? `${softSkillsHits.length}/${totalSoft} compatíveis` : "Padrão",
+      catStatus: `${catsHits.length}/${totalCats} compatíveis`,
+      qualStatus: `${qualsHits.length}/${totalQuals} compatíveis`,
+      scoresEixos,
     };
   };
 
   const todosRankeados = talentos
     .map(calcularMatchTalento)
-    .sort((a, b) => b.aderenciaPct - a.aderenciaPct);
+    .sort((a, b) => b.totalPts - a.totalPts);
 
   const qAssoc = normText(buscaAssociar);
   const todosRankeadosFiltrados = todosRankeados.filter((r) => {
@@ -674,11 +720,46 @@ export function ProcessoSeletivoView({
   };
 
   const handleSugerirRequisitosIA = () => {
+    const nome = normText(vagaAtiva.nome_vaga);
+    let softSugeridas = [
+      "Liderança",
+      "Comunicação assertiva",
+      "Resolução de problemas",
+      "Proatividade",
+      "Trabalho em equipe",
+    ];
+
+    if (nome.includes("comercial") || nome.includes("venda") || nome.includes("account") || nome.includes("growth")) {
+      softSugeridas = [
+        "Comunicação assertiva",
+        "Relacionamento interpessoal",
+        "Proatividade",
+        "Resiliência",
+        "Liderança",
+      ];
+    } else if (nome.includes("tech") || nome.includes("eng") || nome.includes("dev") || nome.includes("software")) {
+      softSugeridas = [
+        "Resolução de problemas",
+        "Pensamento crítico",
+        "Visão sistêmica",
+        "Liderança",
+        "Aprendizado contínuo",
+      ];
+    } else if (nome.includes("rh") || nome.includes("gente") || nome.includes("cultura") || nome.includes("people")) {
+      softSugeridas = [
+        "Empatia",
+        "Escuta ativa",
+        "Inteligência emocional",
+        "Comunicação eficaz",
+        "Trabalho em equipe",
+      ];
+    }
+
     setVagas((prev) =>
       prev.map((vg) =>
         vg.id === vagaAtiva.id
           ? {
-               ...vg,
+              ...vg,
               kan_ideal: ["Finalidade", "Movimento"],
               perfis_ideais: ["Lider", "Resultado", "Comunicador"],
               categorias_ideais: ["Realizador", "Visionário"],
@@ -688,12 +769,13 @@ export function ProcessoSeletivoView({
                 "Organização",
                 "Análise",
               ],
+              soft_skills_ideais: softSugeridas,
             }
           : vg
       )
     );
     setToastMsg(
-      "✨ Requisitos comportamentais sugeridos pelo Gemini 2.5 Flash com base no cargo e senioridade!"
+      "✨ Requisitos comportamentais e Soft Skills sugeridos pelo Gemini 2.5 Flash com base no cargo e senioridade!"
     );
     setTimeout(() => setToastMsg(null), 4000);
   };

@@ -121,7 +121,15 @@ export async function GET(req: NextRequest) {
 
       const qualsFromProc = parseArr(proc?.qualidades_ideais);
       const qualsFromVaga = parseArr(row.qualidades_ideais);
-      const qualidadesIdeais = qualsFromProc.length > 0 ? qualsFromProc : qualsFromVaga;
+      const rawQuals = qualsFromProc.length > 0 ? qualsFromProc : qualsFromVaga;
+      const softSkillsFromQuals = rawQuals
+        .filter((q) => q.startsWith("SOFT:"))
+        .map((q) => q.replace(/^SOFT:\s*/, ""));
+      const pureQuals = rawQuals.filter((q) => !q.startsWith("SOFT:"));
+      const softSkillsDirect = parseArr(proc?.soft_skills_ideais || row.soft_skills_ideais);
+      const softSkillsIdeais = [
+        ...new Set([...softSkillsDirect, ...softSkillsFromQuals]),
+      ];
 
       const equipeAssociada = proc?.equipe
         ? String(proc.equipe)
@@ -153,7 +161,8 @@ export async function GET(req: NextRequest) {
         kan_ideal: kanIdeal,
         perfis_ideais: perfisIdeais,
         categorias_ideais: categoriasIdeais,
-        qualidades_ideais: qualidadesIdeais,
+        qualidades_ideais: pureQuals,
+        soft_skills_ideais: softSkillsIdeais,
         descricao_vaga: String(row.descricao_vaga || ""),
         equipe_associada: equipeAssociada,
         candidatos_associados: candidatosAssociados,
@@ -302,6 +311,7 @@ export async function POST(req: NextRequest) {
       perfis_ideais,
       categorias_ideais,
       qualidades_ideais,
+      soft_skills_ideais,
       descricao_vaga,
       equipe_associada,
       candidatos_associados,
@@ -316,6 +326,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const combinedQuals = [
+      ...(Array.isArray(qualidades_ideais) ? qualidades_ideais : []),
+      ...(Array.isArray(soft_skills_ideais)
+        ? soft_skills_ideais.map((s: string) =>
+            s.startsWith("SOFT:") ? s : `SOFT:${s}`
+          )
+        : []),
+    ];
+
     const supabaseAdmin = getSupabaseAdmin();
     const vagaPayload: Record<string, unknown> = {
       nome_vaga,
@@ -326,7 +345,7 @@ export async function POST(req: NextRequest) {
       kan_ideal: Array.isArray(kan_ideal) ? kan_ideal.join(", ") : String(kan_ideal || ""),
       perfis_ideais: JSON.stringify(Array.isArray(perfis_ideais) ? perfis_ideais : []),
       categorias_ideais: JSON.stringify(Array.isArray(categorias_ideais) ? categorias_ideais : []),
-      qualidades_ideais: JSON.stringify(Array.isArray(qualidades_ideais) ? qualidades_ideais : []),
+      qualidades_ideais: JSON.stringify(combinedQuals),
       descricao_vaga: descricao_vaga || "",
       updated_at: new Date().toISOString(),
     };
@@ -366,7 +385,7 @@ export async function POST(req: NextRequest) {
         candidatos: Array.isArray(candidatos_associados) ? candidatos_associados : [],
         perfis_ideais: Array.isArray(perfis_ideais) ? perfis_ideais : [],
         categorias_ideais: Array.isArray(categorias_ideais) ? categorias_ideais : [],
-        qualidades_ideais: Array.isArray(qualidades_ideais) ? qualidades_ideais : [],
+        qualidades_ideais: combinedQuals,
         kan_ideal: JSON.stringify(Array.isArray(kan_ideal) ? kan_ideal : []),
         equipe: equipe_associada || null,
         historico_harmonia:

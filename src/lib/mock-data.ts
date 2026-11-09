@@ -99,6 +99,7 @@ export interface VagaData {
   perfis_ideais: string[];
   categorias_ideais: string[];
   qualidades_ideais: string[];
+  soft_skills_ideais?: string[];
   descricao_vaga: string;
   equipe_associada?: string;
   candidatos_associados: string[];
@@ -148,6 +149,359 @@ export const QUALIDADES_OPCOES = [
   "Organização",
   "Serviço",
 ];
+
+export const EIXOS_COMPORTAMENTAIS = [
+  "Liderança",
+  "Relacionamento",
+  "Criação",
+  "Organização",
+  "Flexibilidade",
+  "Comunicação",
+  "Análise",
+  "Resultado",
+  "Empatia",
+];
+
+export function calcularScoresEixos(t: TalentoProfile): Record<string, number> {
+  const seed = t.id.charCodeAt(t.id.length - 1) * 11 + t.nome.length * 17;
+  const isCriacao = t.kan_nome === "Criação";
+  const isMovimento = t.kan_nome === "Movimento";
+  const isFinalidade = t.kan_nome === "Finalidade";
+
+  return {
+    Liderança: t.perfis_lista.includes("Lider")
+      ? 680
+      : isMovimento
+      ? 490
+      : 140 + ((seed * 13) % 380),
+    Relacionamento: t.qualidades_lista.some((q) =>
+      q.toLowerCase().includes("relacionamento")
+    )
+      ? 640
+      : 110 + ((seed * 17) % 410),
+    Criação:
+      isCriacao || t.perfis_lista.includes("Criativo")
+        ? 710
+        : 90 + ((seed * 19) % 360),
+    Organização: t.categorias_lista.includes("Organizado")
+      ? 660
+      : 120 + ((seed * 23) % 390),
+    Flexibilidade: t.categorias_lista.includes("Versátil")
+      ? 620
+      : 80 + ((seed * 29) % 350),
+    Comunicação:
+      t.perfis_lista.includes("Comunicador") ||
+      t.perfis_lista.includes("Influenciador")
+        ? 690
+        : 130 + ((seed * 31) % 390),
+    Análise: t.categorias_lista.includes("Analítico")
+      ? 720
+      : isFinalidade
+      ? 510
+      : 95 + ((seed * 37) % 340),
+    Resultado:
+      t.perfis_lista.includes("Resultado") ||
+      t.perfis_lista.includes("Executor")
+        ? 740
+        : 220 + ((seed * 41) % 420),
+    Empatia: t.categorias_lista.includes("Diplomático")
+      ? 630
+      : 85 + ((seed * 43) % 330),
+  };
+}
+
+export interface SoftSkillDef {
+  id: number;
+  nome: string;
+  kan_relacionado: string[];
+  perfis_relacionados: string[];
+  categorias_relacionadas: string[];
+  qualidades_relacionadas: string[];
+  eixo_principal: string;
+}
+
+export const SOFT_SKILLS_CATALOGO: SoftSkillDef[] = [
+  {
+    id: 11,
+    nome: "Adaptabilidade / flexibilidade",
+    kan_relacionado: ["Movimento"],
+    perfis_relacionados: ["Criativo", "Vendedor"],
+    categorias_relacionadas: ["Versátil", "Inovador"],
+    qualidades_relacionadas: ["Versatilidade", "Intuição"],
+    eixo_principal: "Flexibilidade",
+  },
+  {
+    id: 26,
+    nome: "Aprendizado contínuo",
+    kan_relacionado: ["Criação"],
+    perfis_relacionados: ["Criativo", "Resultado"],
+    categorias_relacionadas: ["Conhecimento", "Inovador"],
+    qualidades_relacionadas: ["Versatilidade", "Análise"],
+    eixo_principal: "Análise",
+  },
+  {
+    id: 17,
+    nome: "Atenção / foco",
+    kan_relacionado: ["Finalidade"],
+    perfis_relacionados: ["Resultado", "Executor"],
+    categorias_relacionadas: ["Analítico", "Organizado"],
+    qualidades_relacionadas: ["Análise", "Organização"],
+    eixo_principal: "Organização",
+  },
+  {
+    id: 7,
+    nome: "Colaboração",
+    kan_relacionado: ["Movimento"],
+    perfis_relacionados: ["Executor", "Resultado"],
+    categorias_relacionadas: ["Harmônico", "Realizador"],
+    qualidades_relacionadas: ["Coletividade", "Serviço"],
+    eixo_principal: "Relacionamento",
+  },
+  {
+    id: 2,
+    nome: "Comunicação assertiva",
+    kan_relacionado: ["Movimento"],
+    perfis_relacionados: ["Lider", "Comunicador"],
+    categorias_relacionadas: ["Justo", "Comunicativo"],
+    qualidades_relacionadas: ["Comunicação", "Justiça"],
+    eixo_principal: "Comunicação",
+  },
+  {
+    id: 1,
+    nome: "Comunicação eficaz",
+    kan_relacionado: ["Movimento"],
+    perfis_relacionados: ["Comunicador", "Lider"],
+    categorias_relacionadas: ["Comunicativo", "Diplomático"],
+    qualidades_relacionadas: ["Comunicação", "Relacionamento"],
+    eixo_principal: "Comunicação",
+  },
+  {
+    id: 21,
+    nome: "Criatividade",
+    kan_relacionado: ["Criação"],
+    perfis_relacionados: ["Criativo", "Vendedor"],
+    categorias_relacionadas: ["Inovador", "Visionário"],
+    qualidades_relacionadas: ["Intuição", "Versatilidade"],
+    eixo_principal: "Criação",
+  },
+  {
+    id: 15,
+    nome: "Disciplina",
+    kan_relacionado: ["Finalidade"],
+    perfis_relacionados: ["Executor", "Resultado"],
+    categorias_relacionadas: ["Organizado", "Realizador"],
+    qualidades_relacionadas: ["Praticidade e disciplina", "Execução"],
+    eixo_principal: "Resultado",
+  },
+  {
+    id: 6,
+    nome: "Empatia",
+    kan_relacionado: ["Criação"],
+    perfis_relacionados: ["Influenciador", "Lider"],
+    categorias_relacionadas: ["Intuitivo", "Harmônico"],
+    qualidades_relacionadas: ["Intuição", "Relacionamento"],
+    eixo_principal: "Empatia",
+  },
+  {
+    id: 3,
+    nome: "Escuta ativa",
+    kan_relacionado: ["Criação"],
+    perfis_relacionados: ["Comunicador", "Influenciador"],
+    categorias_relacionadas: ["Diplomático", "Harmônico"],
+    qualidades_relacionadas: ["Comunicação", "Relacionamento"],
+    eixo_principal: "Relacionamento",
+  },
+  {
+    id: 24,
+    nome: "Ética / responsabilidade",
+    kan_relacionado: ["Finalidade"],
+    perfis_relacionados: ["Lider", "Executor"],
+    categorias_relacionadas: ["Justo", "Harmônico"],
+    qualidades_relacionadas: ["Justiça", "Coletividade"],
+    eixo_principal: "Liderança",
+  },
+  {
+    id: 14,
+    nome: "Gestão do tempo",
+    kan_relacionado: ["Finalidade"],
+    perfis_relacionados: ["Resultado", "Executor"],
+    categorias_relacionadas: ["Organizado", "Realizador"],
+    qualidades_relacionadas: ["Organização", "Praticidade e disciplina"],
+    eixo_principal: "Organização",
+  },
+  {
+    id: 22,
+    nome: "Inovação / melhoria contínua",
+    kan_relacionado: ["Criação", "Movimento"],
+    perfis_relacionados: ["Criativo", "Lider"],
+    categorias_relacionadas: ["Inovador", "Visionário"],
+    qualidades_relacionadas: ["Execução", "Intuição"],
+    eixo_principal: "Criação",
+  },
+  {
+    id: 9,
+    nome: "Inteligência emocional",
+    kan_relacionado: ["Criação", "Finalidade"],
+    perfis_relacionados: ["Lider", "Influenciador"],
+    categorias_relacionadas: ["Intuitivo", "Diplomático"],
+    qualidades_relacionadas: ["Intuição", "Relacionamento"],
+    eixo_principal: "Empatia",
+  },
+  {
+    id: 8,
+    nome: "Liderança",
+    kan_relacionado: ["Movimento", "Finalidade"],
+    perfis_relacionados: ["Lider", "Resultado"],
+    categorias_relacionadas: ["Visionário", "Realizador"],
+    qualidades_relacionadas: ["Execução", "Coletividade"],
+    eixo_principal: "Liderança",
+  },
+  {
+    id: 13,
+    nome: "Organização",
+    kan_relacionado: ["Finalidade"],
+    perfis_relacionados: ["Executor"],
+    categorias_relacionadas: ["Organizado", "Analítico"],
+    qualidades_relacionadas: ["Organização", "Praticidade e disciplina"],
+    eixo_principal: "Organização",
+  },
+  {
+    id: 18,
+    nome: "Pensamento crítico",
+    kan_relacionado: ["Finalidade"],
+    perfis_relacionados: ["Criativo", "Lider"],
+    categorias_relacionadas: ["Analítico", "Visionário"],
+    qualidades_relacionadas: ["Análise", "Intuição"],
+    eixo_principal: "Análise",
+  },
+  {
+    id: 16,
+    nome: "Pontualidade",
+    kan_relacionado: ["Finalidade"],
+    perfis_relacionados: ["Executor"],
+    categorias_relacionadas: ["Organizado", "Justo"],
+    qualidades_relacionadas: ["Praticidade e disciplina", "Organização"],
+    eixo_principal: "Organização",
+  },
+  {
+    id: 12,
+    nome: "Proatividade",
+    kan_relacionado: ["Movimento"],
+    perfis_relacionados: ["Executor", "Resultado"],
+    categorias_relacionadas: ["Realizador", "Visionário"],
+    qualidades_relacionadas: ["Execução", "Praticidade e disciplina"],
+    eixo_principal: "Resultado",
+  },
+  {
+    id: 25,
+    nome: "Produtividade",
+    kan_relacionado: ["Movimento", "Finalidade"],
+    perfis_relacionados: ["Resultado", "Executor"],
+    categorias_relacionadas: ["Realizador", "Organizado"],
+    qualidades_relacionadas: ["Execução", "Praticidade e disciplina"],
+    eixo_principal: "Resultado",
+  },
+  {
+    id: 5,
+    nome: "Relacionamento interpessoal",
+    kan_relacionado: ["Movimento"],
+    perfis_relacionados: ["Influenciador", "Comunicador"],
+    categorias_relacionadas: ["Diplomático", "Harmônico"],
+    qualidades_relacionadas: ["Relacionamento", "Coletividade"],
+    eixo_principal: "Relacionamento",
+  },
+  {
+    id: 10,
+    nome: "Resiliência",
+    kan_relacionado: ["Finalidade"],
+    perfis_relacionados: ["Executor", "Resultado"],
+    categorias_relacionadas: ["Realizador", "Versátil"],
+    qualidades_relacionadas: ["Execução", "Praticidade e disciplina"],
+    eixo_principal: "Resultado",
+  },
+  {
+    id: 19,
+    nome: "Resolução de problemas",
+    kan_relacionado: ["Finalidade", "Movimento"],
+    perfis_relacionados: ["Criativo", "Resultado"],
+    categorias_relacionadas: ["Analítico", "Realizador"],
+    qualidades_relacionadas: ["Execução", "Análise"],
+    eixo_principal: "Análise",
+  },
+  {
+    id: 20,
+    nome: "Tomada de decisão",
+    kan_relacionado: ["Finalidade"],
+    perfis_relacionados: ["Lider", "Resultado"],
+    categorias_relacionadas: ["Justo", "Visionário"],
+    qualidades_relacionadas: ["Execução", "Análise"],
+    eixo_principal: "Liderança",
+  },
+  {
+    id: 4,
+    nome: "Trabalho em equipe",
+    kan_relacionado: ["Movimento"],
+    perfis_relacionados: ["Influenciador", "Executor"],
+    categorias_relacionadas: ["Harmônico", "Versátil"],
+    qualidades_relacionadas: ["Coletividade", "Relacionamento"],
+    eixo_principal: "Relacionamento",
+  },
+  {
+    id: 23,
+    nome: "Visão sistêmica",
+    kan_relacionado: ["Finalidade", "Criação"],
+    perfis_relacionados: ["Lider", "Resultado"],
+    categorias_relacionadas: ["Visionário", "Analítico"],
+    qualidades_relacionadas: ["Análise", "Coletividade"],
+    eixo_principal: "Liderança",
+  },
+];
+
+export const SOFT_SKILLS_OPCOES = SOFT_SKILLS_CATALOGO.map((s) => s.nome);
+
+export function talentoPossuiSoftSkill(
+  t: TalentoProfile,
+  softSkillNome: string,
+  scoresEixos?: Record<string, number>
+): boolean {
+  const def = SOFT_SKILLS_CATALOGO.find(
+    (s) => s.nome.toLowerCase() === softSkillNome.toLowerCase()
+  );
+  if (!def) return false;
+
+  const eixos = scoresEixos || calcularScoresEixos(t);
+
+  // 1. Eixo principal do mapa de calor com pontuação alta (>= 580 pts)
+  if (eixos[def.eixo_principal] && eixos[def.eixo_principal] >= 580) {
+    return true;
+  }
+
+  // 2. KAN compatível
+  const kanMatch = def.kan_relacionado.some(
+    (k) => k.toLowerCase() === t.kan_nome.toLowerCase()
+  );
+
+  // 3. Perfis compatíveis
+  const perfilMatch = def.perfis_relacionados.some((p) =>
+    t.perfis_lista.some((tp) => tp.toLowerCase() === p.toLowerCase())
+  );
+
+  // 4. Categorias compatíveis
+  const catMatch = def.categorias_relacionadas.some((c) =>
+    t.categorias_lista.some((tc) => tc.toLowerCase() === c.toLowerCase())
+  );
+
+  // 5. Qualidades compatíveis
+  const qualMatch = def.qualidades_relacionadas.some((q) =>
+    t.qualidades_lista.some((tq) => tq.toLowerCase() === q.toLowerCase())
+  );
+
+  return (
+    (kanMatch && perfilMatch) ||
+    (perfilMatch && (catMatch || qualMatch)) ||
+    (eixos[def.eixo_principal] >= 480 && (kanMatch || perfilMatch || catMatch))
+  );
+}
 
 export const DEPARTAMENTOS_OPCOES = [
   "Geral",
@@ -576,6 +930,13 @@ export const VAGAS_MOCK: VagaData[] = [
     perfis_ideais: ["Lider", "Resultado", "Vendedor", "Influenciador"],
     categorias_ideais: ["Realizador", "Magnético", "Visionário"],
     qualidades_ideais: ["Comunicação", "Execução", "Relacionamento", "Versatilidade"],
+    soft_skills_ideais: [
+      "Liderança",
+      "Comunicação assertiva",
+      "Relacionamento interpessoal",
+      "Tomada de decisão",
+      "Proatividade",
+    ],
     descricao_vaga:
       "Liderar a operação de vendas B2B Enterprise, estruturar playbook comercial consultivo e escalar receita recorrente (ARR) junto a grandes contas.",
     equipe_associada: "Comitê Executivo & Expansão",
@@ -598,6 +959,13 @@ export const VAGAS_MOCK: VagaData[] = [
     perfis_ideais: ["Executor", "Resultado", "Lider"],
     categorias_ideais: ["Analítico", "Organizado", "Conhecimento"],
     qualidades_ideais: ["Execução", "Análise", "Organização", "Praticidade e disciplina"],
+    soft_skills_ideais: [
+      "Resolução de problemas",
+      "Pensamento crítico",
+      "Visão sistêmica",
+      "Liderança",
+      "Aprendizado contínuo",
+    ],
     descricao_vaga:
       "Conduzir a arquitetura de microsserviços em contenedores Docker, liderar code reviews, garantir segurança de dados no Supabase e alta disponibilidade.",
     equipe_associada: "Squad Core Product & IA",
@@ -619,6 +987,13 @@ export const VAGAS_MOCK: VagaData[] = [
     perfis_ideais: ["Comunicador", "Influenciador", "Criativo"],
     categorias_ideais: ["Harmônico", "Diplomático", "Justo"],
     qualidades_ideais: ["Relacionamento", "Coletividade", "Comunicação", "Serviço"],
+    soft_skills_ideais: [
+      "Empatia",
+      "Escuta ativa",
+      "Inteligência emocional",
+      "Comunicação eficaz",
+      "Trabalho em equipe",
+    ],
     descricao_vaga:
       "Atuar como guardião do clima organizacional, apoiando líderes de produto e engenharia com diagnósticos comportamentais e planos de desenvolvimento.",
     equipe_associada: "Squad Core Product & IA",
