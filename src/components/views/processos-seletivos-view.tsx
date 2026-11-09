@@ -16,6 +16,7 @@ import {
   Pencil,
   X,
   CheckCircle2,
+  Check,
   Calendar,
   Award,
   Save,
@@ -684,7 +685,98 @@ export function ProcessoSeletivoView({
   const [harmoniaSuccessMsg, setHarmoniaSuccessMsg] = useState<string | null>(null);
   const [harmoniaErrorMsg, setHarmoniaErrorMsg] = useState<string | null>(null);
 
+  // States para Ajustes de Requisitos (Qualidades e Soft Skills)
+  const [novaQualidade, setNovaQualidade] = useState("");
+  const [novaSoftSkill, setNovaSoftSkill] = useState("");
+  const [isSavingRequisitos, setIsSavingRequisitos] = useState(false);
+
   if (!vagaAtiva) return null;
+
+  const todasQualidadesOpcoes = Array.from(
+    new Set([...QUALIDADES_OPCOES, ...(vagaAtiva.qualidades_ideais || [])])
+  );
+
+  const todasSoftSkillsOpcoes = Array.from(
+    new Set([...SOFT_SKILLS_OPCOES, ...(vagaAtiva.soft_skills_ideais || [])])
+  );
+
+  const salvarRequisitosNoBanco = async (vagaParaSalvar: VagaData) => {
+    try {
+      setIsSavingRequisitos(true);
+      const res = await fetch("/api/vagas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(vagaParaSalvar),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Erro ao salvar requisitos");
+      }
+      setToastMsg("💾 Requisitos comportamentais e Soft Skills salvos no banco de dados!");
+    } catch (err) {
+      console.error("Erro ao salvar requisitos:", err);
+      setToastMsg("❌ Erro ao salvar requisitos no banco.");
+    } finally {
+      setIsSavingRequisitos(false);
+      setTimeout(() => setToastMsg(null), 3500);
+    }
+  };
+
+  const handleToggleQualidade = (item: string) => {
+    const list = vagaAtiva.qualidades_ideais || [];
+    const updated = list.includes(item)
+      ? list.filter((q) => q !== item)
+      : [...list, item];
+    const newVaga = { ...vagaAtiva, qualidades_ideais: updated };
+    setVagas((prev) => prev.map((v) => (v.id === vagaAtiva.id ? newVaga : v)));
+  };
+
+  const handleAdicionarQualidade = () => {
+    const trimmed = novaQualidade.trim();
+    if (!trimmed) return;
+    const list = vagaAtiva.qualidades_ideais || [];
+    if (!list.includes(trimmed)) {
+      const updated = [...list, trimmed];
+      const newVaga = { ...vagaAtiva, qualidades_ideais: updated };
+      setVagas((prev) => prev.map((v) => (v.id === vagaAtiva.id ? newVaga : v)));
+    }
+    setNovaQualidade("");
+  };
+
+  const handleRemoverQualidade = (item: string) => {
+    const list = vagaAtiva.qualidades_ideais || [];
+    const updated = list.filter((q) => q !== item);
+    const newVaga = { ...vagaAtiva, qualidades_ideais: updated };
+    setVagas((prev) => prev.map((v) => (v.id === vagaAtiva.id ? newVaga : v)));
+  };
+
+  const handleToggleSoftSkill = (item: string) => {
+    const list = vagaAtiva.soft_skills_ideais || [];
+    const updated = list.includes(item)
+      ? list.filter((s) => s !== item)
+      : [...list, item];
+    const newVaga = { ...vagaAtiva, soft_skills_ideais: updated };
+    setVagas((prev) => prev.map((v) => (v.id === vagaAtiva.id ? newVaga : v)));
+  };
+
+  const handleAdicionarSoftSkill = () => {
+    const trimmed = novaSoftSkill.trim();
+    if (!trimmed) return;
+    const list = vagaAtiva.soft_skills_ideais || [];
+    if (!list.includes(trimmed)) {
+      const updated = [...list, trimmed];
+      const newVaga = { ...vagaAtiva, soft_skills_ideais: updated };
+      setVagas((prev) => prev.map((v) => (v.id === vagaAtiva.id ? newVaga : v)));
+    }
+    setNovaSoftSkill("");
+  };
+
+  const handleRemoverSoftSkill = (item: string) => {
+    const list = vagaAtiva.soft_skills_ideais || [];
+    const updated = list.filter((s) => s !== item);
+    const newVaga = { ...vagaAtiva, soft_skills_ideais: updated };
+    setVagas((prev) => prev.map((v) => (v.id === vagaAtiva.id ? newVaga : v)));
+  };
 
   // Calculate exact MundoKAN matching score for every talent against active vaga
   const calcularMatchTalento = (t: TalentoProfile) => {
@@ -815,8 +907,16 @@ export function ProcessoSeletivoView({
     );
   };
 
-  const handleSugerirRequisitosIA = () => {
+  const handleSugerirRequisitosIA = async () => {
     const nome = normText(vagaAtiva.nome_vaga);
+    const depto = normText(vagaAtiva.departamento);
+    const desc = normText(vagaAtiva.descricao_vaga);
+    const combined = `${nome} ${depto} ${desc}`;
+
+    let kanSugerido = ["Finalidade", "Movimento"];
+    let perfisSugeridos = ["Lider", "Resultado", "Comunicador"];
+    let categoriasSugeridas = ["Realizador", "Visionário"];
+    let qualidadesSugeridas = ["Execução", "Comunicação", "Organização", "Análise"];
     let softSugeridas = [
       "Liderança",
       "Comunicação assertiva",
@@ -825,54 +925,128 @@ export function ProcessoSeletivoView({
       "Trabalho em equipe",
     ];
 
-    if (nome.includes("comercial") || nome.includes("venda") || nome.includes("account") || nome.includes("growth")) {
+    if (
+      combined.includes("comercial") ||
+      combined.includes("venda") ||
+      combined.includes("account") ||
+      combined.includes("growth") ||
+      combined.includes("hunter")
+    ) {
+      kanSugerido = ["Movimento", "Finalidade"];
+      perfisSugeridos = ["Vendedor", "Resultado", "Influenciador"];
+      categoriasSugeridas = ["Comunicativo", "Realizador", "Magnético"];
+      qualidadesSugeridas = ["Comunicação", "Execução", "Relacionamento", "Praticidade e disciplina"];
       softSugeridas = [
         "Comunicação assertiva",
         "Relacionamento interpessoal",
+        "Negociação",
         "Proatividade",
         "Resiliência",
-        "Liderança",
+        "Persuasão e influência",
       ];
-    } else if (nome.includes("tech") || nome.includes("eng") || nome.includes("dev") || nome.includes("software")) {
+    } else if (
+      combined.includes("tech") ||
+      combined.includes("eng") ||
+      combined.includes("dev") ||
+      combined.includes("software") ||
+      combined.includes("dados") ||
+      combined.includes("sistema")
+    ) {
+      kanSugerido = ["Criação", "Finalidade"];
+      perfisSugeridos = ["Criativo", "Executor", "Lider"];
+      categoriasSugeridas = ["Analítico", "Inovador", "Realizador"];
+      qualidadesSugeridas = ["Análise", "Execução", "Intuição", "Praticidade e disciplina"];
       softSugeridas = [
         "Resolução de problemas",
         "Pensamento crítico",
         "Visão sistêmica",
-        "Liderança",
         "Aprendizado contínuo",
+        "Atenção a detalhes",
+        "Liderança técnica",
       ];
-    } else if (nome.includes("rh") || nome.includes("gente") || nome.includes("cultura") || nome.includes("people")) {
+    } else if (
+      combined.includes("rh") ||
+      combined.includes("gente") ||
+      combined.includes("cultura") ||
+      combined.includes("people") ||
+      combined.includes("recrut")
+    ) {
+      kanSugerido = ["Criação", "Movimento"];
+      perfisSugeridos = ["Comunicador", "Influenciador", "Lider"];
+      categoriasSugeridas = ["Harmônico", "Comunicativo", "Diplomático"];
+      qualidadesSugeridas = ["Relacionamento", "Comunicação", "Coletividade", "Serviço"];
       softSugeridas = [
         "Empatia",
         "Escuta ativa",
         "Inteligência emocional",
         "Comunicação eficaz",
+        "Mediação de conflitos",
         "Trabalho em equipe",
+      ];
+    } else if (
+      combined.includes("financ") ||
+      combined.includes("contab") ||
+      combined.includes("auditor") ||
+      combined.includes("control")
+    ) {
+      kanSugerido = ["Finalidade"];
+      perfisSugeridos = ["Executor", "Resultado"];
+      categoriasSugeridas = ["Analítico", "Organizado", "Justo"];
+      qualidadesSugeridas = ["Análise", "Organização", "Praticidade e disciplina", "Justiça"];
+      softSugeridas = [
+        "Pensamento analítico",
+        "Atenção a detalhes",
+        "Organização e método",
+        "Tomada de decisão",
+        "Ética e conformidade",
+      ];
+    } else if (
+      vagaAtiva.senioridade === "Executivo" ||
+      combined.includes("diretor") ||
+      combined.includes("head") ||
+      combined.includes("gerente") ||
+      combined.includes("ceo")
+    ) {
+      kanSugerido = ["Finalidade", "Movimento", "Criação"];
+      perfisSugeridos = ["Lider", "Resultado", "Influenciador"];
+      categoriasSugeridas = ["Visionário", "Realizador", "Diplomático"];
+      qualidadesSugeridas = ["Execução", "Relacionamento", "Justiça", "Análise"];
+      softSugeridas = [
+        "Liderança inspiradora",
+        "Visão estratégica",
+        "Tomada de decisão",
+        "Comunicação assertiva",
+        "Gestão de pessoas",
       ];
     }
 
+    const updatedVaga: VagaData = {
+      ...vagaAtiva,
+      kan_ideal: kanSugerido,
+      perfis_ideais: perfisSugeridos,
+      categorias_ideais: categoriasSugeridas,
+      qualidades_ideais: qualidadesSugeridas,
+      soft_skills_ideais: softSugeridas,
+    };
+
     setVagas((prev) =>
-      prev.map((vg) =>
-        vg.id === vagaAtiva.id
-          ? {
-              ...vg,
-              kan_ideal: ["Finalidade", "Movimento"],
-              perfis_ideais: ["Lider", "Resultado", "Comunicador"],
-              categorias_ideais: ["Realizador", "Visionário"],
-              qualidades_ideais: [
-                "Execução",
-                "Comunicação",
-                "Organização",
-                "Análise",
-              ],
-              soft_skills_ideais: softSugeridas,
-            }
-          : vg
-      )
+      prev.map((vg) => (vg.id === vagaAtiva.id ? updatedVaga : vg))
     );
-    setToastMsg(
-      "✨ Requisitos comportamentais e Soft Skills sugeridos pelo Gemini 2.5 Flash com base no cargo e senioridade!"
-    );
+
+    try {
+      await fetch("/api/vagas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedVaga),
+      });
+      setToastMsg(
+        "✨ Requisitos comportamentais e Soft Skills sugeridos pela IA e persistidos com sucesso!"
+      );
+    } catch {
+      setToastMsg(
+        "✨ Requisitos comportamentais e Soft Skills sugeridos pela IA!"
+      );
+    }
     setTimeout(() => setToastMsg(null), 4000);
   };
 
@@ -1131,7 +1305,7 @@ export function ProcessoSeletivoView({
                 {vagaAtiva.senioridade})
               </CardTitle>
               <CardDescription>
-                Critérios ponderados em tempo real (25% KAN • 25% Perfis • 25% Categorias • 25% Qualidades)
+                Critérios ponderados em tempo real (KAN • Perfis • Categorias • Qualidades • Soft Skills)
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -1197,6 +1371,31 @@ export function ProcessoSeletivoView({
               </div>
             </div>
 
+            {/* Nova Área Soft Skills no Processo Seletivo */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 items-center py-2.5 gap-2">
+              <span className="sm:col-span-2 font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                <Sparkles className="h-3 w-3 text-amber-600" />
+                Soft Skills
+              </span>
+              <div className="sm:col-span-10 flex flex-wrap gap-1.5">
+                {(vagaAtiva.soft_skills_ideais || []).length > 0 ? (
+                  (vagaAtiva.soft_skills_ideais || []).map((sk) => (
+                    <Badge
+                      key={sk}
+                      variant="outline"
+                      className="border-amber-400/60 bg-amber-500/10 text-amber-800 dark:text-amber-300 uppercase font-semibold text-[11px]"
+                    >
+                      {sk}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-slate-400 italic text-[11px]">
+                    Nenhuma soft skill cadastrada (clique em Personalizar Requisitos para incluir ou Sugerir com IA)
+                  </span>
+                )}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-12 items-center py-2.5 gap-2">
               <span className="sm:col-span-2 font-bold uppercase tracking-wider text-slate-400">
                 Qualidades
@@ -1214,50 +1413,251 @@ export function ProcessoSeletivoView({
           {/* Drawer Personalizar Requisitos */}
           {customizeOpen && (
             <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 p-4 space-y-4">
-              <p className="text-xs text-slate-500">
-                Clique nas pílulas abaixo para adicionar ou remover requisitos específicos deste processo seletivo e recalcular o ranking instantaneamente:
-              </p>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <SlidersHorizontal className="h-3.5 w-3.5 text-[#510851] dark:text-[#a78bfa]" />
+                    Ajustes de Requisitos do Processo Seletivo
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Altere, inclua ou exclua requisitos para recalcular o matching comportamental em tempo real.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => salvarRequisitosNoBanco(vagaAtiva)}
+                    disabled={isSavingRequisitos}
+                    className="bg-[#510851] text-white hover:bg-[#510851]/90 text-xs h-8"
+                  >
+                    <Save className="h-3.5 w-3.5 mr-1" />
+                    {isSavingRequisitos ? "Salvando..." : "Salvar Requisitos no Banco"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setCustomizeOpen(false)}
+                    className="text-xs h-8"
+                  >
+                    Ocultar Ajustes
+                  </Button>
+                </div>
+              </div>
+
+              {/* Grid 1: KAN, Perfis e Categorias */}
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                 <PillMultiSelect
                   label="KAN Ideal"
                   options={KAN_OPCOES}
                   selected={vagaAtiva.kan_ideal}
-                  onToggle={(item) =>
+                  onToggle={(item) => {
+                    const list = vagaAtiva.kan_ideal || [];
+                    const updated = list.includes(item)
+                      ? list.filter((x) => x !== item)
+                      : [...list, item];
                     setVagas((prev) =>
                       prev.map((v) =>
-                        v.id === vagaAtiva.id
-                          ? {
-                              ...v,
-                              kan_ideal: v.kan_ideal.includes(item)
-                                ? v.kan_ideal.filter((x) => x !== item)
-                                : [...v.kan_ideal, item],
-                            }
-                          : v
+                        v.id === vagaAtiva.id ? { ...v, kan_ideal: updated } : v
                       )
-                    )
-                  }
+                    );
+                  }}
                   accent="orange"
                 />
+
                 <PillMultiSelect
                   label="Perfis Ideais"
                   options={PERFIS_OPCOES}
                   selected={vagaAtiva.perfis_ideais}
-                  onToggle={(item) =>
+                  onToggle={(item) => {
+                    const list = vagaAtiva.perfis_ideais || [];
+                    const updated = list.includes(item)
+                      ? list.filter((x) => x !== item)
+                      : [...list, item];
                     setVagas((prev) =>
                       prev.map((v) =>
-                        v.id === vagaAtiva.id
-                          ? {
-                              ...v,
-                              perfis_ideais: v.perfis_ideais.includes(item)
-                                ? v.perfis_ideais.filter((x) => x !== item)
-                                : [...v.perfis_ideais, item],
-                            }
-                          : v
+                        v.id === vagaAtiva.id ? { ...v, perfis_ideais: updated } : v
                       )
-                    )
-                  }
+                    );
+                  }}
                   accent="purple"
                 />
+
+                <PillMultiSelect
+                  label="Categorias de Perfil"
+                  options={CATEGORIAS_OPCOES}
+                  selected={vagaAtiva.categorias_ideais}
+                  onToggle={(item) => {
+                    const list = vagaAtiva.categorias_ideais || [];
+                    const updated = list.includes(item)
+                      ? list.filter((x) => x !== item)
+                      : [...list, item];
+                    setVagas((prev) =>
+                      prev.map((v) =>
+                        v.id === vagaAtiva.id ? { ...v, categorias_ideais: updated } : v
+                      )
+                    );
+                  }}
+                  accent="purple"
+                />
+              </div>
+
+              {/* Grid 2: Seções de Soft Skills e Qualidades (com alteração, inclusão e exclusão) */}
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 pt-2 border-t border-slate-200/80 dark:border-slate-800">
+                {/* 1. SEÇÃO SOFT SKILLS */}
+                <div className="space-y-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wide flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+                        Soft Skills Ideais ({vagaAtiva.soft_skills_ideais?.length || 0})
+                      </span>
+                      <p className="text-[11px] text-amber-700/80 dark:text-amber-400/80">
+                        Clique para alterar/selecionar, use o ✕ para excluir ou digite abaixo para incluir novas.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Pílulas de Soft Skills com ação de remoção rápida */}
+                  <div className="flex flex-wrap gap-1.5 max-h-52 overflow-y-auto p-1 rounded-lg bg-white/60 dark:bg-slate-900/60 border border-amber-200/50 dark:border-amber-900/30">
+                    {todasSoftSkillsOpcoes.map((sk) => {
+                      const isSel = (vagaAtiva.soft_skills_ideais || []).includes(sk);
+                      return (
+                        <div
+                          key={sk}
+                          className={`inline-flex items-center rounded-lg border text-[11px] font-semibold transition-all ${
+                            isSel
+                              ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                              : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-amber-400"
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSoftSkill(sk)}
+                            className="px-2 py-1"
+                          >
+                            {isSel ? `✓ ${sk}` : sk}
+                          </button>
+                          {isSel && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoverSoftSkill(sk);
+                              }}
+                              className="pr-2 pl-0.5 text-amber-200 hover:text-white"
+                              title="Excluir soft skill deste processo"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Campo para Incluir Nova Soft Skill */}
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <Input
+                      value={novaSoftSkill}
+                      onChange={(e) => setNovaSoftSkill(e.target.value)}
+                      placeholder="Incluir nova soft skill (ex: Pensamento crítico, Negociação)..."
+                      className="h-8 text-xs bg-white dark:bg-slate-900"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAdicionarSoftSkill();
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleAdicionarSoftSkill}
+                      className="h-8 text-xs shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Incluir
+                    </Button>
+                  </div>
+                </div>
+
+                {/* 2. SEÇÃO QUALIDADES */}
+                <div className="space-y-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 uppercase tracking-wide flex items-center gap-1.5">
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                        Qualidades Ideais ({vagaAtiva.qualidades_ideais?.length || 0})
+                      </span>
+                      <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80">
+                        Clique para alterar/selecionar, use o ✕ para excluir ou digite abaixo para incluir novas.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Pílulas de Qualidades com ação de remoção rápida */}
+                  <div className="flex flex-wrap gap-1.5 max-h-52 overflow-y-auto p-1 rounded-lg bg-white/60 dark:bg-slate-900/60 border border-emerald-200/50 dark:border-emerald-900/30">
+                    {todasQualidadesOpcoes.map((q) => {
+                      const isSel = (vagaAtiva.qualidades_ideais || []).includes(q);
+                      return (
+                        <div
+                          key={q}
+                          className={`inline-flex items-center rounded-lg border text-[11px] font-semibold transition-all ${
+                            isSel
+                              ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                              : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-emerald-400"
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleToggleQualidade(q)}
+                            className="px-2 py-1"
+                          >
+                            {isSel ? `✓ ${q}` : q}
+                          </button>
+                          {isSel && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoverQualidade(q);
+                              }}
+                              className="pr-2 pl-0.5 text-emerald-200 hover:text-white"
+                              title="Excluir qualidade deste processo"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Campo para Incluir Nova Qualidade */}
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <Input
+                      value={novaQualidade}
+                      onChange={(e) => setNovaQualidade(e.target.value)}
+                      placeholder="Incluir nova qualidade (ex: Resiliência, Foco)..."
+                      className="h-8 text-xs bg-white dark:bg-slate-900"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAdicionarQualidade();
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleAdicionarQualidade}
+                      className="h-8 text-xs shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Incluir
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
