@@ -1135,7 +1135,7 @@ export function TalentosView({
                   <p className="text-xs text-muted-foreground">
                     ID #{editingTalento.codigo || editingTalento.id} • KAN:{" "}
                     <strong className="text-[#510851] dark:text-[#a78bfa]">
-                      {editingTalento.kan_nome} (Vértices {editingTalento.vertices_triangulo.join("-")})
+                      {editingTalento.kan_nome}
                     </strong>
                   </p>
                 </div>
@@ -1364,7 +1364,7 @@ export function TalentosView({
 
             <div className="flex items-center justify-between border-t pt-4">
               <span className="text-[11px] text-muted-foreground">
-                Ao salvar, os vértices e eixos KAN serão recalculados automaticamente no Supabase.
+                Ao salvar, o perfil comportamental será atualizado automaticamente no Supabase.
               </span>
               <div className="flex items-center gap-2">
                 <Button

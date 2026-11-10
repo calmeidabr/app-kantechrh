@@ -2776,19 +2776,6 @@ export function OrganogramaView({
                                   </button>
                                 ))}
                               </div>
-
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  setShowHeatmapValues(!showHeatmapValues)
-                                }
-                                className="h-8 text-xs font-bold"
-                              >
-                                {showHeatmapValues
-                                  ? "Ocultar Pontos"
-                                  : "Exibir Pontos"}
-                              </Button>
                             </div>
                           </div>
 
@@ -2829,6 +2816,10 @@ export function OrganogramaView({
                                   const avg =
                                     rowScores.reduce((a, b) => a + b, 0) /
                                     Math.max(1, rowScores.length);
+                                  const avgStyle = getHeatmapCellStyle(
+                                    avg,
+                                    heatmapPalette
+                                  );
                                   const isRevealed = Boolean(
                                     revealedAverageRows[eixo]
                                   );
@@ -2866,7 +2857,9 @@ export function OrganogramaView({
                                               }}
                                               className="cursor-pointer border border-white/60 px-2 py-2.5 text-center font-extrabold transition-transform hover:scale-[1.03] dark:border-slate-900"
                                             >
-                                              {showHeatmapValues ? val : ""}
+                                              <span className="text-[10px]">
+                                                {cellStyle.label}
+                                              </span>
                                             </td>
                                           );
                                         }
@@ -2887,7 +2880,7 @@ export function OrganogramaView({
                                           }`}
                                         >
                                           {isRevealed
-                                            ? `${Math.round(avg)}`
+                                            ? avgStyle.label
                                             : "Média"}
                                         </button>
                                       </td>
@@ -2912,13 +2905,13 @@ export function OrganogramaView({
                                   Eixo {hoveredCell.eixo}:
                                 </span>
                                 <span className="font-extrabold text-[#ea580c]">
-                                  {hoveredCell.pts} pontos ({hoveredCell.label})
+                                  {hoveredCell.label}
                                 </span>
                               </div>
                             ) : (
                               <span className="text-slate-400">
                                 Passe o cursor sobre qualquer célula do mapa de
-                                calor para inspecionar o score individual.
+                                calor para inspecionar o resultado individual.
                               </span>
                             )}
 

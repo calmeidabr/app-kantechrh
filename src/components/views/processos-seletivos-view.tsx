@@ -1362,7 +1362,7 @@ export function ProcessoSeletivoView({
       id: `harmonia-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       data: dataFormatada,
       candidato: candDestaqueObj.nome,
-      candidato_kan: `KAN ${candDestaqueObj.kan_nome} (${candDestaqueObj.vertices_triangulo.join("-")})`,
+      candidato_kan: `KAN ${candDestaqueObj.kan_nome}`,
       equipe: alvoRotuloSalvo,
       harmonia_score: metricasHarmonia.scorePct,
       classificacao: metricasHarmonia.classificacao,
@@ -2372,14 +2372,14 @@ export function ProcessoSeletivoView({
                     </div>
                   </div>
 
-                  {/* Compatibility Breakdown Widget (+KAN, +Perfil, +Qualidades) */}
+                  {/* Compatibility Summary Widget (Result Only, No Raw Points) */}
                   <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/70 p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                         Compatibilidade
                       </span>
                       <span className="rounded-md bg-[#ea580c]/15 px-2 py-0.5 text-xs font-extrabold text-[#ea580c]">
-                        ⚡ {item.totalPts} pts
+                        {item.tierLabel}
                       </span>
                     </div>
                     <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-800 border-t border-slate-200/70 dark:border-slate-800 pt-2 text-center">
@@ -2387,24 +2387,24 @@ export function ProcessoSeletivoView({
                         <span className="block text-[9px] font-bold uppercase text-slate-400">
                           KAN
                         </span>
-                        <span className="text-xs font-extrabold">
-                          +{item.ptsKan}
+                        <span className="text-[11px] font-extrabold">
+                          {item.kanStatus}
                         </span>
                       </div>
                       <div>
                         <span className="block text-[9px] font-bold uppercase text-slate-400">
                           Perfil
                         </span>
-                        <span className="text-xs font-extrabold">
-                          +{item.ptsPerfil}
+                        <span className="text-[11px] font-extrabold">
+                          {item.perfilStatus.split(" ")[0]}
                         </span>
                       </div>
                       <div>
                         <span className="block text-[9px] font-bold uppercase text-slate-400">
                           Qualid.
                         </span>
-                        <span className="text-xs font-extrabold">
-                          +{item.ptsQual}
+                        <span className="text-[11px] font-extrabold">
+                          {item.qualStatus.split(" ")[0]}
                         </span>
                       </div>
                     </div>
@@ -2930,25 +2930,6 @@ export function ProcessoSeletivoView({
                         </tr>
                         <tr>
                           <td className="py-3 pl-6 pr-4 font-bold text-slate-500">
-                            Vértices do Triângulo
-                          </td>
-                          {membrosSimulacaoComCandidato.map(
-                            ({ talento: m, isCandidato }) => (
-                              <td
-                                key={`${m.id}-vert`}
-                                className={`py-3 px-4 font-mono font-bold text-slate-800 dark:text-slate-200 ${
-                                  isCandidato
-                                    ? "bg-orange-500/5 border-x-2 border-[#ea580c]/30 text-[#ea580c]"
-                                    : ""
-                                }`}
-                              >
-                                ({m.vertices_triangulo.join(" - ")})
-                              </td>
-                            )
-                          )}
-                        </tr>
-                        <tr>
-                          <td className="py-3 pl-6 pr-4 font-bold text-slate-500">
                             Perfis Comportamentais
                           </td>
                           {membrosSimulacaoComCandidato.map(
@@ -3053,7 +3034,7 @@ export function ProcessoSeletivoView({
                         {harmoniaTargetMode === "departamento"
                           ? "do departamento"
                           : "da equipe"}
-                        . Clique na coluna <strong>Média</strong> para revelar ou ocultar a média consolidada.
+                        . Clique na coluna <strong>Média</strong> para revelar ou ocultar o nível consolidado.
                       </CardDescription>
                     </div>
 
@@ -3097,17 +3078,6 @@ export function ProcessoSeletivoView({
 
                       <Button
                         type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowHeatmapValues(!showHeatmapValues)}
-                      >
-                        {showHeatmapValues
-                          ? "Ocultar Pontuação"
-                          : "Exibir Pontuação"}
-                      </Button>
-
-                      <Button
-                        type="button"
                         variant="secondary"
                         size="sm"
                         onClick={() => {
@@ -3143,11 +3113,11 @@ export function ProcessoSeletivoView({
                         Escala de Intensidade:
                       </span>
                       {[
-                        { label: "Inicial (<150)", idx: 0 },
-                        { label: "Discreto (150-299)", idx: 1 },
-                        { label: "Médio (300-449)", idx: 2 },
-                        { label: "Alto (450-599)", idx: 3 },
-                        { label: "Muito Alto (600+)", idx: 4 },
+                        { label: "Inicial", idx: 0 },
+                        { label: "Discreto", idx: 1 },
+                        { label: "Médio", idx: 2 },
+                        { label: "Alto", idx: 3 },
+                        { label: "Muito Alto", idx: 4 },
                       ].map((lvl) => (
                         <div
                           key={lvl.label}
@@ -3173,13 +3143,12 @@ export function ProcessoSeletivoView({
                           🔍 <strong>{hoveredCell.membro}</strong> em{" "}
                           <strong>{hoveredCell.eixo}</strong>:{" "}
                           <span className="text-[#ea580c] font-extrabold">
-                            {hoveredCell.pts} pts ({hoveredCell.label} • Nível{" "}
-                            {hoveredCell.tier}/5)
+                            {hoveredCell.label}
                           </span>
                         </span>
                       ) : (
                         <span className="text-slate-400">
-                          Passe o mouse sobre qualquer célula para inspecionar o score detalhado
+                          Passe o mouse sobre qualquer célula para inspecionar o nível do eixo
                         </span>
                       )}
                     </div>
@@ -3275,18 +3244,9 @@ export function ProcessoSeletivoView({
                                           : ""
                                       }`}
                                     >
-                                      {showHeatmapValues ? (
-                                        <div>
-                                          <span className="text-xs">{pts}</span>
-                                          <span className="block text-[9px] font-semibold opacity-85">
-                                            {cellStyle.label}
-                                          </span>
-                                        </div>
-                                      ) : (
-                                        <span className="text-[10px]">
-                                          {cellStyle.label}
-                                        </span>
-                                      )}
+                                      <span className="text-[10px]">
+                                        {cellStyle.label}
+                                      </span>
                                     </td>
                                   );
                                 }
@@ -3315,14 +3275,9 @@ export function ProcessoSeletivoView({
                                 }`}
                               >
                                 {isRevealed ? (
-                                  <div>
-                                    <span className="text-xs">
-                                      ★ {mediaPts}
-                                    </span>
-                                    <span className="block text-[9px] font-semibold opacity-90">
-                                      {mediaStyle.label}
-                                    </span>
-                                  </div>
+                                  <span className="text-[10px] font-extrabold">
+                                    ★ {mediaStyle.label}
+                                  </span>
                                 ) : (
                                   <span className="text-[10px] font-semibold underline decoration-dotted">
                                     Ver Média
@@ -3376,8 +3331,7 @@ export function ProcessoSeletivoView({
                   ({alvoMembrosAtuais.length} integrantes atuais):
                 </strong>{" "}
                 A entrada de <strong>{candDestaqueObj.nome}</strong> (KAN de{" "}
-                {candDestaqueObj.kan_nome}, vértices{" "}
-                {candDestaqueObj.vertices_triangulo.join("-")}) promove alta
+                {candDestaqueObj.kan_nome}) promove alta
                 sinergia geométrica com{" "}
                 {harmoniaTargetMode === "departamento"
                   ? `o departamento ${selectedHarmoniaDept}`

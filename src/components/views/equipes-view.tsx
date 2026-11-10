@@ -968,7 +968,7 @@ export function EquipesView({
                     </div>
 
                     <div className="text-xs text-slate-500">
-                      Clique no botão <strong>Coroa (👑)</strong> para definir ou remover a liderança da equipe (peso dobrado nos cálculos de harmonia) ou na <strong>Lixeira</strong> para remover o membro.
+                      Clique no botão <strong>Coroa (👑)</strong> para definir ou remover a liderança da equipe ou na <strong>Lixeira</strong> para remover o membro.
                     </div>
 
                     {/* 3-Column Member Cards Grid */}
@@ -1413,18 +1413,6 @@ export function EquipesView({
                                   </button>
                                 ))}
                               </div>
-
-                              <button
-                                type="button"
-                                onClick={() => setShowHeatmapValues(!showHeatmapValues)}
-                                className={`rounded-lg border px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-semibold transition-colors ${
-                                  showHeatmapValues
-                                    ? "border-[#510851] bg-[#510851] text-white dark:border-[#ea580c] dark:bg-[#ea580c]"
-                                    : "border-slate-200/80 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-                                }`}
-                              >
-                                {showHeatmapValues ? "Ocultar Pontos" : "Exibir Pontos"}
-                              </button>
                             </div>
                           </div>
 
@@ -1543,21 +1531,15 @@ export function EquipesView({
                                               onMouseLeave={() =>
                                                 setHoveredCell(null)
                                               }
-                                              title={`${m.nome} (${m.cargo}) • ${eixo}: ${pts} pts — ${style.label}`}
+                                              title={`${m.nome} (${m.cargo}) • ${eixo}: ${style.label}`}
                                               style={{
                                                 backgroundColor: style.bg,
                                                 color: style.text,
                                               }}
-                                              className="group relative flex h-[28px] sm:h-[38px] w-full cursor-pointer items-center justify-center rounded-[7px] sm:rounded-[12px] text-[9px] sm:text-[11px] font-bold transition-all duration-200 hover:scale-[1.04] hover:shadow-sm"
+                                              className="group relative flex h-[28px] sm:h-[38px] w-full cursor-pointer items-center justify-center rounded-[7px] sm:rounded-[12px] text-[8px] sm:text-[10px] font-bold transition-all duration-200 hover:scale-[1.04] hover:shadow-sm"
                                             >
-                                              <span
-                                                className={`transition-opacity duration-150 ${
-                                                  showHeatmapValues
-                                                    ? "opacity-100"
-                                                    : "opacity-0 group-hover:opacity-100"
-                                                }`}
-                                              >
-                                                {pts}
+                                              <span className="transition-opacity duration-150 opacity-0 group-hover:opacity-100">
+                                                {style.label}
                                               </span>
                                             </div>
                                           </td>
@@ -1568,9 +1550,9 @@ export function EquipesView({
                                       <td className="p-0 align-middle">
                                         {(() => {
                                           const avgRowKey = `${eq.id}-${eixo}`;
-                                          const isAvgVisible =
-                                            showHeatmapValues ||
-                                            Boolean(revealedAverageRows[avgRowKey]);
+                                          const isAvgVisible = Boolean(
+                                            revealedAverageRows[avgRowKey]
+                                          );
 
                                           return (
                                             <div
@@ -1580,7 +1562,7 @@ export function EquipesView({
                                                   ...prev,
                                                   [avgRowKey]: nextState,
                                                 }));
-                                                if (nextState || showHeatmapValues) {
+                                                if (nextState) {
                                                   setHoveredCell({
                                                     membro: "Média da Equipe",
                                                     cargo: "Consolidado Geral",
@@ -1608,14 +1590,14 @@ export function EquipesView({
                                               }
                                               title={
                                                 isAvgVisible
-                                                  ? `Média da Equipe • ${eixo}: ${avgScore} pts — ${avgStyle.label} (Clique para ocultar)`
-                                                  : `Média da Equipe • ${eixo} (Clique para ver a pontuação)`
+                                                  ? `Média da Equipe • ${eixo}: ${avgStyle.label} (Clique para ocultar)`
+                                                  : `Média da Equipe • ${eixo} (Clique para ver o resultado)`
                                               }
                                               style={{
                                                 backgroundColor: avgStyle.bg,
                                                 color: avgStyle.text,
                                               }}
-                                              className="group relative flex h-[28px] sm:h-[38px] w-full cursor-pointer select-none items-center justify-center rounded-[7px] sm:rounded-[12px] border-2 border-amber-500/70 dark:border-amber-400/70 text-[9px] sm:text-[11px] font-black transition-all duration-200 hover:scale-[1.05] shadow-2xs ring-1 ring-amber-500/20"
+                                              className="group relative flex h-[28px] sm:h-[38px] w-full cursor-pointer select-none items-center justify-center rounded-[7px] sm:rounded-[12px] border-2 border-amber-500/70 dark:border-amber-400/70 text-[8px] sm:text-[10px] font-black transition-all duration-200 hover:scale-[1.05] shadow-2xs ring-1 ring-amber-500/20"
                                             >
                                               <span
                                                 className={`transition-opacity duration-150 font-extrabold tracking-tight ${
@@ -1624,7 +1606,7 @@ export function EquipesView({
                                                     : "opacity-0"
                                                 }`}
                                               >
-                                                {avgScore}
+                                                {avgStyle.label}
                                               </span>
                                             </div>
                                           );
@@ -1683,7 +1665,7 @@ export function EquipesView({
                                   Eixo {hoveredCell.eixo}:
                                 </span>
                                 <span className="text-[#ea580c] font-bold">
-                                  {hoveredCell.pts} pontos ({hoveredCell.label})
+                                  {hoveredCell.label}
                                 </span>
                               </div>
                             </div>
