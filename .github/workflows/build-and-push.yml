@@ -37,5 +37,4 @@ jobs:
           script: |
             cd /docker/app-kantechrh
             git pull origin main
-            docker compose pull
-            docker compose up -d --remove-orphans
+            docker compose up -d --build --remove-orphans

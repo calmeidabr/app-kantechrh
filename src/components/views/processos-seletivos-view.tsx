@@ -691,6 +691,7 @@ export function ProcessoSeletivoView({
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [assocTalentosOpen, setAssocTalentosOpen] = useState(false);
   const [assocAderenciaOpen, setAssocAderenciaOpen] = useState(false);
+  const [assocDeptoOpen, setAssocDeptoOpen] = useState(false);
   const [buscaAssociar, setBuscaAssociar] = useState("");
   const [minAderenciaPct, setMinAderenciaPct] = useState(65);
   const [candDestaqueHarmonia, setCandDestaqueHarmonia] = useState<string>(
@@ -2031,14 +2032,15 @@ export function ProcessoSeletivoView({
           </button>
         </div>
 
-        {/* Botões Associar Talentos / Associar por Aderência */}
-        <div className="flex items-center gap-2">
+        {/* Botões Associar Talentos / Associar por Aderência / Associar por Departamento */}
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="orange"
             size="sm"
             onClick={() => {
               setAssocTalentosOpen(!assocTalentosOpen);
               setAssocAderenciaOpen(false);
+              setAssocDeptoOpen(false);
             }}
           >
             <Plus className="h-3.5 w-3.5" />
@@ -2050,12 +2052,103 @@ export function ProcessoSeletivoView({
             onClick={() => {
               setAssocAderenciaOpen(!assocAderenciaOpen);
               setAssocTalentosOpen(false);
+              setAssocDeptoOpen(false);
             }}
           >
             Associar por Aderência (%)
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setAssocDeptoOpen(!assocDeptoOpen);
+              setAssocTalentosOpen(false);
+              setAssocAderenciaOpen(false);
+            }}
+            className="border-[#510851]/40 text-[#510851] dark:text-purple-300 hover:bg-[#510851]/10"
+          >
+            <Building2 className="h-3.5 w-3.5 mr-1" />
+            Associar por Departamento
+          </Button>
         </div>
       </div>
+
+      {/* Drawer: Associar por Departamento ou Avaliar Harmonia do Departamento */}
+      {assocDeptoOpen && (
+        <Card className="p-4 space-y-4 border-[#510851]/40 bg-purple-500/5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1 flex-1 max-w-md">
+              <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Building2 className="h-4 w-4 text-[#510851] dark:text-purple-400" />
+                Selecionar Departamento ({membrosDoDepartamento.length} talentos no setor):
+              </label>
+              <select
+                value={selectedHarmoniaDept}
+                onChange={(e) => setSelectedHarmoniaDept(e.target.value)}
+                className="w-full h-9 rounded-lg border border-[#510851]/40 bg-white dark:bg-slate-900 px-3 text-xs font-semibold text-slate-900 dark:text-white"
+              >
+                {opcoesDepartamentos.map((dept) => (
+                  <option key={dept} value={dept}>
+                    🏢 {dept}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  const nomesDepto = membrosDoDepartamento.map(
+                    (m) => m.talento.nome
+                  );
+                  setVagas((prev) =>
+                    prev.map((v) =>
+                      v.id === vagaAtiva.id
+                        ? {
+                            ...v,
+                            departamento: selectedHarmoniaDept,
+                            candidatos_associados: Array.from(
+                              new Set([
+                                ...v.candidatos_associados,
+                                ...nomesDepto,
+                              ])
+                            ),
+                          }
+                        : v
+                    )
+                  );
+                  setAssocDeptoOpen(false);
+                  setToastMsg(
+                    `✅ ${nomesDepto.length} talento(s) do departamento "${selectedHarmoniaDept}" associados ao processo!`
+                  );
+                  setTimeout(() => setToastMsg(null), 3500);
+                }}
+              >
+                Associar Talentos do Departamento ({membrosDoDepartamento.length})
+              </Button>
+              <Button
+                size="sm"
+                variant="orange"
+                onClick={() => {
+                  setHarmoniaTargetMode("departamento");
+                  setActiveTab("harmonia");
+                  setAssocDeptoOpen(false);
+                }}
+              >
+                <Triangle className="h-3.5 w-3.5 mr-1" />
+                Diagnosticar Harmonia deste Departamento
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setAssocDeptoOpen(false)}
+              >
+                Fechar
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Drawer: Associar Talentos Manualmente */}
       {assocTalentosOpen && (
@@ -2569,49 +2662,59 @@ export function ProcessoSeletivoView({
               </div>
 
               <div className="flex flex-wrap items-end gap-3">
-                {harmoniaTargetMode === "equipe" ? (
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-semibold text-slate-400 block">
-                      Selecionar Equipe de Destino:
-                    </label>
-                    <select
-                      value={equipeDaVaga.nome}
-                      onChange={(e) =>
-                        setVagas((prev) =>
-                          prev.map((v) =>
-                            v.id === vagaAtiva.id
-                              ? { ...v, equipe_associada: e.target.value }
-                              : v
-                          )
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-slate-400 block">
+                    Alterar Equipe de Destino:
+                  </label>
+                  <select
+                    value={equipeDaVaga.nome}
+                    onChange={(e) => {
+                      setHarmoniaTargetMode("equipe");
+                      setVagas((prev) =>
+                        prev.map((v) =>
+                          v.id === vagaAtiva.id
+                            ? { ...v, equipe_associada: e.target.value }
+                            : v
                         )
-                      }
-                      className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-card px-3 text-xs font-semibold"
-                    >
-                      {equipes.map((eq) => (
-                        <option key={eq.id} value={eq.nome}>
-                          {eq.nome} ({eq.membros.length} membros)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-semibold text-slate-400 block">
-                      Selecionar Departamento de Destino:
-                    </label>
-                    <select
-                      value={selectedHarmoniaDept}
-                      onChange={(e) => setSelectedHarmoniaDept(e.target.value)}
-                      className="h-9 rounded-lg border border-[#510851]/40 dark:border-purple-500/40 bg-purple-500/5 px-3 text-xs font-semibold text-[#510851] dark:text-purple-300"
-                    >
-                      {opcoesDepartamentos.map((dept) => (
-                        <option key={dept} value={dept}>
-                          🏢 {dept}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                      );
+                    }}
+                    className={`h-9 rounded-lg border px-3 text-xs font-semibold ${
+                      harmoniaTargetMode === "equipe"
+                        ? "border-[#ea580c] bg-orange-500/5 text-[#ea580c]"
+                        : "border-slate-200 dark:border-slate-800 bg-card"
+                    }`}
+                  >
+                    {equipes.map((eq) => (
+                      <option key={eq.id} value={eq.nome}>
+                        👥 {eq.nome} ({eq.membros.length} membros)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-slate-400 block">
+                    Alterar Departamento de Destino:
+                  </label>
+                  <select
+                    value={selectedHarmoniaDept}
+                    onChange={(e) => {
+                      setHarmoniaTargetMode("departamento");
+                      setSelectedHarmoniaDept(e.target.value);
+                    }}
+                    className={`h-9 rounded-lg border px-3 text-xs font-semibold ${
+                      harmoniaTargetMode === "departamento"
+                        ? "border-[#510851] dark:border-purple-500 bg-purple-500/10 text-[#510851] dark:text-purple-300"
+                        : "border-slate-200 dark:border-slate-800 bg-card"
+                    }`}
+                  >
+                    {opcoesDepartamentos.map((dept) => (
+                      <option key={dept} value={dept}>
+                        🏢 {dept}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-slate-400 block">
