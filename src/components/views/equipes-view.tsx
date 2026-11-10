@@ -15,6 +15,8 @@ import {
   CheckCircle2,
   UploadCloud,
   Filter,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -198,6 +200,8 @@ export function EquipesView({
   const [addMode, setAddMode] = useState(false);
   const [buscaEquipe, setBuscaEquipe] = useState(() => initialOpenEquipe || "");
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [visibleEquipesCount, setVisibleEquipesCount] = useState(6);
+  const [equipesPage, setEquipesPage] = useState(1);
 
   // Expanded states per team ID (Edit Drawer & Triangles Drawer)
   const [openEditId, setOpenEditId] = useState<string | null>(null);
@@ -718,14 +722,20 @@ export function EquipesView({
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <Input
                 value={buscaEquipe}
-                onChange={(e) => setBuscaEquipe(e.target.value)}
+                onChange={(e) => {
+                  setBuscaEquipe(e.target.value);
+                  setEquipesPage(1);
+                }}
                 placeholder="Buscar equipe por nome, integrante ou departamento..."
                 className="pl-9 pr-8"
               />
               {buscaEquipe && (
                 <button
                   type="button"
-                  onClick={() => setBuscaEquipe("")}
+                  onClick={() => {
+                    setBuscaEquipe("");
+                    setEquipesPage(1);
+                  }}
                   className="absolute right-2.5 top-2.5 text-xs text-slate-400 hover:text-slate-600"
                   title="Limpar busca"
                 >
@@ -746,7 +756,27 @@ export function EquipesView({
             </Card>
           )}
 
-          {equipesFiltradas.map((eq, eqIdx) => {
+          {(visibleEquipesCount >= equipesFiltradas.length
+            ? equipesFiltradas
+            : equipesFiltradas.slice(
+                (Math.min(
+                  equipesPage,
+                  Math.max(
+                    1,
+                    Math.ceil(equipesFiltradas.length / visibleEquipesCount)
+                  )
+                ) -
+                  1) *
+                  visibleEquipesCount,
+                Math.min(
+                  equipesPage,
+                  Math.max(
+                    1,
+                    Math.ceil(equipesFiltradas.length / visibleEquipesCount)
+                  )
+                ) * visibleEquipesCount
+              )
+          ).map((eq, eqIdx) => {
             const isEditOpen = openEditId === eq.id;
             const isTriOpen =
               openTrianglesId === eq.id ||
@@ -1666,6 +1696,131 @@ export function EquipesView({
               </Card>
             );
           })}
+
+          {equipesFiltradas.length > 6 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/80 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
+              {(() => {
+                const totalEq = equipesFiltradas.length;
+                const isShowingAll = visibleEquipesCount >= totalEq;
+                const totalPages = Math.max(
+                  1,
+                  Math.ceil(totalEq / visibleEquipesCount)
+                );
+                const safePage = Math.min(equipesPage, totalPages);
+                const displayedCount = isShowingAll
+                  ? totalEq
+                  : Math.min(
+                      visibleEquipesCount,
+                      totalEq - (safePage - 1) * visibleEquipesCount
+                    );
+
+                return (
+                  <>
+                    <span className="text-xs font-medium text-slate-500">
+                      Exibindo{" "}
+                      <strong className="text-slate-900 dark:text-white">
+                        {displayedCount}
+                      </strong>{" "}
+                      de{" "}
+                      <strong className="text-slate-900 dark:text-white">
+                        {totalEq}
+                      </strong>{" "}
+                      equipes
+                      {!isShowingAll && totalPages > 1 && (
+                        <>
+                          {" "}
+                          • Página{" "}
+                          <strong className="text-slate-900 dark:text-white">
+                            {safePage}
+                          </strong>{" "}
+                          de{" "}
+                          <strong className="text-slate-900 dark:text-white">
+                            {totalPages}
+                          </strong>
+                        </>
+                      )}
+                    </span>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {!isShowingAll && totalPages > 1 && (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={safePage <= 1}
+                            onClick={() =>
+                              setEquipesPage((p) => Math.max(1, p - 1))
+                            }
+                            className="h-7 px-2 text-xs font-semibold"
+                          >
+                            <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                            Anterior
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={safePage >= totalPages}
+                            onClick={() =>
+                              setEquipesPage((p) =>
+                                Math.min(totalPages, p + 1)
+                              )
+                            }
+                            className="h-7 px-2 text-xs font-semibold"
+                          >
+                            Próxima
+                            <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
+
+                      {visibleEquipesCount < totalEq && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setVisibleEquipesCount((c) =>
+                                Math.min(totalEq, c + 6)
+                              );
+                              setEquipesPage(1);
+                            }}
+                            className="h-7 text-xs font-semibold"
+                          >
+                            Apresentar próximas{" "}
+                            {Math.min(6, totalEq - visibleEquipesCount)}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setVisibleEquipesCount(totalEq);
+                              setEquipesPage(1);
+                            }}
+                            className="h-7 text-xs font-semibold"
+                          >
+                            Apresentar todas ({totalEq})
+                          </Button>
+                        </>
+                      )}
+                      {visibleEquipesCount > 6 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setVisibleEquipesCount(6);
+                            setEquipesPage(1);
+                          }}
+                          className="h-7 text-xs text-slate-500"
+                        >
+                          Mostrar menos (6)
+                        </Button>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
         </div>
       )}
     </div>

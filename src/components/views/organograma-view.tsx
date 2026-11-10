@@ -11,6 +11,7 @@ import {
   Trash2,
   Users,
   Crown,
+  ChevronLeft,
   ChevronRight,
   Search,
   UserPlus,
@@ -21,6 +22,8 @@ import {
   Eye,
   Compass,
   Sparkles,
+  Triangle,
+  Flame,
 } from "lucide-react";
 import {
   Card,
@@ -34,6 +37,158 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { TalentoProfile, EquipeData } from "@/lib/mock-data";
 import { KanTrianglesSvg } from "@/components/kan-triangles-svg";
+
+const EIXOS_COMPORTAMENTAIS = [
+  "Liderança",
+  "Relacionamento",
+  "Criação",
+  "Organização",
+  "Flexibilidade",
+  "Comunicação",
+  "Análise",
+  "Resultado",
+  "Empatia",
+] as const;
+
+type HeatmapPalette = "emerald" | "purple" | "orange";
+
+const HEATMAP_PALETTES: Record<
+  HeatmapPalette,
+  {
+    label: string;
+    swatch: string;
+    levels: [string, string, string, string, string];
+    textColors: [string, string, string, string, string];
+  }
+> = {
+  emerald: {
+    label: "Verde",
+    swatch: "🟩",
+    levels: ["#e6f7ed", "#c3eed4", "#8ce2ad", "#42d374", "#009e3c"],
+    textColors: ["#065f46", "#065f46", "#064e3b", "#ffffff", "#ffffff"],
+  },
+  purple: {
+    label: "Roxo",
+    swatch: "🟪",
+    levels: ["#f3e8ff", "#d8b4fe", "#a855f7", "#7e22ce", "#510851"],
+    textColors: ["#581c87", "#581c87", "#ffffff", "#ffffff", "#ffffff"],
+  },
+  orange: {
+    label: "Laranja",
+    swatch: "🟧",
+    levels: ["#ffedd5", "#fed7aa", "#fb923c", "#ea580c", "#9a3412"],
+    textColors: ["#7c2d12", "#7c2d12", "#ffffff", "#ffffff", "#ffffff"],
+  },
+};
+
+function calcularScoresEixos(t: TalentoProfile): Record<string, number> {
+  const seed = t.id.charCodeAt(t.id.length - 1) * 11 + t.nome.length * 17;
+  const isCriacao = t.kan_nome === "Criação";
+  const isMovimento = t.kan_nome === "Movimento";
+  const isFinalidade = t.kan_nome === "Finalidade";
+
+  return {
+    Liderança: t.perfis_lista.includes("Lider")
+      ? 680
+      : isMovimento
+      ? 490
+      : 140 + ((seed * 13) % 380),
+    Relacionamento: t.qualidades_lista.some((q) =>
+      q.toLowerCase().includes("relacionamento")
+    )
+      ? 640
+      : 110 + ((seed * 17) % 410),
+    Criação:
+      isCriacao || t.perfis_lista.includes("Criativo")
+        ? 710
+        : 90 + ((seed * 19) % 360),
+    Organização: t.categorias_lista.includes("Organizado")
+      ? 660
+      : 120 + ((seed * 23) % 390),
+    Flexibilidade: t.categorias_lista.includes("Versátil")
+      ? 620
+      : 80 + ((seed * 29) % 350),
+    Comunicação:
+      t.perfis_lista.includes("Comunicador") ||
+      t.perfis_lista.includes("Influenciador")
+        ? 690
+        : 130 + ((seed * 31) % 390),
+    Análise: t.categorias_lista.includes("Analítico")
+      ? 720
+      : isFinalidade
+      ? 510
+      : 95 + ((seed * 37) % 340),
+    Resultado:
+      t.perfis_lista.includes("Resultado") ||
+      t.perfis_lista.includes("Executor")
+        ? 740
+        : 220 + ((seed * 41) % 420),
+    Empatia: t.categorias_lista.includes("Diplomático")
+      ? 630
+      : 85 + ((seed * 43) % 330),
+  };
+}
+
+function getHeatmapCellStyle(
+  pts: number,
+  palette: HeatmapPalette = "emerald"
+): {
+  bg: string;
+  text: string;
+  label: string;
+  tier: number;
+} {
+  const pal = HEATMAP_PALETTES[palette];
+  if (pts >= 600) {
+    return {
+      bg: pal.levels[4],
+      text: pal.textColors[4],
+      label: "Muito Alto",
+      tier: 5,
+    };
+  }
+  if (pts >= 450) {
+    return {
+      bg: pal.levels[3],
+      text: pal.textColors[3],
+      label: "Alto",
+      tier: 4,
+    };
+  }
+  if (pts >= 300) {
+    return {
+      bg: pal.levels[2],
+      text: pal.textColors[2],
+      label: "Médio",
+      tier: 3,
+    };
+  }
+  if (pts >= 150) {
+    return {
+      bg: pal.levels[1],
+      text: pal.textColors[1],
+      label: "Discreto",
+      tier: 2,
+    };
+  }
+  return {
+    bg: pal.levels[0],
+    text: pal.textColors[0],
+    label: "Baixo",
+    tier: 1,
+  };
+}
+
+function getIndicador(
+  t: TalentoProfile,
+  campo: string,
+  fallback = ""
+): string {
+  const found = t.indicadores_perfil?.find((ind) =>
+    ind.Campo.toLowerCase().includes(campo.toLowerCase())
+  );
+  return found?.Valor || found?.Descricao || fallback;
+}
 
 const CARGOS_OPCOES = [
   "CEO / Founder",
@@ -271,6 +426,28 @@ export function OrganogramaView({
     equipes[0]?.id || null
   );
 
+  // Department Diagnostic state (Triângulos + Tabela Comparativa + Mapa de Calor)
+  const [showDeptDiagnostico, setShowDeptDiagnostico] = useState(false);
+  const [heatmapPalette, setHeatmapPalette] =
+    useState<HeatmapPalette>("emerald");
+  const [showHeatmapValues, setShowHeatmapValues] = useState(false);
+  const [revealedAverageRows, setRevealedAverageRows] = useState<
+    Record<string, boolean>
+  >({});
+  const [hoveredCell, setHoveredCell] = useState<{
+    membro: string;
+    cargo: string;
+    eixo: string;
+    pts: number;
+    label: string;
+  } | null>(null);
+
+  // Pagination states for Department Collaborators & Equipes below
+  const [visibleColabCount, setVisibleColabCount] = useState(9);
+  const [colabPage, setColabPage] = useState(1);
+  const [visibleEquipesOrgCount, setVisibleEquipesOrgCount] = useState(6);
+  const [equipesOrgPage, setEquipesOrgPage] = useState(1);
+
   const deptosDaEmpresa = useMemo(
     () =>
       departamentos.filter(
@@ -278,6 +455,14 @@ export function OrganogramaView({
       ),
     [departamentos, selectedEmpresa]
   );
+
+  const deptNameByIdMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    departamentos.forEach((d) => {
+      map[d.id.toLowerCase()] = d.nome;
+    });
+    return map;
+  }, [departamentos]);
 
   const selectedDeptObj = useMemo(
     () => deptosDaEmpresa.find((d) => d.id === selectedDeptId) || null,
@@ -303,12 +488,16 @@ export function OrganogramaView({
   // Talents filtered by selected department (including subdepartments when parent is clicked)
   const matchingDeptNames = useMemo(() => {
     if (selectedDeptId === "all" || !selectedDeptObj) return null;
-    const names = new Set<string>([selectedDeptObj.nome.toLowerCase()]);
+    const names = new Set<string>([
+      selectedDeptObj.nome.toLowerCase(),
+      selectedDeptObj.id.toLowerCase(),
+    ]);
     const collectChildren = (parentId: string) => {
       deptosDaEmpresa
         .filter((d) => d.parentId === parentId)
         .forEach((child) => {
           names.add(child.nome.toLowerCase());
+          names.add(child.id.toLowerCase());
           collectChildren(child.id);
         });
     };
@@ -329,8 +518,11 @@ export function OrganogramaView({
           return false;
         }
         if (tokens.length > 0) {
+          const deptResolved =
+            deptNameByIdMap[(t.departamento || "").toLowerCase()] ||
+            t.departamento;
           const searchable = normText(
-            `${t.nome} ${t.cargo} ${t.profissao} ${t.departamento} ${t.grupo}`
+            `${t.nome} ${t.cargo} ${t.profissao} ${deptResolved} ${t.grupo}`
           );
           if (!tokens.every((tk) => searchable.includes(tk))) {
             return false;
@@ -347,7 +539,14 @@ export function OrganogramaView({
         if (lidA !== lidB) return lidB - lidA;
         return a.nome.localeCompare(b.nome);
       });
-  }, [talentos, matchingDeptNames, searchColab, filterCargo, deptLeaders]);
+  }, [
+    talentos,
+    matchingDeptNames,
+    searchColab,
+    filterCargo,
+    deptLeaders,
+    deptNameByIdMap,
+  ]);
 
   const handleAddEmpresa = async () => {
     if (!novaEmpresaNome.trim()) return;
@@ -512,9 +711,13 @@ export function OrganogramaView({
       const hasChildren = subChildren.length > 0;
       const isExpanded = Boolean(expandedDepts[node.id]);
       const isSelected = selectedDeptId === node.id;
-      const countInDept = talentos.filter(
-        (t) => t.departamento === node.nome
-      ).length;
+      const countInDept = talentos.filter((t) => {
+        const d = (t.departamento || "").trim().toLowerCase();
+        return (
+          d === node.nome.trim().toLowerCase() ||
+          d === node.id.trim().toLowerCase()
+        );
+      }).length;
 
       return (
         <div key={node.id} className="space-y-0.5">
@@ -522,6 +725,7 @@ export function OrganogramaView({
             style={{ paddingLeft: `${level * 14 + 8}px` }}
             onClick={() => {
               setSelectedDeptId(node.id);
+              setColabPage(1);
               if (hasChildren) {
                 setExpandedDepts((prev) => ({
                   ...prev,
@@ -591,6 +795,7 @@ export function OrganogramaView({
               onChange={(e) => {
                 setSelectedEmpresa(e.target.value);
                 setSelectedDeptId("all");
+                setColabPage(1);
               }}
               className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none dark:text-white"
             >
@@ -747,7 +952,10 @@ export function OrganogramaView({
             </CardHeader>
             <CardContent className="space-y-2">
               <button
-                onClick={() => setSelectedDeptId("all")}
+                onClick={() => {
+                  setSelectedDeptId("all");
+                  setColabPage(1);
+                }}
                 className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
                   selectedDeptId === "all"
                     ? "bg-[#510851] text-white shadow-2xs"
@@ -816,7 +1024,7 @@ export function OrganogramaView({
             </CardContent>
           </Card>
 
-          {/* RIGHT 8 COLS: BREADCRUMB + DEPARTMENT COLLABORATORS GRID */}
+          {/* RIGHT 8 COLS: BREADCRUMB + DEPARTMENT COLLABORATORS GRID + DIAGNÓSTICO DO DEPARTAMENTO */}
           <Card className="lg:col-span-8">
             <CardHeader className="pb-3">
               {/* Breadcrumb */}
@@ -845,19 +1053,37 @@ export function OrganogramaView({
                       : selectedDeptObj?.nome}
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    {filteredColaboradores.length} colaborador(es) exibido(s) •
+                    {filteredColaboradores.length} colaborador(es) no setor •
                     Líderes destacados no topo com coroa 👑
                   </CardDescription>
                 </div>
 
-                <Button
-                  size="sm"
-                  onClick={() => setShowVincularBar(!showVincularBar)}
-                  className="bg-[#510851] text-xs font-semibold text-white hover:bg-[#510851]/90"
-                >
-                  <UserPlus className="mr-1.5 h-3.5 w-3.5" />
-                  Vincular Talento ao Setor
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => setShowDeptDiagnostico((prev) => !prev)}
+                    disabled={filteredColaboradores.length === 0}
+                    className={`text-xs font-bold transition-all ${
+                      showDeptDiagnostico
+                        ? "bg-[#ea580c] text-white shadow-sm hover:bg-[#d9460f]"
+                        : "border border-[#ea580c] bg-[#ea580c]/10 text-[#ea580c] hover:bg-[#ea580c] hover:text-white"
+                    }`}
+                  >
+                    <Triangle className="mr-1.5 h-3.5 w-3.5" />
+                    {showDeptDiagnostico
+                      ? "Ocultar Diagnóstico"
+                      : "Diagnóstico"}
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    onClick={() => setShowVincularBar(!showVincularBar)}
+                    className="bg-[#510851] text-xs font-semibold text-white hover:bg-[#510851]/90"
+                  >
+                    <UserPlus className="mr-1.5 h-3.5 w-3.5" />
+                    Vincular Talento ao Setor
+                  </Button>
+                </div>
               </div>
 
               {/* Vincular Talento Bar */}
@@ -910,14 +1136,20 @@ export function OrganogramaView({
                   <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
                   <Input
                     value={searchColab}
-                    onChange={(e) => setSearchColab(e.target.value)}
+                    onChange={(e) => {
+                      setSearchColab(e.target.value);
+                      setColabPage(1);
+                    }}
                     placeholder="Buscar colaborador por nome, cargo ou setor..."
                     className="h-8 pl-8 text-xs"
                   />
                 </div>
                 <select
                   value={filterCargo}
-                  onChange={(e) => setFilterCargo(e.target.value)}
+                  onChange={(e) => {
+                    setFilterCargo(e.target.value);
+                    setColabPage(1);
+                  }}
                   className="h-8 rounded-md border border-input bg-background px-2.5 text-xs"
                 >
                   <option value="Todos">Todos os Cargos</option>
@@ -932,89 +1164,704 @@ export function OrganogramaView({
               </div>
             </CardHeader>
 
-            <CardContent>
-              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
-                {filteredColaboradores.map((t) => {
-                  const isLider = Boolean(deptLeaders[t.id]);
-                  return (
-                    <div
-                      key={t.id}
-                      className={`flex flex-col justify-between rounded-2xl border p-4 transition-all ${
-                        isLider
-                          ? "border-[#ea580c]/60 bg-[#ea580c]/5 shadow-xs"
-                          : "border-slate-200/80 bg-white hover:border-[#510851]/40 dark:border-slate-800 dark:bg-slate-900/40"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="relative shrink-0">
-                          <img
-                            src={t.avatar}
-                            alt={t.nome}
-                            className="h-12 w-12 rounded-full border-2 border-[#ea580c] object-cover"
-                          />
-                          {isLider && (
-                            <span
-                              title="Líder do Setor"
-                              className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] shadow"
+            <CardContent className="space-y-6">
+              {(() => {
+                const totalColabs = filteredColaboradores.length;
+                const isShowingAllColabs = visibleColabCount >= totalColabs;
+                const totalColabPages = Math.max(
+                  1,
+                  Math.ceil(totalColabs / visibleColabCount)
+                );
+                const safeColabPage = Math.min(colabPage, totalColabPages);
+                const displayedColabs = isShowingAllColabs
+                  ? filteredColaboradores
+                  : filteredColaboradores.slice(
+                      (safeColabPage - 1) * visibleColabCount,
+                      safeColabPage * visibleColabCount
+                    );
+
+                return (
+                  <>
+                    <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
+                      {displayedColabs.map((t) => {
+                        const isLider = Boolean(deptLeaders[t.id]);
+                        const resolvedDept =
+                          deptNameByIdMap[
+                            (t.departamento || "").trim().toLowerCase()
+                          ] || t.departamento;
+                        return (
+                          <div
+                            key={t.id}
+                            className={`flex flex-col justify-between rounded-2xl border p-4 transition-all ${
+                              isLider
+                                ? "border-[#ea580c]/60 bg-[#ea580c]/5 shadow-xs"
+                                : "border-slate-200/80 bg-white hover:border-[#510851]/40 dark:border-slate-800 dark:bg-slate-900/40"
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="relative shrink-0">
+                                <img
+                                  src={t.avatar}
+                                  alt={t.nome}
+                                  className="h-12 w-12 rounded-full border-2 border-[#ea580c] object-cover"
+                                />
+                                {isLider && (
+                                  <span
+                                    title="Líder do Setor"
+                                    className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] shadow"
+                                  >
+                                    👑
+                                  </span>
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    onClick={() => onInspectTalento?.(t)}
+                                    className="truncate text-left text-xs font-bold text-slate-900 hover:text-[#ea580c] hover:underline dark:text-white"
+                                  >
+                                    {t.nome}
+                                  </button>
+                                </div>
+                                <div className="truncate text-[11px] font-semibold text-[#ea580c]">
+                                  {t.cargo}
+                                </div>
+                                <div className="truncate text-[10px] text-slate-400">
+                                  {resolvedDept}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap items-center gap-1">
+                              <Badge variant="purple" className="text-[10px]">
+                                KAN: {t.kan_nome}
+                              </Badge>
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px]"
+                              >
+                                {t.perfis_lista[0]}
+                              </Badge>
+                            </div>
+
+                            <div className="mt-3 flex items-center justify-between border-t border-slate-200/60 pt-2.5 dark:border-slate-800">
+                              <button
+                                onClick={() => toggleLeader(t.id)}
+                                className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold transition-colors ${
+                                  isLider
+                                    ? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
+                                    : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                }`}
+                              >
+                                <Crown className="h-3 w-3" />
+                                {isLider ? "Líder" : "Tornar Líder"}
+                              </button>
+
+                              {onInspectTalento && (
+                                <button
+                                  onClick={() => onInspectTalento(t)}
+                                  className="flex items-center gap-1 text-[10px] font-semibold text-[#510851] hover:underline dark:text-purple-300"
+                                >
+                                  <Eye className="h-3 w-3" />
+                                  Ficha Individual
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* PAGINAÇÃO E NAVEGAÇÃO DOS COLABORADORES DO DEPARTAMENTO */}
+                    {totalColabs > 9 && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/80 bg-slate-50/70 px-4 py-2.5 dark:border-slate-800 dark:bg-slate-900/50">
+                        <span className="text-xs font-medium text-slate-500">
+                          Exibindo{" "}
+                          <strong className="text-slate-900 dark:text-white">
+                            {displayedColabs.length}
+                          </strong>{" "}
+                          de{" "}
+                          <strong className="text-slate-900 dark:text-white">
+                            {totalColabs}
+                          </strong>{" "}
+                          colaboradores
+                          {!isShowingAllColabs && totalColabPages > 1 && (
+                            <>
+                              {" "}
+                              • Página{" "}
+                              <strong className="text-slate-900 dark:text-white">
+                                {safeColabPage}
+                              </strong>{" "}
+                              de{" "}
+                              <strong className="text-slate-900 dark:text-white">
+                                {totalColabPages}
+                              </strong>
+                            </>
+                          )}
+                        </span>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          {!isShowingAllColabs && totalColabPages > 1 && (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={safeColabPage <= 1}
+                                onClick={() =>
+                                  setColabPage((p) => Math.max(1, p - 1))
+                                }
+                                className="h-7 px-2 text-xs font-semibold"
+                              >
+                                <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                                Anterior
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={safeColabPage >= totalColabPages}
+                                onClick={() =>
+                                  setColabPage((p) =>
+                                    Math.min(totalColabPages, p + 1)
+                                  )
+                                }
+                                className="h-7 px-2 text-xs font-semibold"
+                              >
+                                Próxima
+                                <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          )}
+
+                          {visibleColabCount < totalColabs && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setVisibleColabCount((c) =>
+                                    Math.min(totalColabs, c + 9)
+                                  );
+                                  setColabPage(1);
+                                }}
+                                className="h-7 text-xs font-semibold"
+                              >
+                                Apresentar próximos{" "}
+                                {Math.min(9, totalColabs - visibleColabCount)}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => {
+                                  setVisibleColabCount(totalColabs);
+                                  setColabPage(1);
+                                }}
+                                className="h-7 text-xs font-semibold"
+                              >
+                                Apresentar todos ({totalColabs})
+                              </Button>
+                            </>
+                          )}
+                          {visibleColabCount > 9 && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setVisibleColabCount(9);
+                                setColabPage(1);
+                              }}
+                              className="h-7 text-xs text-slate-500"
                             >
-                              👑
-                            </span>
+                              Mostrar menos (9)
+                            </Button>
                           )}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => onInspectTalento?.(t)}
-                              className="truncate text-left text-xs font-bold text-slate-900 hover:text-[#ea580c] hover:underline dark:text-white"
-                            >
-                              {t.nome}
-                            </button>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+
+              {/* PAINEL DE DIAGNÓSTICO DO DEPARTAMENTO: TRIÂNGULOS + TABELA COMPARATIVA + MAPA DE CALOR */}
+              {showDeptDiagnostico && filteredColaboradores.length > 0 && (
+                <div className="space-y-6 rounded-2xl border-2 border-[#ea580c]/40 bg-slate-50/60 p-5 shadow-sm dark:bg-slate-900/40">
+                  {(() => {
+                    const deptTitle =
+                      selectedDeptId === "all"
+                        ? "Todos os Departamentos"
+                        : selectedDeptObj?.nome || "Departamento";
+                    const deptTalentos = filteredColaboradores;
+                    const heatmapMatrix = deptTalentos.map((t) => ({
+                      talento: t,
+                      scores: calcularScoresEixos(t),
+                    }));
+                    const activePal = HEATMAP_PALETTES[heatmapPalette];
+
+                    return (
+                      <>
+                        {/* CABEÇALHO DO DIAGNÓSTICO */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-[#ea580c] text-white">
+                                DIAGNÓSTICO DO DEPARTAMENTO
+                              </Badge>
+                              <Badge variant="purple">
+                                {deptTalentos.length} integrantes analisados
+                              </Badge>
+                            </div>
+                            <h3 className="mt-1 text-base font-extrabold text-slate-900 dark:text-white">
+                              Geometria Harmônica, Matriz Comparativa & Mapa de
+                              Calor — {deptTitle}
+                            </h3>
                           </div>
-                          <div className="truncate text-[11px] font-semibold text-[#ea580c]">
-                            {t.cargo}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setShowDeptDiagnostico(false)}
+                            className="h-7 text-xs"
+                          >
+                            Fechar Diagnóstico ✕
+                          </Button>
+                        </div>
+
+                        {/* 1. TRIÂNGULOS HARMÔNICOS DO DEPARTAMENTO */}
+                        <div className="space-y-2">
+                          <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                            1. Triângulos Harmônicos — {deptTitle}
+                          </h4>
+                          <KanTrianglesSvg
+                            membros={deptTalentos.map((t) => ({
+                              nome: t.nome,
+                              vertices: t.vertices_triangulo || [1, 2, 3],
+                              isLider: Boolean(deptLeaders[t.id]),
+                            }))}
+                          />
+                        </div>
+
+                        {/* 2. TABELA COMPARATIVA DE PERFIL COMPORTAMENTAL */}
+                        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
+                          <div className="bg-[#4a0e4e] px-4 py-3 text-center text-xs font-extrabold uppercase tracking-widest text-white">
+                            PERFIL COMPORTAMENTAL — {deptTitle}
                           </div>
-                          <div className="truncate text-[10px] text-slate-400">
-                            {t.departamento}
+
+                          {/* MOBILE: SWIPEABLE CARDS */}
+                          <div className="block md:hidden p-3">
+                            <div className="mb-2 flex items-center justify-between text-[11px] font-semibold text-slate-500">
+                              <span>
+                                Deslize para comparar os integrantes →
+                              </span>
+                              <span>{deptTalentos.length} membros</span>
+                            </div>
+                            <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
+                              {deptTalentos.map((t) => {
+                                const isLid = Boolean(deptLeaders[t.id]);
+                                return (
+                                  <div
+                                    key={t.id}
+                                    className="w-[85%] shrink-0 snap-center rounded-xl border border-slate-200 bg-slate-50/60 p-3.5 dark:border-slate-800 dark:bg-slate-900/60"
+                                  >
+                                    <div className="flex items-center justify-between border-b border-slate-200 pb-2.5 dark:border-slate-800">
+                                      <div className="flex items-center gap-2">
+                                        <img
+                                          src={t.avatar}
+                                          alt={t.nome}
+                                          className="h-9 w-9 rounded-full border border-[#ea580c] object-cover"
+                                        />
+                                        <div>
+                                          <button
+                                            onClick={() =>
+                                              onInspectTalento?.(t)
+                                            }
+                                            className="text-left text-xs font-extrabold text-[#4a0e4e] hover:underline dark:text-purple-300"
+                                          >
+                                            {isLid ? `👑 ${t.nome}` : t.nome}
+                                          </button>
+                                          <div className="text-[10px] text-slate-500">
+                                            {t.cargo}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <Badge
+                                        variant="purple"
+                                        className="text-[10px]"
+                                      >
+                                        KAN {t.kan_nome}
+                                      </Badge>
+                                    </div>
+                                    <div className="mt-2.5 space-y-2 text-[11px]">
+                                      <div>
+                                        <span className="font-bold text-slate-500">
+                                          Perfil Predominante:
+                                        </span>{" "}
+                                        <span className="font-semibold text-slate-900 dark:text-white">
+                                          {t.perfis_lista.slice(0, 2).join(", ")}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <span className="font-bold text-slate-500">
+                                          Forças Centrais:
+                                        </span>{" "}
+                                        <span className="text-slate-700 dark:text-slate-300">
+                                          {getIndicador(
+                                            t,
+                                            "Forças Centrais",
+                                            "Articulação, energia e foco em resultados"
+                                          )}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <span className="font-bold text-slate-500">
+                                          Contexto de Maior Aderência:
+                                        </span>{" "}
+                                        <span className="text-slate-700 dark:text-slate-300">
+                                          {getIndicador(
+                                            t,
+                                            "Contexto de Maior Aderência",
+                                            "Ambientes dinâmicos e colaborativos"
+                                          )}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <span className="font-bold text-slate-500">
+                                          Risco Prioritário:
+                                        </span>{" "}
+                                        <span className="text-slate-700 dark:text-slate-300">
+                                          {getIndicador(
+                                            t,
+                                            "Risco Prioritário",
+                                            "Sobrecarga por excesso de frentes"
+                                          )}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* DESKTOP: COMPARATIVE MATRIX TABLE */}
+                          <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full border-collapse text-xs">
+                              <thead>
+                                <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
+                                  <th className="w-44 border-r border-slate-200 px-3 py-2.5 text-left font-bold text-slate-500 dark:border-slate-800">
+                                    Dimensão / Critério
+                                  </th>
+                                  {deptTalentos.map((t) => {
+                                    const isLid = Boolean(deptLeaders[t.id]);
+                                    return (
+                                      <th
+                                        key={t.id}
+                                        className="min-w-[160px] border-r border-slate-200 px-3 py-2.5 text-center font-extrabold text-[#4a0e4e] dark:border-slate-800 dark:text-purple-300"
+                                      >
+                                        <button
+                                          onClick={() => onInspectTalento?.(t)}
+                                          className="hover:text-[#ea580c] hover:underline"
+                                        >
+                                          {isLid ? `👑 ${t.nome}` : t.nome}
+                                        </button>
+                                      </th>
+                                    );
+                                  })}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                                <tr>
+                                  <td className="border-r border-slate-200 bg-slate-50/70 px-3 py-2.5 font-bold text-slate-700 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-300">
+                                    Perfil Predominante
+                                  </td>
+                                  {deptTalentos.map((t) => (
+                                    <td
+                                      key={t.id}
+                                      className="border-r border-slate-200 px-3 py-2.5 text-center font-semibold dark:border-slate-800"
+                                    >
+                                      {t.perfis_lista.slice(0, 2).join(", ")}
+                                    </td>
+                                  ))}
+                                </tr>
+                                <tr>
+                                  <td className="border-r border-slate-200 bg-slate-50/70 px-3 py-2.5 font-bold text-slate-700 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-300">
+                                    Forças Centrais
+                                  </td>
+                                  {deptTalentos.map((t) => (
+                                    <td
+                                      key={t.id}
+                                      className="border-r border-slate-200 px-3 py-2.5 text-center text-slate-600 dark:border-slate-800 dark:text-slate-300"
+                                    >
+                                      {getIndicador(
+                                        t,
+                                        "Forças Centrais",
+                                        "Articulação, energia e foco em resultados"
+                                      )}
+                                    </td>
+                                  ))}
+                                </tr>
+                                <tr>
+                                  <td className="border-r border-slate-200 bg-slate-50/70 px-3 py-2.5 font-bold text-slate-700 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-300">
+                                    Contexto de Maior Aderência
+                                  </td>
+                                  {deptTalentos.map((t) => (
+                                    <td
+                                      key={t.id}
+                                      className="border-r border-slate-200 px-3 py-2.5 text-center text-slate-600 dark:border-slate-800 dark:text-slate-300"
+                                    >
+                                      {getIndicador(
+                                        t,
+                                        "Contexto de Maior Aderência",
+                                        "Ambientes dinâmicos e colaborativos"
+                                      )}
+                                    </td>
+                                  ))}
+                                </tr>
+                                <tr>
+                                  <td className="border-r border-slate-200 bg-slate-50/70 px-3 py-2.5 font-bold text-slate-700 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-300">
+                                    Risco Prioritário
+                                  </td>
+                                  {deptTalentos.map((t) => (
+                                    <td
+                                      key={t.id}
+                                      className="border-r border-slate-200 px-3 py-2.5 text-center text-slate-600 dark:border-slate-800 dark:text-slate-300"
+                                    >
+                                      {getIndicador(
+                                        t,
+                                        "Risco Prioritário",
+                                        "Sobrecarga por excesso de frentes"
+                                      )}
+                                    </td>
+                                  ))}
+                                </tr>
+                                <tr>
+                                  <td className="border-r border-slate-200 bg-slate-50/70 px-3 py-2.5 font-bold text-slate-700 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-300">
+                                    KAN
+                                  </td>
+                                  {deptTalentos.map((t) => (
+                                    <td
+                                      key={t.id}
+                                      className="border-r border-slate-200 px-3 py-2.5 text-center font-extrabold text-[#ea580c] dark:border-slate-800"
+                                    >
+                                      {t.kan_nome}
+                                    </td>
+                                  ))}
+                                </tr>
+                              </tbody>
+                            </table>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="mt-3 flex flex-wrap items-center gap-1">
-                        <Badge variant="purple" className="text-[10px]">
-                          KAN: {t.kan_nome}
-                        </Badge>
-                        <Badge variant="secondary" className="text-[10px]">
-                          {t.perfis_lista[0]}
-                        </Badge>
-                      </div>
+                        {/* 3. MAPA DE CALOR INTERATIVO DO DEPARTAMENTO */}
+                        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+                          <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                            <div>
+                              <h4 className="flex items-center gap-2 text-sm font-extrabold">
+                                <Flame className="h-4 w-4 text-[#ea580c]" />
+                                Mapa de Calor Interativo — Eixos Comportamentais
+                                do Departamento
+                              </h4>
+                              <p className="text-xs text-slate-500">
+                                Passe o mouse sobre as células para ver o
+                                detalhamento ou clique em &quot;Média&quot; para
+                                revelar o score médio da linha
+                              </p>
+                            </div>
 
-                      <div className="mt-3 flex items-center justify-between border-t border-slate-200/60 pt-2.5 dark:border-slate-800">
-                        <button
-                          onClick={() => toggleLeader(t.id)}
-                          className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold transition-colors ${
-                            isLider
-                              ? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
-                              : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                          }`}
-                        >
-                          <Crown className="h-3 w-3" />
-                          {isLider ? "Líder" : "Tornar Líder"}
-                        </button>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-800 dark:bg-slate-950">
+                                {(
+                                  Object.keys(
+                                    HEATMAP_PALETTES
+                                  ) as HeatmapPalette[]
+                                ).map((palKey) => (
+                                  <button
+                                    key={palKey}
+                                    onClick={() => setHeatmapPalette(palKey)}
+                                    className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all ${
+                                      heatmapPalette === palKey
+                                        ? "bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white"
+                                        : "text-slate-500 hover:text-slate-900 dark:text-slate-400"
+                                    }`}
+                                  >
+                                    <span>
+                                      {HEATMAP_PALETTES[palKey].swatch}
+                                    </span>
+                                    <span>
+                                      {HEATMAP_PALETTES[palKey].label}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
 
-                        {onInspectTalento && (
-                          <button
-                            onClick={() => onInspectTalento(t)}
-                            className="flex items-center gap-1 text-[10px] font-semibold text-[#510851] hover:underline dark:text-purple-300"
-                          >
-                            <Eye className="h-3 w-3" />
-                            Diagnóstico
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setShowHeatmapValues(!showHeatmapValues)
+                                }
+                                className="h-8 text-xs font-bold"
+                              >
+                                {showHeatmapValues
+                                  ? "Ocultar Pontos"
+                                  : "Exibir Pontos"}
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="overflow-x-auto">
+                            <table className="w-full border-collapse text-xs">
+                              <thead>
+                                <tr className="border-b-2 border-slate-300 dark:border-slate-700">
+                                  <th className="w-48 px-3 py-2 text-left font-extrabold text-slate-700 dark:text-slate-200">
+                                    Eixo Comportamental
+                                  </th>
+                                  {heatmapMatrix.map(({ talento }) => {
+                                    const isLid = Boolean(
+                                      deptLeaders[talento.id]
+                                    );
+                                    return (
+                                      <th
+                                        key={talento.id}
+                                        className="min-w-[110px] px-2 py-2 text-center font-bold text-slate-700 dark:text-slate-200"
+                                      >
+                                        <span className="block truncate">
+                                          {isLid
+                                            ? `👑 ${talento.nome.split(" ")[0]}`
+                                            : talento.nome.split(" ")[0]}
+                                        </span>
+                                      </th>
+                                    );
+                                  })}
+                                  <th className="w-24 px-2 py-2 text-center font-extrabold text-[#ea580c]">
+                                    Média Setor
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                                {EIXOS_COMPORTAMENTAIS.map((eixo) => {
+                                  const rowScores = heatmapMatrix.map(
+                                    (m) => m.scores[eixo] || 0
+                                  );
+                                  const avg =
+                                    rowScores.reduce((a, b) => a + b, 0) /
+                                    Math.max(1, rowScores.length);
+                                  const isRevealed = Boolean(
+                                    revealedAverageRows[eixo]
+                                  );
+
+                                  return (
+                                    <tr key={eixo}>
+                                      <td className="px-3 py-2 font-bold text-slate-700 dark:text-slate-300">
+                                        {eixo}
+                                      </td>
+                                      {heatmapMatrix.map(
+                                        ({ talento, scores }) => {
+                                          const val = scores[eixo] || 0;
+                                          const cellStyle = getHeatmapCellStyle(
+                                            val,
+                                            heatmapPalette
+                                          );
+                                          return (
+                                            <td
+                                              key={talento.id}
+                                              onMouseEnter={() =>
+                                                setHoveredCell({
+                                                  membro: talento.nome,
+                                                  cargo: talento.cargo,
+                                                  eixo,
+                                                  pts: val,
+                                                  label: cellStyle.label,
+                                                })
+                                              }
+                                              onMouseLeave={() =>
+                                                setHoveredCell(null)
+                                              }
+                                              style={{
+                                                backgroundColor: cellStyle.bg,
+                                                color: cellStyle.text,
+                                              }}
+                                              className="cursor-pointer border border-white/60 px-2 py-2.5 text-center font-extrabold transition-transform hover:scale-[1.03] dark:border-slate-900"
+                                            >
+                                              {showHeatmapValues ? val : ""}
+                                            </td>
+                                          );
+                                        }
+                                      )}
+                                      <td className="px-2 py-1.5 text-center">
+                                        <button
+                                          onClick={() =>
+                                            setRevealedAverageRows((prev) => ({
+                                              ...prev,
+                                              [eixo]: !prev[eixo],
+                                            }))
+                                          }
+                                          className={`w-full rounded-lg px-2 py-1 text-[11px] font-extrabold transition-all ${
+                                            isRevealed
+                                              ? "bg-[#ea580c] text-white shadow-2xs"
+                                              : "border border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                          }`}
+                                        >
+                                          {isRevealed
+                                            ? `${Math.round(avg)}`
+                                            : "Média"}
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* HOVER TOOLTIP CARD */}
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3.5 py-2 text-xs dark:bg-slate-950">
+                            {hoveredCell ? (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge className="bg-[#510851] text-white">
+                                  {hoveredCell.membro}
+                                </Badge>
+                                <span className="text-slate-500">
+                                  {hoveredCell.cargo} •
+                                </span>
+                                <span className="font-bold text-slate-700 dark:text-slate-200">
+                                  Eixo {hoveredCell.eixo}:
+                                </span>
+                                <span className="font-extrabold text-[#ea580c]">
+                                  {hoveredCell.pts} pontos ({hoveredCell.label})
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400">
+                                Passe o cursor sobre qualquer célula do mapa de
+                                calor para inspecionar o score individual.
+                              </span>
+                            )}
+
+                            {/* LEGEND */}
+                            <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-500">
+                              <span>Intensidade ({activePal.label}):</span>
+                              {[100, 220, 380, 520, 680].map((v) => {
+                                const st = getHeatmapCellStyle(
+                                  v,
+                                  heatmapPalette
+                                );
+                                return (
+                                  <span
+                                    key={v}
+                                    style={{
+                                      backgroundColor: st.bg,
+                                      color: st.text,
+                                    }}
+                                    className="inline-block h-3.5 w-6 rounded border border-black/10"
+                                  />
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -1147,14 +1994,20 @@ export function OrganogramaView({
               <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
               <Input
                 value={buscaEquipeOrg}
-                onChange={(e) => setBuscaEquipeOrg(e.target.value)}
+                onChange={(e) => {
+                  setBuscaEquipeOrg(e.target.value);
+                  setEquipesOrgPage(1);
+                }}
                 placeholder="Buscar equipe ou membro..."
                 className="h-8 pl-8 pr-7 text-xs"
               />
               {buscaEquipeOrg && (
                 <button
                   type="button"
-                  onClick={() => setBuscaEquipeOrg("")}
+                  onClick={() => {
+                    setBuscaEquipeOrg("");
+                    setEquipesOrgPage(1);
+                  }}
                   className="absolute right-2 top-2 text-xs text-slate-400"
                 >
                   ✕
@@ -1164,8 +2017,8 @@ export function OrganogramaView({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {equipes
+          {(() => {
+            const filteredEquipesOrg = equipes
               .filter((eq) => {
                 const q = normText(buscaEquipeOrg);
                 if (!q) return true;
@@ -1184,51 +2037,184 @@ export function OrganogramaView({
                 if (na.startsWith(q) !== nb.startsWith(q))
                   return na.startsWith(q) ? -1 : 1;
                 return na.localeCompare(nb);
-              })
-              .map((eq) => {
-              const isSelected = openTeamTrianglesId === eq.id;
-              return (
-                <div
-                  key={eq.id}
-                  onClick={() =>
-                    setOpenTeamTrianglesId(isSelected ? null : eq.id)
-                  }
-                  className={`cursor-pointer rounded-2xl border p-4 transition-all ${
-                    isSelected
-                      ? "border-[#ea580c] bg-[#ea580c]/5 ring-1 ring-[#ea580c]"
-                      : "hover:bg-slate-50 dark:hover:bg-slate-900"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold">{eq.nome}</span>
-                    <Badge variant="success">{eq.harmonia}% Harmonia</Badge>
-                  </div>
-                  <div className="mt-1 text-xs text-slate-500">
-                    {eq.departamento} • {eq.membros.length} integrantes
-                  </div>
-                  <div className="mt-3 flex items-center justify-between">
-                    <div className="flex -space-x-2">
-                      {eq.membros.map((m) => {
-                        const tal = talentos.find((t) => t.nome === m.nome);
-                        return tal ? (
-                          <img
-                            key={m.nome}
-                            src={tal.avatar}
-                            alt={m.nome}
-                            className="h-7 w-7 rounded-full ring-2 ring-white dark:ring-slate-900 object-cover"
-                          />
-                        ) : null;
-                      })}
-                    </div>
-                    <span className="flex items-center gap-1 text-xs font-semibold text-[#ea580c]">
-                      <Compass className="h-3.5 w-3.5" />
-                      {isSelected ? "Ocultar Triângulos" : "Ver Triângulos"}
-                    </span>
-                  </div>
+              });
+
+            const totalEq = filteredEquipesOrg.length;
+            const isShowingAllEq = visibleEquipesOrgCount >= totalEq;
+            const totalEqPages = Math.max(
+              1,
+              Math.ceil(totalEq / visibleEquipesOrgCount)
+            );
+            const safeEqPage = Math.min(equipesOrgPage, totalEqPages);
+            const displayedEquipesOrg = isShowingAllEq
+              ? filteredEquipesOrg
+              : filteredEquipesOrg.slice(
+                  (safeEqPage - 1) * visibleEquipesOrgCount,
+                  safeEqPage * visibleEquipesOrgCount
+                );
+
+            return (
+              <>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  {displayedEquipesOrg.map((eq) => {
+                    const isSelected = openTeamTrianglesId === eq.id;
+                    return (
+                      <div
+                        key={eq.id}
+                        onClick={() =>
+                          setOpenTeamTrianglesId(isSelected ? null : eq.id)
+                        }
+                        className={`cursor-pointer rounded-2xl border p-4 transition-all ${
+                          isSelected
+                            ? "border-[#ea580c] bg-[#ea580c]/5 ring-1 ring-[#ea580c]"
+                            : "hover:bg-slate-50 dark:hover:bg-slate-900"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold">{eq.nome}</span>
+                          <Badge variant="success">
+                            {eq.harmonia}% Harmonia
+                          </Badge>
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          {eq.departamento} • {eq.membros.length} integrantes
+                        </div>
+                        <div className="mt-3 flex items-center justify-between">
+                          <div className="flex -space-x-2">
+                            {eq.membros.slice(0, 8).map((m) => {
+                              const tal = talentos.find(
+                                (t) => t.nome === m.nome
+                              );
+                              return tal ? (
+                                <img
+                                  key={m.nome}
+                                  src={tal.avatar}
+                                  alt={m.nome}
+                                  className="h-7 w-7 rounded-full object-cover ring-2 ring-white dark:ring-slate-900"
+                                />
+                              ) : null;
+                            })}
+                          </div>
+                          <span className="flex items-center gap-1 text-xs font-semibold text-[#ea580c]">
+                            <Compass className="h-3.5 w-3.5" />
+                            {isSelected
+                              ? "Ocultar Triângulos"
+                              : "Ver Triângulos"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
+
+                {/* CONTROLES DE PAGINAÇÃO E NAVEGAÇÃO DAS EQUIPES */}
+                {totalEq > 6 && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/80 bg-slate-50/70 px-4 py-2.5 dark:border-slate-800 dark:bg-slate-900/50">
+                    <span className="text-xs font-medium text-slate-500">
+                      Exibindo{" "}
+                      <strong className="text-slate-900 dark:text-white">
+                        {displayedEquipesOrg.length}
+                      </strong>{" "}
+                      de{" "}
+                      <strong className="text-slate-900 dark:text-white">
+                        {totalEq}
+                      </strong>{" "}
+                      equipes
+                      {!isShowingAllEq && totalEqPages > 1 && (
+                        <>
+                          {" "}
+                          • Página{" "}
+                          <strong className="text-slate-900 dark:text-white">
+                            {safeEqPage}
+                          </strong>{" "}
+                          de{" "}
+                          <strong className="text-slate-900 dark:text-white">
+                            {totalEqPages}
+                          </strong>
+                        </>
+                      )}
+                    </span>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {!isShowingAllEq && totalEqPages > 1 && (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={safeEqPage <= 1}
+                            onClick={() =>
+                              setEquipesOrgPage((p) => Math.max(1, p - 1))
+                            }
+                            className="h-7 px-2 text-xs font-semibold"
+                          >
+                            <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                            Anterior
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={safeEqPage >= totalEqPages}
+                            onClick={() =>
+                              setEquipesOrgPage((p) =>
+                                Math.min(totalEqPages, p + 1)
+                              )
+                            }
+                            className="h-7 px-2 text-xs font-semibold"
+                          >
+                            Próxima
+                            <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
+
+                      {visibleEquipesOrgCount < totalEq && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setVisibleEquipesOrgCount((c) =>
+                                Math.min(totalEq, c + 6)
+                              );
+                              setEquipesOrgPage(1);
+                            }}
+                            className="h-7 text-xs font-semibold"
+                          >
+                            Apresentar próximas{" "}
+                            {Math.min(6, totalEq - visibleEquipesOrgCount)}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setVisibleEquipesOrgCount(totalEq);
+                              setEquipesOrgPage(1);
+                            }}
+                            className="h-7 text-xs font-semibold"
+                          >
+                            Apresentar todas ({totalEq})
+                          </Button>
+                        </>
+                      )}
+                      {visibleEquipesOrgCount > 6 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setVisibleEquipesOrgCount(6);
+                            setEquipesOrgPage(1);
+                          }}
+                          className="h-7 text-xs text-slate-500"
+                        >
+                          Mostrar menos (6)
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {openTeamTrianglesId && (
             <div className="mt-4 grid grid-cols-1 gap-6 rounded-2xl border bg-slate-50/50 p-5 dark:bg-slate-900/30 lg:grid-cols-12">
