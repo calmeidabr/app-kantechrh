@@ -9,6 +9,9 @@ import {
   UserCheck,
   UserMinus,
   UsersRound,
+  Building2,
+  Crown,
+  Flame,
   Triangle,
   SlidersHorizontal,
   ExternalLink,
@@ -44,6 +47,7 @@ import {
   CATEGORIAS_OPCOES,
   QUALIDADES_OPCOES,
   SOFT_SKILLS_OPCOES,
+  EIXOS_COMPORTAMENTAIS,
   calcularScoresEixos,
   talentoPossuiSoftSkill,
   type VagaData,
@@ -52,6 +56,79 @@ import {
   type TalentoProfile,
   type EquipeData,
 } from "@/lib/mock-data";
+
+type HeatmapPalette = "emerald" | "purple" | "orange";
+
+const HEATMAP_PALETTES: Record<
+  HeatmapPalette,
+  {
+    levels: [string, string, string, string, string];
+    textColors: [string, string, string, string, string];
+  }
+> = {
+  emerald: {
+    levels: ["#e6f7ed", "#c3eed4", "#8ce2ad", "#42d374", "#009e3c"],
+    textColors: ["#065f46", "#065f46", "#064e3b", "#ffffff", "#ffffff"],
+  },
+  purple: {
+    levels: ["#f3e8ff", "#d8b4fe", "#a855f7", "#7e22ce", "#510851"],
+    textColors: ["#581c87", "#581c87", "#ffffff", "#ffffff", "#ffffff"],
+  },
+  orange: {
+    levels: ["#ffedd5", "#fed7aa", "#fb923c", "#ea580c", "#9a3412"],
+    textColors: ["#7c2d12", "#7c2d12", "#ffffff", "#ffffff", "#ffffff"],
+  },
+};
+
+function getHeatmapCellStyle(
+  pts: number,
+  palette: HeatmapPalette = "emerald"
+): {
+  bg: string;
+  text: string;
+  label: string;
+  tier: number;
+} {
+  const pal = HEATMAP_PALETTES[palette];
+  if (pts >= 600) {
+    return {
+      bg: pal.levels[4],
+      text: pal.textColors[4],
+      label: "Muito Alto",
+      tier: 5,
+    };
+  }
+  if (pts >= 450) {
+    return {
+      bg: pal.levels[3],
+      text: pal.textColors[3],
+      label: "Alto",
+      tier: 4,
+    };
+  }
+  if (pts >= 300) {
+    return {
+      bg: pal.levels[2],
+      text: pal.textColors[2],
+      label: "Médio",
+      tier: 3,
+    };
+  }
+  if (pts >= 150) {
+    return {
+      bg: pal.levels[1],
+      text: pal.textColors[1],
+      label: "Discreto",
+      tier: 2,
+    };
+  }
+  return {
+    bg: pal.levels[0],
+    text: pal.textColors[0],
+    label: "Inicial",
+    tier: 1,
+  };
+}
 
 const normText = (s?: string | null) =>
   (s || "")
@@ -627,6 +704,30 @@ export function ProcessoSeletivoView({
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [harmoniaSuccessMsg, setHarmoniaSuccessMsg] = useState<string | null>(null);
   const [harmoniaErrorMsg, setHarmoniaErrorMsg] = useState<string | null>(null);
+  const [isAllocatingCandidato, setIsAllocatingCandidato] = useState(false);
+
+  // Modo de Diagnóstico na Aba 2: Equipe ou Departamento
+  const [harmoniaTargetMode, setHarmoniaTargetMode] = useState<"equipe" | "departamento">("equipe");
+  const [selectedHarmoniaDept, setSelectedHarmoniaDept] = useState<string>(
+    vagaAtiva?.departamento || DEPARTAMENTOS_OPCOES[0]
+  );
+  const [departamentosHierarquia, setDepartamentosHierarquia] = useState<
+    { departamento_id: string; nome: string; empresa?: string }[]
+  >([]);
+  const [showDiagnosticoCompletoHarmonia, setShowDiagnosticoCompletoHarmonia] =
+    useState(true);
+
+  // Estados do Mapa de Calor Interativo na Aba 2
+  const [heatmapPalette, setHeatmapPalette] = useState<HeatmapPalette>("emerald");
+  const [showHeatmapValues, setShowHeatmapValues] = useState(true);
+  const [revealedAverageRows, setRevealedAverageRows] = useState<Record<string, boolean>>({});
+  const [hoveredCell, setHoveredCell] = useState<{
+    eixo: string;
+    membro: string;
+    pts: number;
+    label: string;
+    tier: number;
+  } | null>(null);
 
   // States para Ajustes de Requisitos (Qualidades e Soft Skills)
   const [novaQualidade, setNovaQualidade] = useState("");
@@ -638,9 +739,23 @@ export function ProcessoSeletivoView({
   const [visibleRankingCount, setVisibleRankingCount] = useState(10);
 
   useEffect(() => {
+    fetch("/api/empresas")
+      .then((r) => r.json())
+      .then((res) => {
+        if (Array.isArray(res.hierarquia)) {
+          setDepartamentosHierarquia(res.hierarquia);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     setVisibleCandidatosCount(10);
     setVisibleRankingCount(10);
-  }, [selectedVagaId]);
+    if (vagaAtiva?.departamento) {
+      setSelectedHarmoniaDept(vagaAtiva.departamento);
+    }
+  }, [selectedVagaId, vagaAtiva?.departamento]);
 
   if (!vagaAtiva) return null;
 
@@ -1002,26 +1117,96 @@ export function ProcessoSeletivoView({
     setTimeout(() => setToastMsg(null), 4000);
   };
 
-  // Team Harmony data for Tab 2
+  // Team / Department Harmony data for Tab 2
   const equipeDaVaga =
     equipes.find((e) => e.nome === vagaAtiva.equipe_associada) || equipes[0];
+
+  // Opções unificadas de Departamentos (Hierarquia do Organograma + Opções Padrão + Departamentos dos Talentos)
+  const opcoesDepartamentos = Array.from(
+    new Set(
+      [
+        vagaAtiva.departamento,
+        ...departamentosHierarquia.map((d) => d.nome),
+        ...DEPARTAMENTOS_OPCOES,
+        ...talentos
+          .map((t) => (t.departamento || "").trim())
+          .filter((d) => d && !d.startsWith("dept-")),
+      ].filter(Boolean)
+    )
+  );
+
+  // Resolver membros do Departamento selecionado (comparando tanto pelo nome quanto pelo departamento_id da hierarquia)
+  const deptoHierarquiaAtivo = departamentosHierarquia.find(
+    (d) =>
+      normText(d.nome) === normText(selectedHarmoniaDept) ||
+      normText(d.departamento_id) === normText(selectedHarmoniaDept)
+  );
+
+  const membrosDoDepartamento: { talento: TalentoProfile; isLider: boolean }[] =
+    talentos
+      .filter((t) => {
+        const tDept = normText(t.departamento);
+        if (!tDept) return false;
+        if (tDept === normText(selectedHarmoniaDept)) return true;
+        if (
+          deptoHierarquiaAtivo &&
+          (tDept === normText(deptoHierarquiaAtivo.departamento_id) ||
+            tDept === normText(deptoHierarquiaAtivo.nome))
+        ) {
+          return true;
+        }
+        return false;
+      })
+      .map((t, idx) => {
+        const cNorm = normText(`${t.cargo || ""} ${t.profissao || ""}`);
+        const isLider =
+          cNorm.includes("diretor") ||
+          cNorm.includes("head") ||
+          cNorm.includes("gerente") ||
+          cNorm.includes("ceo") ||
+          cNorm.includes("coordenador") ||
+          t.perfis_lista.includes("Lider") ||
+          idx === 0;
+        return { talento: t, isLider };
+      });
+
+  const membrosDaEquipe: { talento: TalentoProfile; isLider: boolean }[] = (
+    equipeDaVaga?.membros || []
+  )
+    .map((m) => {
+      const info = talentos.find((t) => t.nome === m.nome);
+      if (!info) return null;
+      return { talento: info, isLider: Boolean(m.lider) };
+    })
+    .filter(Boolean) as { talento: TalentoProfile; isLider: boolean }[];
+
+  const alvoMembrosAtuais =
+    harmoniaTargetMode === "departamento"
+      ? membrosDoDepartamento
+      : membrosDaEquipe;
+
+  const alvoNomeExibicao =
+    harmoniaTargetMode === "departamento"
+      ? selectedHarmoniaDept
+      : equipeDaVaga?.nome || "Equipe";
+
+  const alvoRotuloSalvo =
+    harmoniaTargetMode === "departamento"
+      ? `Depto: ${selectedHarmoniaDept}`
+      : `Equipe: ${equipeDaVaga?.nome || "Geral"}`;
 
   const candDestaqueObj =
     talentos.find((t) => t.nome === candDestaqueHarmonia) || talentos[0];
 
   const triangleMembersWithCandidate = [
-    ...equipeDaVaga.membros
-      .map((m) => {
-        const info = talentos.find((t) => t.nome === m.nome);
-        if (!info) return null;
-        return {
-          nome: m.nome,
-          vertices: info.vertices_triangulo,
-          isLider: Boolean(m.lider),
-          isCandidatoDestaque: false,
-        };
-      })
-      .filter(Boolean),
+    ...alvoMembrosAtuais
+      .filter((m) => m.talento.nome !== candDestaqueObj.nome)
+      .map((m) => ({
+        nome: m.talento.nome,
+        vertices: m.talento.vertices_triangulo,
+        isLider: m.isLider,
+        isCandidatoDestaque: false,
+      })),
     {
       nome: candDestaqueObj.nome,
       vertices: candDestaqueObj.vertices_triangulo,
@@ -1034,6 +1219,128 @@ export function ProcessoSeletivoView({
     isLider?: boolean;
     isCandidatoDestaque?: boolean;
   }[];
+
+  // Lista completa para Tabela Comparativa e Mapa de Calor: ★ Candidato em 1º lugar + Membros atuais do Departamento/Equipe
+  const membrosSimulacaoComCandidato: {
+    talento: TalentoProfile;
+    isLider: boolean;
+    isCandidato: boolean;
+  }[] = [
+    {
+      talento: candDestaqueObj,
+      isLider: false,
+      isCandidato: true,
+    },
+    ...alvoMembrosAtuais
+      .filter((m) => m.talento.nome !== candDestaqueObj.nome)
+      .map((m) => ({
+        talento: m.talento,
+        isLider: m.isLider,
+        isCandidato: false,
+      })),
+  ];
+
+  // Cálculo dinâmico dos 5 critérios e score de Harmonia com base no grupo alvo (Equipe ou Departamento) + Candidato
+  const calcularMetricasHarmoniaGrupo = () => {
+    const todosSim = membrosSimulacaoComCandidato.map((m) => m.talento);
+    const kansPresentes = new Set(todosSim.map((t) => t.kan_nome));
+    const qtdKans = kansPresentes.size;
+
+    // 1. Complementaridade (diversidade de KANs no grupo com o candidato)
+    const notaComp = qtdKans >= 3 ? 4.8 : qtdKans === 2 ? 4.5 : 4.1;
+
+    // 2. Integração Geométrica (conexão de vértices do candidato com o grupo)
+    const verticesGrupo = new Set(
+      alvoMembrosAtuais.flatMap((m) => m.talento.vertices_triangulo)
+    );
+    const verticesCompartilhados = candDestaqueObj.vertices_triangulo.filter(
+      (v) => verticesGrupo.has(v)
+    ).length;
+    const notaGeom =
+      alvoMembrosAtuais.length === 0
+        ? 4.6
+        : verticesCompartilhados >= 2
+        ? 4.7
+        : verticesCompartilhados === 1
+        ? 4.6
+        : 4.4;
+
+    // 3. Balanceamento (cobertura dos 9 eixos comportamentais)
+    const mediasEixos = EIXOS_COMPORTAMENTAIS.map((eixo) => {
+      const soma = todosSim.reduce(
+        (acc, t) => acc + (calcularScoresEixos(t)[eixo] || 300),
+        0
+      );
+      return soma / Math.max(1, todosSim.length);
+    });
+    const eixosFortes = mediasEixos.filter((m) => m >= 400).length;
+    const notaBal = Math.min(
+      4.9,
+      Math.max(4.2, Number((4.0 + (eixosFortes / 9) * 0.9).toFixed(1)))
+    );
+
+    // 4. Potencial de Entrega (Eixos Resultado + Organização + Análise do candidato)
+    const scoresCand = calcularScoresEixos(candDestaqueObj);
+    const mediaEntrega =
+      ((scoresCand["Resultado"] || 450) +
+        (scoresCand["Organização"] || 450) +
+        (scoresCand["Análise"] || 450)) /
+      3;
+    const notaEntrega =
+      mediaEntrega >= 550 ? 4.9 : mediaEntrega >= 420 ? 4.7 : 4.4;
+
+    // 5. Segurança Relacional (Empatia + Relacionamento + Comunicação)
+    const mediaRel =
+      ((scoresCand["Relacionamento"] || 450) +
+        (scoresCand["Empatia"] || 450) +
+        (scoresCand["Comunicação"] || 450)) /
+      3;
+    const notaRel = mediaRel >= 550 ? 4.8 : mediaRel >= 420 ? 4.6 : 4.4;
+
+    const mediaFinal5 =
+      (notaComp + notaGeom + notaBal + notaEntrega + notaRel) / 5;
+    const scorePct = Number(((mediaFinal5 / 5) * 100).toFixed(1));
+    const classificacao =
+      scorePct >= 90
+        ? "Encaixe Muito Alto"
+        : scorePct >= 82
+        ? "Encaixe Alto"
+        : "Encaixe Adequado";
+
+    return {
+      scorePct,
+      classificacao,
+      criterios: [
+        {
+          titulo: "Complementaridade",
+          nota: `${notaComp.toFixed(1)}/5.0`,
+          sub: "Equilíbrio de KANs",
+        },
+        {
+          titulo: "Integração Geométrica",
+          nota: `${notaGeom.toFixed(1)}/5.0`,
+          sub: "Conexões de Triângulos",
+        },
+        {
+          titulo: "Balanceamento",
+          nota: `${notaBal.toFixed(1)}/5.0`,
+          sub: "Cobertura de Planos",
+        },
+        {
+          titulo: "Potencial de Entrega",
+          nota: `${notaEntrega.toFixed(1)}/5.0`,
+          sub: "Materialidade/Praticidade",
+        },
+        {
+          titulo: "Segurança Relacional",
+          nota: `${notaRel.toFixed(1)}/5.0`,
+          sub: "Mitigação de Conflitos",
+        },
+      ],
+    };
+  };
+
+  const metricasHarmonia = calcularMetricasHarmoniaGrupo();
 
   const handleConfirmarSalvarHarmonia = async () => {
     if (!vagaAtiva) return;
@@ -1055,16 +1362,10 @@ export function ProcessoSeletivoView({
       data: dataFormatada,
       candidato: candDestaqueObj.nome,
       candidato_kan: `KAN ${candDestaqueObj.kan_nome} (${candDestaqueObj.vertices_triangulo.join("-")})`,
-      equipe: equipeDaVaga.nome,
-      harmonia_score: 91.8,
-      classificacao: "Encaixe Muito Alto",
-      criterios: [
-        { titulo: "Complementaridade", nota: "4.7/5.0", sub: "Equilíbrio de KANs" },
-        { titulo: "Integração Geométrica", nota: "4.6/5.0", sub: "Conexões de Triângulos" },
-        { titulo: "Balanceamento", nota: "4.5/5.0", sub: "Cobertura de Planos" },
-        { titulo: "Potencial de Entrega", nota: "4.8/5.0", sub: "Materialidade/Praticidade" },
-        { titulo: "Segurança Relacional", nota: "4.4/5.0", sub: "Mitigação de Conflitos" },
-      ],
+      equipe: alvoRotuloSalvo,
+      harmonia_score: metricasHarmonia.scorePct,
+      classificacao: metricasHarmonia.classificacao,
+      criterios: metricasHarmonia.criterios,
       observacoes: obsAnalista.trim(),
       salvo_em: agora.toISOString(),
     };
@@ -1100,10 +1401,10 @@ export function ProcessoSeletivoView({
 
       setSavedSuccess(true);
       setHarmoniaSuccessMsg(
-        `Análise de harmonia de "${candDestaqueObj.nome}" confirmada e salva com sucesso no histórico da vaga!`
+        `Análise de harmonia de "${candDestaqueObj.nome}" (${alvoRotuloSalvo}) confirmada e salva com sucesso no histórico da vaga!`
       );
       setToastMsg(
-        `💾 Análise de harmonia de "${candDestaqueObj.nome}" confirmada e salva no histórico do processo!`
+        `💾 Análise de harmonia de "${candDestaqueObj.nome}" (${alvoRotuloSalvo}) confirmada e salva no histórico do processo!`
       );
 
       setTimeout(() => setSavedSuccess(false), 3500);
@@ -1119,6 +1420,78 @@ export function ProcessoSeletivoView({
       setTimeout(() => setHarmoniaErrorMsg(null), 6000);
     } finally {
       setIsSavingHarmonia(false);
+    }
+  };
+
+  // Selecionar e alocar o candidato diretamente no Departamento ou na Equipe escolhida
+  const handleSelecionarEAlocarCandidato = async () => {
+    if (!candDestaqueObj) return;
+    setIsAllocatingCandidato(true);
+    setHarmoniaErrorMsg(null);
+    setHarmoniaSuccessMsg(null);
+
+    try {
+      if (harmoniaTargetMode === "departamento") {
+        const deptValueToSave =
+          deptoHierarquiaAtivo?.departamento_id || selectedHarmoniaDept;
+        const res = await fetch("/api/talentos", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: candDestaqueObj.id,
+            departamento: deptValueToSave,
+          }),
+        });
+        if (!res.ok) {
+          throw new Error("Não foi possível alocar o talento no departamento.");
+        }
+        candDestaqueObj.departamento = deptValueToSave;
+        setHarmoniaSuccessMsg(
+          `🎉 Candidato "${candDestaqueObj.nome}" selecionado e alocado com sucesso no departamento "${selectedHarmoniaDept}"!`
+        );
+        setToastMsg(
+          `🎉 "${candDestaqueObj.nome}" selecionado e alocado no departamento "${selectedHarmoniaDept}"!`
+        );
+      } else if (equipeDaVaga) {
+        const jaMembro = equipeDaVaga.membros.some(
+          (m) => m.nome === candDestaqueObj.nome
+        );
+        if (!jaMembro) {
+          const novosMembros = [
+            ...equipeDaVaga.membros,
+            { nome: candDestaqueObj.nome, lider: false },
+          ];
+          const res = await fetch("/api/equipes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...equipeDaVaga,
+              membros: novosMembros,
+            }),
+          });
+          if (!res.ok) {
+            throw new Error("Não foi possível incluir o candidato na equipe.");
+          }
+          equipeDaVaga.membros = novosMembros;
+        }
+        setHarmoniaSuccessMsg(
+          `🎉 Candidato "${candDestaqueObj.nome}" selecionado e integrado com sucesso à equipe "${equipeDaVaga.nome}"!`
+        );
+        setToastMsg(
+          `🎉 "${candDestaqueObj.nome}" selecionado e integrado à equipe "${equipeDaVaga.nome}"!`
+        );
+      }
+      setTimeout(() => setHarmoniaSuccessMsg(null), 5000);
+      setTimeout(() => setToastMsg(null), 4000);
+    } catch (err) {
+      setHarmoniaErrorMsg(
+        err instanceof Error
+          ? err.message
+          : "Erro ao alocar candidato selecionado."
+      );
+      setTimeout(() => setHarmoniaErrorMsg(null), 5000);
+    } finally {
+      setIsAllocatingCandidato(false);
     }
   };
 
@@ -1654,7 +2027,7 @@ export function ProcessoSeletivoView({
             }`}
           >
             <Triangle className="h-3.5 w-3.5" />
-            2. Escolha por Harmonia de Equipe
+            2. Escolha por Harmonia (Equipe ou Departamento)
           </button>
         </div>
 
@@ -2125,110 +2498,767 @@ export function ProcessoSeletivoView({
       )}
 
       {/* ===================================================================
-          ABA 2: ESCOLHA POR HARMONIA DE EQUIPE (TRIÂNGULOS + 5 CRITÉRIOS)
+          ABA 2: ESCOLHA POR HARMONIA (EQUIPE OU DEPARTAMENTO) + DIAGNÓSTICO COMPLETO
       ==================================================================== */}
       {activeTab === "harmonia" && (
         <div className="space-y-6">
-          {/* Seletor de Equipe Associada + Seletor de Candidato em Análise */}
-          <Card className="p-5">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          {/* Seletor de Modo (Equipe vs Departamento) + Destino + Candidato em Análise */}
+          <Card className="p-5 space-y-4 border-slate-200/90 dark:border-slate-800">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="space-y-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Escopo do Diagnóstico e Seleção por Harmonia
+                </div>
+                <p className="text-xs text-slate-500">
+                  Escolha se deseja simular o encaixe comportamental e selecionar o candidato para uma <strong>Equipe</strong> ou para um <strong>Departamento</strong>.
+                </p>
+              </div>
+
+              {/* Toggle Equipe vs Departamento */}
+              <div className="inline-flex rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900 p-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setHarmoniaTargetMode("equipe")}
+                  className={`flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold transition-all ${
+                    harmoniaTargetMode === "equipe"
+                      ? "bg-[#ea580c] text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                  }`}
+                >
+                  <UsersRound className="h-3.5 w-3.5" />
+                  Por Equipe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHarmoniaTargetMode("departamento")}
+                  className={`flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold transition-all ${
+                    harmoniaTargetMode === "departamento"
+                      ? "bg-[#510851] text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                  }`}
+                >
+                  <Building2 className="h-3.5 w-3.5" />
+                  Por Departamento
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="space-y-1">
                 <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Equipe de Destino Associada à Vaga
+                  {harmoniaTargetMode === "departamento"
+                    ? "Departamento Selecionado para Diagnóstico e Seleção"
+                    : "Equipe de Destino Associada à Vaga"}
                 </div>
-                <div className="flex items-center gap-2">
-                  <UsersRound className="h-5 w-5 text-[#ea580c]" />
+                <div className="flex items-center gap-2 flex-wrap">
+                  {harmoniaTargetMode === "departamento" ? (
+                    <Building2 className="h-5 w-5 text-[#510851] dark:text-purple-400" />
+                  ) : (
+                    <UsersRound className="h-5 w-5 text-[#ea580c]" />
+                  )}
                   <span className="text-lg font-bold text-slate-900 dark:text-white">
-                    {equipeDaVaga.nome}
+                    {alvoNomeExibicao}
                   </span>
                   <Badge variant="success">
-                    {equipeDaVaga.membros.length} membros atuais
+                    {alvoMembrosAtuais.length}{" "}
+                    {harmoniaTargetMode === "departamento"
+                      ? "talentos no departamento"
+                      : "membros atuais na equipe"}
                   </Badge>
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-slate-400 block">
-                    Alterar Equipe de Destino:
-                  </label>
-                  <select
-                    value={equipeDaVaga.nome}
-                    onChange={(e) =>
-                      setVagas((prev) =>
-                        prev.map((v) =>
-                          v.id === vagaAtiva.id
-                            ? { ...v, equipe_associada: e.target.value }
-                            : v
+              <div className="flex flex-wrap items-end gap-3">
+                {harmoniaTargetMode === "equipe" ? (
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-400 block">
+                      Selecionar Equipe de Destino:
+                    </label>
+                    <select
+                      value={equipeDaVaga.nome}
+                      onChange={(e) =>
+                        setVagas((prev) =>
+                          prev.map((v) =>
+                            v.id === vagaAtiva.id
+                              ? { ...v, equipe_associada: e.target.value }
+                              : v
+                          )
                         )
-                      )
-                    }
-                    className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-card px-3 text-xs font-semibold"
-                  >
-                    {equipes.map((eq) => (
-                      <option key={eq.id} value={eq.nome}>
-                        {eq.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                      }
+                      className="h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-card px-3 text-xs font-semibold"
+                    >
+                      {equipes.map((eq) => (
+                        <option key={eq.id} value={eq.nome}>
+                          {eq.nome} ({eq.membros.length} membros)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-400 block">
+                      Selecionar Departamento de Destino:
+                    </label>
+                    <select
+                      value={selectedHarmoniaDept}
+                      onChange={(e) => setSelectedHarmoniaDept(e.target.value)}
+                      className="h-9 rounded-lg border border-[#510851]/40 dark:border-purple-500/40 bg-purple-500/5 px-3 text-xs font-semibold text-[#510851] dark:text-purple-300"
+                    >
+                      {opcoesDepartamentos.map((dept) => (
+                        <option key={dept} value={dept}>
+                          🏢 {dept}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-slate-400 block">
-                    Candidato Projetado no Plano KAN:
+                    Candidato Projetado no Diagnóstico KAN:
                   </label>
                   <select
                     value={candDestaqueObj.nome}
                     onChange={(e) => setCandDestaqueHarmonia(e.target.value)}
                     className="h-9 rounded-lg border border-[#ea580c] bg-orange-500/5 px-3 text-xs font-bold text-[#ea580c]"
                   >
-                    {vagaAtiva.candidatos_associados.map((cNome) => (
+                    {(vagaAtiva.candidatos_associados.length > 0
+                      ? vagaAtiva.candidatos_associados
+                      : talentos.slice(0, 30).map((t) => t.nome)
+                    ).map((cNome) => (
                       <option key={cNome} value={cNome}>
                         ★ {cNome}
                       </option>
                     ))}
                   </select>
                 </div>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={showDiagnosticoCompletoHarmonia ? "default" : "outline"}
+                  onClick={() =>
+                    setShowDiagnosticoCompletoHarmonia((prev) => !prev)
+                  }
+                  className="h-9 text-xs font-bold"
+                >
+                  <Flame className="h-3.5 w-3.5 mr-1" />
+                  {showDiagnosticoCompletoHarmonia
+                    ? "Ocultar Tabela & Mapa de Calor"
+                    : "Exibir Diagnóstico Completo"}
+                </Button>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={isAllocatingCandidato}
+                  onClick={handleSelecionarEAlocarCandidato}
+                  className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs"
+                >
+                  {isAllocatingCandidato ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                      Alocando...
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="h-3.5 w-3.5 mr-1.5" />
+                      Selecionar para{" "}
+                      {harmoniaTargetMode === "departamento"
+                        ? "o Departamento"
+                        : "a Equipe"}
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           </Card>
 
-          {/* Projeção SVG Interativa: Equipe Atual + Candidato (★) */}
+          {/* 1. Projeção SVG Interativa: Equipe/Departamento Atual + Candidato (★) */}
           <Card className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
                 <h3 className="text-base font-bold">
-                  Simulação Geométrica de Encaixe: {equipeDaVaga.nome} + ★{" "}
-                  {candDestaqueObj.nome}
+                  Simulação Geométrica de Encaixe ({harmoniaTargetMode === "departamento" ? "Departamento" : "Equipe"}):{" "}
+                  {alvoNomeExibicao} + ★ {candDestaqueObj.nome}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  O triângulo laranja (★) representa o candidato selecionado sobreposto aos integrantes atuais da equipe e ao líder (👑).
+                  O triângulo laranja (★) representa o candidato selecionado sobreposto aos integrantes atuais de{" "}
+                  <strong>{alvoNomeExibicao}</strong> e à liderança (👑).
                 </p>
               </div>
-              <Badge variant="orange">Encaixe Muito Alto • 91.8%</Badge>
+              <Badge variant="orange">
+                {metricasHarmonia.classificacao} • {metricasHarmonia.scorePct}%
+              </Badge>
             </div>
 
             <KanTrianglesSvg membros={triangleMembersWithCandidate} />
           </Card>
 
-          {/* Card Executivo dos 5 Critérios de Equipe (Idêntico ao bloco de Harmonia do MundoKAN) */}
+          {/* 2. DIAGNÓSTICO COMPLETO: TABELA COMPARATIVA + MAPA DE CALOR (EQUIPE OU DEPARTAMENTO + CANDIDATO ★) */}
+          {showDiagnosticoCompletoHarmonia && (
+            <div className="space-y-6">
+              {/* Tabela Comparativa de Perfil Comportamental */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div>
+                      <CardTitle className="text-base">
+                        Tabela Comparativa de Perfil Comportamental —{" "}
+                        {alvoNomeExibicao} + ★ {candDestaqueObj.nome}
+                      </CardTitle>
+                      <CardDescription>
+                        Comparação lado a lado do candidato selecionado (★) com os integrantes atuais{" "}
+                        {harmoniaTargetMode === "departamento"
+                          ? "do departamento"
+                          : "da equipe"}
+                        .
+                      </CardDescription>
+                    </div>
+                    <Badge variant="purple">
+                      1 Candidato (★) + {alvoMembrosAtuais.length} Integrantes
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="px-0 pb-4">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="border-y border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/50">
+                          <th className="py-3 pl-6 pr-4 font-bold uppercase text-[11px] text-slate-500 min-w-[160px]">
+                            Atributo / Talento
+                          </th>
+                          {membrosSimulacaoComCandidato.map(
+                            ({ talento: m, isLider, isCandidato }) => (
+                              <th
+                                key={`${m.id}-${isCandidato ? "cand" : "mem"}`}
+                                className={`py-3 px-4 font-bold text-slate-900 dark:text-white min-w-[165px] ${
+                                  isCandidato
+                                    ? "bg-orange-500/10 border-x-2 border-[#ea580c]/40"
+                                    : ""
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <img
+                                    src={m.avatar}
+                                    alt={m.nome}
+                                    className={`h-7 w-7 rounded-full object-cover border ${
+                                      isCandidato
+                                        ? "border-2 border-[#ea580c]"
+                                        : "border-slate-200"
+                                    }`}
+                                  />
+                                  <div>
+                                    <button
+                                      type="button"
+                                      onClick={() => onInspectTalento(m)}
+                                      className={`hover:text-[#ea580c] transition-colors flex items-center gap-1 text-left ${
+                                        isCandidato
+                                          ? "text-[#ea580c] font-extrabold"
+                                          : ""
+                                      }`}
+                                    >
+                                      {isCandidato && <span>★</span>}
+                                      {m.nome}
+                                      {isLider && (
+                                        <Crown className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                                      )}
+                                    </button>
+                                    {isCandidato && (
+                                      <span className="block text-[9px] font-extrabold uppercase tracking-wider text-[#ea580c]">
+                                        Candidato em Simulação
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </th>
+                            )
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/60">
+                        <tr>
+                          <td className="py-3 pl-6 pr-4 font-bold text-slate-500">
+                            Cargo / Profissão
+                          </td>
+                          {membrosSimulacaoComCandidato.map(
+                            ({ talento: m, isCandidato }) => (
+                              <td
+                                key={`${m.id}-prof`}
+                                className={`py-3 px-4 text-slate-700 dark:text-slate-300 ${
+                                  isCandidato
+                                    ? "bg-orange-500/5 border-x-2 border-[#ea580c]/30 font-semibold"
+                                    : ""
+                                }`}
+                              >
+                                {m.cargo || m.profissao || "—"}
+                              </td>
+                            )
+                          )}
+                        </tr>
+                        <tr>
+                          <td className="py-3 pl-6 pr-4 font-bold text-slate-500">
+                            KAN Dominante
+                          </td>
+                          {membrosSimulacaoComCandidato.map(
+                            ({ talento: m, isCandidato }) => (
+                              <td
+                                key={`${m.id}-kan`}
+                                className={`py-3 px-4 ${
+                                  isCandidato
+                                    ? "bg-orange-500/5 border-x-2 border-[#ea580c]/30"
+                                    : ""
+                                }`}
+                              >
+                                <Badge
+                                  variant={
+                                    m.kan_nome === "Finalidade"
+                                      ? "purple"
+                                      : m.kan_nome === "Movimento"
+                                      ? "orange"
+                                      : "success"
+                                  }
+                                >
+                                  KAN {m.kan_nome}
+                                </Badge>
+                              </td>
+                            )
+                          )}
+                        </tr>
+                        <tr>
+                          <td className="py-3 pl-6 pr-4 font-bold text-slate-500">
+                            Vértices do Triângulo
+                          </td>
+                          {membrosSimulacaoComCandidato.map(
+                            ({ talento: m, isCandidato }) => (
+                              <td
+                                key={`${m.id}-vert`}
+                                className={`py-3 px-4 font-mono font-bold text-slate-800 dark:text-slate-200 ${
+                                  isCandidato
+                                    ? "bg-orange-500/5 border-x-2 border-[#ea580c]/30 text-[#ea580c]"
+                                    : ""
+                                }`}
+                              >
+                                ({m.vertices_triangulo.join(" - ")})
+                              </td>
+                            )
+                          )}
+                        </tr>
+                        <tr>
+                          <td className="py-3 pl-6 pr-4 font-bold text-slate-500">
+                            Perfis Comportamentais
+                          </td>
+                          {membrosSimulacaoComCandidato.map(
+                            ({ talento: m, isCandidato }) => (
+                              <td
+                                key={`${m.id}-perf`}
+                                className={`py-3 px-4 ${
+                                  isCandidato
+                                    ? "bg-orange-500/5 border-x-2 border-[#ea580c]/30"
+                                    : ""
+                                }`}
+                              >
+                                <div className="flex flex-wrap gap-1">
+                                  {m.perfis_lista.map((p) => (
+                                    <span
+                                      key={p}
+                                      className="rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-semibold"
+                                    >
+                                      {p}
+                                    </span>
+                                  ))}
+                                </div>
+                              </td>
+                            )
+                          )}
+                        </tr>
+                        <tr>
+                          <td className="py-3 pl-6 pr-4 font-bold text-slate-500">
+                            Categorias
+                          </td>
+                          {membrosSimulacaoComCandidato.map(
+                            ({ talento: m, isCandidato }) => (
+                              <td
+                                key={`${m.id}-cat`}
+                                className={`py-3 px-4 ${
+                                  isCandidato
+                                    ? "bg-orange-500/5 border-x-2 border-[#ea580c]/30"
+                                    : ""
+                                }`}
+                              >
+                                <div className="flex flex-wrap gap-1">
+                                  {m.categorias_lista.map((c) => (
+                                    <span
+                                      key={c}
+                                      className="rounded bg-[#510851]/10 dark:bg-purple-950/60 text-[#510851] dark:text-purple-300 px-2 py-0.5 text-[10px] font-semibold"
+                                    >
+                                      {c}
+                                    </span>
+                                  ))}
+                                </div>
+                              </td>
+                            )
+                          )}
+                        </tr>
+                        <tr>
+                          <td className="py-3 pl-6 pr-4 font-bold text-slate-500">
+                            Qualidades de Destaque
+                          </td>
+                          {membrosSimulacaoComCandidato.map(
+                            ({ talento: m, isCandidato }) => (
+                              <td
+                                key={`${m.id}-qual`}
+                                className={`py-3 px-4 ${
+                                  isCandidato
+                                    ? "bg-orange-500/5 border-x-2 border-[#ea580c]/30"
+                                    : ""
+                                }`}
+                              >
+                                <div className="flex flex-wrap gap-1">
+                                  {m.qualidades_lista.slice(0, 4).map((q) => (
+                                    <span
+                                      key={q}
+                                      className="rounded bg-orange-500/10 text-[#ea580c] px-2 py-0.5 text-[10px] font-semibold"
+                                    >
+                                      {q}
+                                    </span>
+                                  ))}
+                                </div>
+                              </td>
+                            )
+                          )}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Mapa de Calor Interativo dos 9 Eixos Comportamentais */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-base">
+                          Mapa de Calor — 9 Eixos Comportamentais ({alvoNomeExibicao} + ★ {candDestaqueObj.nome})
+                        </CardTitle>
+                        <Badge variant="success">Interativo</Badge>
+                      </div>
+                      <CardDescription>
+                        Avalie o impacto de ★ {candDestaqueObj.nome} nos 9 eixos comportamentais{" "}
+                        {harmoniaTargetMode === "departamento"
+                          ? "do departamento"
+                          : "da equipe"}
+                        . Clique na coluna <strong>Média</strong> para revelar ou ocultar a média consolidada.
+                      </CardDescription>
+                    </div>
+
+                    {/* Controles do Mapa de Calor */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-1 text-[11px]">
+                        <button
+                          type="button"
+                          onClick={() => setHeatmapPalette("emerald")}
+                          className={`rounded-lg px-2.5 py-1 font-semibold transition-all ${
+                            heatmapPalette === "emerald"
+                              ? "bg-emerald-600 text-white shadow-xs"
+                              : "text-slate-600 dark:text-slate-400"
+                          }`}
+                        >
+                          Verde
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setHeatmapPalette("purple")}
+                          className={`rounded-lg px-2.5 py-1 font-semibold transition-all ${
+                            heatmapPalette === "purple"
+                              ? "bg-[#510851] text-white shadow-xs"
+                              : "text-slate-600 dark:text-slate-400"
+                          }`}
+                        >
+                          Roxo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setHeatmapPalette("orange")}
+                          className={`rounded-lg px-2.5 py-1 font-semibold transition-all ${
+                            heatmapPalette === "orange"
+                              ? "bg-[#ea580c] text-white shadow-xs"
+                              : "text-slate-600 dark:text-slate-400"
+                          }`}
+                        >
+                          Laranja
+                        </button>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowHeatmapValues(!showHeatmapValues)}
+                      >
+                        {showHeatmapValues
+                          ? "Ocultar Pontuação"
+                          : "Exibir Pontuação"}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                          const allRevealed = EIXOS_COMPORTAMENTAIS.every(
+                            (e) => revealedAverageRows[e]
+                          );
+                          if (allRevealed) {
+                            setRevealedAverageRows({});
+                          } else {
+                            const next: Record<string, boolean> = {};
+                            EIXOS_COMPORTAMENTAIS.forEach(
+                              (e) => (next[e] = true)
+                            );
+                            setRevealedAverageRows(next);
+                          }
+                        }}
+                      >
+                        {EIXOS_COMPORTAMENTAIS.every(
+                          (e) => revealedAverageRows[e]
+                        )
+                          ? "Ocultar Médias"
+                          : "Revelar Todas as Médias"}
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  {/* Legenda de 5 níveis + Status da Célula Inspecionada */}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 px-4 py-2.5 text-xs">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="font-bold text-slate-500 uppercase text-[10px] tracking-wider">
+                        Escala de Intensidade:
+                      </span>
+                      {[
+                        { label: "Inicial (<150)", idx: 0 },
+                        { label: "Discreto (150-299)", idx: 1 },
+                        { label: "Médio (300-449)", idx: 2 },
+                        { label: "Alto (450-599)", idx: 3 },
+                        { label: "Muito Alto (600+)", idx: 4 },
+                      ].map((lvl) => (
+                        <div
+                          key={lvl.label}
+                          className="flex items-center gap-1.5"
+                        >
+                          <span
+                            className="h-3.5 w-3.5 rounded-sm border border-black/10 inline-block"
+                            style={{
+                              backgroundColor:
+                                HEATMAP_PALETTES[heatmapPalette].levels[lvl.idx],
+                            }}
+                          />
+                          <span className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">
+                            {lvl.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 min-h-[20px]">
+                      {hoveredCell ? (
+                        <span>
+                          🔍 <strong>{hoveredCell.membro}</strong> em{" "}
+                          <strong>{hoveredCell.eixo}</strong>:{" "}
+                          <span className="text-[#ea580c] font-extrabold">
+                            {hoveredCell.pts} pts ({hoveredCell.label} • Nível{" "}
+                            {hoveredCell.tier}/5)
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">
+                          Passe o mouse sobre qualquer célula para inspecionar o score detalhado
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Grid Table do Mapa de Calor */}
+                  <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                    <table className="w-full border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-900 text-white">
+                          <th className="py-3 pl-4 pr-3 text-left font-bold uppercase tracking-wider text-[11px] min-w-[150px]">
+                            Eixo Comportamental
+                          </th>
+                          {membrosSimulacaoComCandidato.map(
+                            ({ talento: m, isLider, isCandidato }) => (
+                              <th
+                                key={`${m.id}-hm-head`}
+                                className={`py-3 px-3 text-center font-bold text-[11px] min-w-[115px] ${
+                                  isCandidato
+                                    ? "bg-[#ea580c] text-white"
+                                    : ""
+                                }`}
+                              >
+                                <div className="flex items-center justify-center gap-1">
+                                  {isCandidato && <span>★</span>}
+                                  <span className="truncate max-w-[110px]">
+                                    {m.nome.split(" ").slice(0, 2).join(" ")}
+                                  </span>
+                                  {isLider && (
+                                    <Crown className="h-3 w-3 text-amber-400 shrink-0" />
+                                  )}
+                                </div>
+                              </th>
+                            )
+                          )}
+                          <th className="py-3 px-4 text-center font-extrabold uppercase tracking-wider text-[11px] bg-slate-950 text-amber-400 min-w-[125px]">
+                            Média c/ ★
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800">
+                        {EIXOS_COMPORTAMENTAIS.map((eixo) => {
+                          const scoresMembros =
+                            membrosSimulacaoComCandidato.map(
+                              ({ talento: m, isCandidato }) => {
+                                const sc = calcularScoresEixos(m)[eixo] || 200;
+                                return { membro: m, pts: sc, isCandidato };
+                              }
+                            );
+                          const mediaPts = Math.round(
+                            scoresMembros.reduce((a, b) => a + b.pts, 0) /
+                              Math.max(1, scoresMembros.length)
+                          );
+                          const mediaStyle = getHeatmapCellStyle(
+                            mediaPts,
+                            heatmapPalette
+                          );
+                          const isRevealed = Boolean(revealedAverageRows[eixo]);
+
+                          return (
+                            <tr key={eixo}>
+                              <td className="py-3 pl-4 pr-3 font-bold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900">
+                                {eixo}
+                              </td>
+                              {scoresMembros.map(
+                                ({ membro, pts, isCandidato }) => {
+                                  const cellStyle = getHeatmapCellStyle(
+                                    pts,
+                                    heatmapPalette
+                                  );
+                                  return (
+                                    <td
+                                      key={`${membro.id}-${eixo}`}
+                                      onMouseEnter={() =>
+                                        setHoveredCell({
+                                          eixo,
+                                          membro: isCandidato
+                                            ? `★ ${membro.nome} (Candidato)`
+                                            : membro.nome,
+                                          pts,
+                                          label: cellStyle.label,
+                                          tier: cellStyle.tier,
+                                        })
+                                      }
+                                      onMouseLeave={() => setHoveredCell(null)}
+                                      style={{
+                                        backgroundColor: cellStyle.bg,
+                                        color: cellStyle.text,
+                                      }}
+                                      className={`py-3 px-2 text-center font-extrabold transition-transform hover:scale-[1.02] cursor-pointer select-none ${
+                                        isCandidato
+                                          ? "ring-2 ring-inset ring-[#ea580c]"
+                                          : ""
+                                      }`}
+                                    >
+                                      {showHeatmapValues ? (
+                                        <div>
+                                          <span className="text-xs">{pts}</span>
+                                          <span className="block text-[9px] font-semibold opacity-85">
+                                            {cellStyle.label}
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-[10px]">
+                                          {cellStyle.label}
+                                        </span>
+                                      )}
+                                    </td>
+                                  );
+                                }
+                              )}
+
+                              {/* Coluna Interativa de Média */}
+                              <td
+                                onClick={() =>
+                                  setRevealedAverageRows((prev) => ({
+                                    ...prev,
+                                    [eixo]: !prev[eixo],
+                                  }))
+                                }
+                                style={
+                                  isRevealed
+                                    ? {
+                                        backgroundColor: mediaStyle.bg,
+                                        color: mediaStyle.text,
+                                      }
+                                    : undefined
+                                }
+                                className={`py-3 px-3 text-center font-extrabold cursor-pointer select-none transition-all border-l-2 border-slate-900/20 ${
+                                  isRevealed
+                                    ? ""
+                                    : "bg-slate-100 dark:bg-slate-800/90 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"
+                                }`}
+                              >
+                                {isRevealed ? (
+                                  <div>
+                                    <span className="text-xs">
+                                      ★ {mediaPts}
+                                    </span>
+                                    <span className="block text-[9px] font-semibold opacity-90">
+                                      {mediaStyle.label}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-[10px] font-semibold underline decoration-dotted">
+                                    Ver Média
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* 3. Card Executivo dos 5 Critérios (Equipe ou Departamento) */}
           <Card className="overflow-hidden border-[#ea580c]/30">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-slate-950 text-white px-6 py-4 gap-3">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <span className="rounded-lg bg-[#ea580c] px-3 py-1 text-xs font-extrabold text-white">
                   Análise de {candDestaqueObj.nome}
                 </span>
                 <span className="text-xs text-slate-300">
                   Integração com a liderança e membros de{" "}
-                  <strong>{equipeDaVaga.nome}</strong>
+                  <strong>
+                    {harmoniaTargetMode === "departamento"
+                      ? `Departamento: ${selectedHarmoniaDept}`
+                      : `Equipe: ${equipeDaVaga.nome}`}
+                  </strong>
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-emerald-400">
-                  Encaixe Muito Alto
+                  {metricasHarmonia.classificacao}
                 </span>
                 <span className="rounded-full bg-[#ea580c] px-3.5 py-1 text-xs font-black text-white">
-                  91.8%
+                  {metricasHarmonia.scorePct}%
                 </span>
               </div>
             </div>
@@ -2236,46 +3266,26 @@ export function ProcessoSeletivoView({
             <CardContent className="p-6 space-y-6">
               <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                 <strong>
-                  Análise Consolidada de Equipe ({equipeDaVaga.membros.length}{" "}
-                  membros):
+                  Análise Consolidada de{" "}
+                  {harmoniaTargetMode === "departamento"
+                    ? "Departamento"
+                    : "Equipe"}{" "}
+                  ({alvoMembrosAtuais.length} integrantes atuais):
                 </strong>{" "}
                 A entrada de <strong>{candDestaqueObj.nome}</strong> (KAN de{" "}
                 {candDestaqueObj.kan_nome}, vértices{" "}
                 {candDestaqueObj.vertices_triangulo.join("-")}) promove alta
-                sinergia geométrica com a equipe atual, ampliando a cobertura
-                dos planos de realização prática e mantendo excelente segurança
-                relacional com a liderança da equipe.
+                sinergia geométrica com{" "}
+                {harmoniaTargetMode === "departamento"
+                  ? `o departamento ${selectedHarmoniaDept}`
+                  : `a equipe ${equipeDaVaga.nome}`}
+                , ampliando a cobertura dos planos de realização prática e
+                mantendo excelente segurança relacional com a liderança.
               </p>
 
-              {/* 5 Critérios de Equipe Grid */}
+              {/* 5 Critérios Grid */}
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-                {[
-                  {
-                    titulo: "Complementaridade",
-                    nota: "4.7/5.0",
-                    sub: "Equilíbrio de KANs",
-                  },
-                  {
-                    titulo: "Integração Geométrica",
-                    nota: "4.6/5.0",
-                    sub: "Conexões de Triângulos",
-                  },
-                  {
-                    titulo: "Balanceamento",
-                    nota: "4.5/5.0",
-                    sub: "Cobertura de Planos",
-                  },
-                  {
-                    titulo: "Potencial de Entrega",
-                    nota: "4.8/5.0",
-                    sub: "Materialidade/Praticidade",
-                  },
-                  {
-                    titulo: "Segurança Relacional",
-                    nota: "4.4/5.0",
-                    sub: "Mitigação de Conflitos",
-                  },
-                ].map((crit) => (
+                {metricasHarmonia.criterios.map((crit) => (
                   <div
                     key={crit.titulo}
                     className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900 p-3.5 text-center space-y-1.5"
@@ -2295,12 +3305,13 @@ export function ProcessoSeletivoView({
 
               {/* Observações Manuais do Analista */}
               <div className="space-y-3 border-t border-slate-200/80 dark:border-slate-800 pt-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
                     Observações Manuais do Analista (Histórico da Vaga)
                   </label>
                   <span className="text-[11px] text-slate-400">
-                    Candidato: <strong>{candDestaqueObj.nome}</strong>
+                    Candidato: <strong>{candDestaqueObj.nome}</strong> •{" "}
+                    <strong>{alvoRotuloSalvo}</strong>
                   </span>
                 </div>
 
@@ -2308,7 +3319,7 @@ export function ProcessoSeletivoView({
                   value={obsAnalista}
                   onChange={(e) => setObsAnalista(e.target.value)}
                   rows={3}
-                  placeholder="Descreva as percepções sobre a integração do candidato com a liderança e equipe..."
+                  placeholder="Descreva as percepções sobre a integração do candidato com a liderança, equipe ou departamento..."
                   className="w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-card p-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#ea580c]/30"
                 />
 
@@ -2331,33 +3342,54 @@ export function ProcessoSeletivoView({
                   <span className="text-[11px] text-slate-400">
                     Ao confirmar, a análise completa e as notas são salvas permanentemente no banco de dados.
                   </span>
-                  <Button
-                    size="sm"
-                    disabled={isSavingHarmonia}
-                    onClick={handleConfirmarSalvarHarmonia}
-                    className={`font-bold transition-all shadow-sm ${
-                      savedSuccess
-                        ? "bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-500/30"
-                        : "bg-[#ea580c] hover:bg-[#ea580c]/90 text-white"
-                    }`}
-                  >
-                    {isSavingHarmonia ? (
-                      <>
-                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                        Salvando Análise...
-                      </>
-                    ) : savedSuccess ? (
-                      <>
-                        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-                        Confirmada e Salva no Histórico!
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-3.5 w-3.5 mr-1.5" />
-                        Confirmar e Salvar Análise da Harmonia
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={isAllocatingCandidato}
+                      onClick={handleSelecionarEAlocarCandidato}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs"
+                    >
+                      {isAllocatingCandidato ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                          Alocando...
+                        </>
+                      ) : (
+                        <>
+                          <UserCheck className="h-3.5 w-3.5 mr-1.5" />
+                          Selecionar e Alocar em {alvoNomeExibicao}
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={isSavingHarmonia}
+                      onClick={handleConfirmarSalvarHarmonia}
+                      className={`font-bold transition-all shadow-sm ${
+                        savedSuccess
+                          ? "bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-500/30"
+                          : "bg-[#ea580c] hover:bg-[#ea580c]/90 text-white"
+                      }`}
+                    >
+                      {isSavingHarmonia ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                          Salvando Análise...
+                        </>
+                      ) : savedSuccess ? (
+                        <>
+                          <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                          Confirmada e Salva no Histórico!
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-3.5 w-3.5 mr-1.5" />
+                          Confirmar e Salvar Análise da Harmonia
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -2398,7 +3430,7 @@ export function ProcessoSeletivoView({
                               </span>
                             )}
                             <span className="text-[11px] text-slate-400">
-                              na equipe <strong>{item.equipe}</strong>
+                              em <strong>{item.equipe}</strong>
                             </span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
