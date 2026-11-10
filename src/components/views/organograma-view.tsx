@@ -586,9 +586,13 @@ export function OrganogramaView({
     const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
     return talentos
       .filter((t) => {
+        const deptRaw = (t.departamento || "").trim().toLowerCase();
+        if (!deptRaw || deptRaw === "sem departamento") {
+          return false;
+        }
         if (
           matchingDeptNames &&
-          !matchingDeptNames.has((t.departamento || "").toLowerCase()) &&
+          !matchingDeptNames.has(deptRaw) &&
           !matchingDeptNames.has((t.grupo || "").toLowerCase())
         ) {
           return false;
@@ -907,6 +911,61 @@ export function OrganogramaView({
           linkedin_url: found.linkedin_url,
           experiencias: found.experiencias,
           lider: options?.makeLeader ?? Boolean(deptLeaders[found.id]),
+        }),
+      });
+    } catch {
+      // Keep optimistic state
+    }
+  };
+
+  // Excluir (desvincular) talento do departamento atual
+  const handleExcluirTalentoDoDept = async (talentoId: string) => {
+    const found = talentos.find((t) => t.id === talentoId);
+    if (!found) return;
+    const oldDept =
+      deptNameByIdMap[(found.departamento || "").trim().toLowerCase()] ||
+      found.departamento ||
+      "departamento";
+
+    setTalentos((prev) =>
+      prev.map((t) =>
+        t.id === talentoId
+          ? {
+              ...t,
+              departamento: "Sem Departamento",
+              grupo:
+                matchingDeptNames &&
+                matchingDeptNames.has((t.grupo || "").toLowerCase())
+                  ? ""
+                  : t.grupo,
+            }
+          : t
+      )
+    );
+
+    setDeptLeaders((prev) => {
+      const next = { ...prev };
+      delete next[talentoId];
+      return next;
+    });
+
+    triggerToast(`${found.nome} excluído(a) do setor ${oldDept}.`);
+
+    try {
+      await fetch("/api/talentos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: found.nome,
+          data_nascimento: found.data_nascimento,
+          profissao: found.profissao,
+          cargo: found.cargo,
+          grupo: "",
+          departamento: "Sem Departamento",
+          empresa: selectedEmpresa,
+          linkedin_url: found.linkedin_url,
+          experiencias: found.experiencias,
+          lider: false,
         }),
       });
     } catch {
@@ -1442,15 +1501,13 @@ export function OrganogramaView({
                 <button
                   type="button"
                   onClick={() => {
-                    transferTalentoToDept(t.id, "Banco de Talentos", {
-                      makeLeader: false,
-                    });
+                    handleExcluirTalentoDoDept(t.id);
                     setOpenCardMenuId(null);
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
                 >
-                  <X className="h-3.5 w-3.5" />
-                  Remover do Setor
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Excluir do Departamento
                 </button>
               </div>
             )}
@@ -1513,7 +1570,7 @@ export function OrganogramaView({
         </div>
 
         {/* Footer quick actions */}
-        <div className="mt-3 flex items-center justify-between border-t border-slate-200/60 pt-2.5 dark:border-slate-800">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-1.5 border-t border-slate-200/60 pt-2.5 dark:border-slate-800">
           <button
             type="button"
             onClick={() => toggleLeader(t.id)}
@@ -1524,19 +1581,31 @@ export function OrganogramaView({
             }`}
           >
             <Crown className="h-3 w-3" />
-            {isLider ? "Líder do Setor" : "Tornar Líder"}
+            {isLider ? "Líder" : "Tornar Líder"}
           </button>
 
-          {onInspectTalento && (
+          <div className="flex items-center gap-2">
+            {onInspectTalento && (
+              <button
+                type="button"
+                onClick={() => onInspectTalento(t)}
+                className="flex items-center gap-1 text-[10px] font-semibold text-[#510851] hover:underline dark:text-purple-300"
+              >
+                <Eye className="h-3 w-3" />
+                Ficha
+              </button>
+            )}
+
             <button
               type="button"
-              onClick={() => onInspectTalento(t)}
-              className="flex items-center gap-1 text-[10px] font-semibold text-[#510851] hover:underline dark:text-purple-300"
+              onClick={() => handleExcluirTalentoDoDept(t.id)}
+              title="Excluir talento deste departamento"
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
             >
-              <Eye className="h-3 w-3" />
-              Ficha Individual
+              <Trash2 className="h-3 w-3" />
+              Excluir
             </button>
-          )}
+          </div>
         </div>
       </div>
     );
