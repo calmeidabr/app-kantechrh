@@ -13,6 +13,11 @@ export const metadata: Metadata = {
   title: "KantechRH — Inteligência Comportamental & Gestão de Talentos",
   description:
     "Plataforma corporativa de diagnóstico comportamental, mapeamento de Soft Skills e engenharia de equipes de alta performance.",
+  icons: {
+    icon: "/icon-kantech.png",
+    shortcut: "/icon-kantech.png",
+    apple: "/icon-kantech.png",
+  },
 };
 
 export default function RootLayout({

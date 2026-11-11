@@ -740,9 +740,11 @@ export default function KantechApp() {
       <div className="p-4 space-y-4">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#510851] text-white font-bold shadow-xs shrink-0">
-              <span className="text-sm tracking-tighter">◇</span>
-            </div>
+            <img
+              src="/icon-kantech.png"
+              alt="KantechRH"
+              className="h-8 w-8 rounded-lg object-cover shadow-xs shrink-0"
+            />
             {!isCollapsed && (
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
@@ -1007,9 +1009,11 @@ export default function KantechApp() {
 
         <div className="relative z-10 w-full max-w-md rounded-2xl border border-white/10 bg-slate-900/90 p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
           <div className="mb-6 flex flex-col items-center text-center">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#510851] text-white shadow-lg ring-2 ring-[#ea580c]/40">
-              <span className="text-xl font-bold">◇</span>
-            </div>
+            <img
+              src="/icon-kantech.png"
+              alt="KantechRH"
+              className="mb-3 h-12 w-12 rounded-2xl object-cover shadow-lg ring-2 ring-[#ea580c]/40"
+            />
             <h1 className="text-2xl font-extrabold tracking-tight text-white">
               Kantech<span className="text-[#ea580c]">RH</span>
             </h1>
@@ -1122,9 +1126,11 @@ export default function KantechApp() {
 
             {/* Mobile Brand Logo */}
             <div className="flex md:hidden items-center gap-2 truncate">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#510851] text-white font-bold text-xs shrink-0">
-                ◇
-              </div>
+              <img
+                src="/icon-kantech.png"
+                alt="KantechRH"
+                className="h-7 w-7 rounded-lg object-cover shrink-0"
+              />
               <span className="font-bold text-sm tracking-tight text-slate-900 dark:text-white truncate">
                 Kantech<span className="text-[#ea580c]">RH</span>
               </span>
