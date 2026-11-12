@@ -163,6 +163,7 @@ function getIndicador(t: TalentoProfile, campo: string): string {
 
 export function PainelControleView({
   talentos,
+  setTalentos,
   equipes,
   initialTab = "diagnostico_ampliado",
 }: PainelControleViewProps) {
@@ -424,14 +425,35 @@ export function PainelControleView({
           body: JSON.stringify({
             action: "detalhamento-atributos",
             payload: {
+              id: auditTalento.id,
               nome: auditTalento.nome,
               data_nascimento: auditTalento.data_nascimento,
+              valores_mapa: auditTalento.valores_mapa || {},
+              vertices_triangulo: auditTalento.vertices_triangulo,
+              estrutural: auditTalento.estrutural,
+              direcionamento: auditTalento.direcionamento,
+              kan_numero: auditTalento.kan_numero,
             },
           }),
         });
         const data = await res.json();
-        if (active && data?.result?.detalhamento_atributos) {
-          setAuditDetalhamento(data.result.detalhamento_atributos);
+        const itens = data?.result?.detalhamento_atributos;
+        if (
+          active &&
+          data?.success &&
+          Array.isArray(itens) &&
+          itens.length > 0
+        ) {
+          setAuditDetalhamento(itens);
+          if (setTalentos) {
+            setTalentos((prev) =>
+              prev.map((t) =>
+                t.id === auditTalento.id
+                  ? { ...t, detalhamento_atributos: itens }
+                  : t
+              )
+            );
+          }
         }
       } catch (e) {
         console.error("Erro ao carregar detalhamento dos atributos:", e);
@@ -444,7 +466,7 @@ export function PainelControleView({
     return () => {
       active = false;
     };
-  }, [activeTab, auditTalento]);
+  }, [activeTab, auditTalento, setTalentos]);
 
   const handleSincronizarDetalhamentoSupabase = async () => {
     if (!auditTalento) return;
@@ -457,21 +479,43 @@ export function PainelControleView({
         body: JSON.stringify({
           action: "detalhamento-atributos",
           payload: {
+            id: auditTalento.id,
             nome: auditTalento.nome,
             data_nascimento: auditTalento.data_nascimento,
+            valores_mapa: auditTalento.valores_mapa || {},
+            vertices_triangulo: auditTalento.vertices_triangulo,
+            estrutural: auditTalento.estrutural,
+            direcionamento: auditTalento.direcionamento,
+            kan_numero: auditTalento.kan_numero,
             salvar_supabase: true,
           },
         }),
       });
       const data = await res.json();
-      if (data?.result?.detalhamento_atributos) {
-        setAuditDetalhamento(data.result.detalhamento_atributos);
+      const itens = data?.result?.detalhamento_atributos;
+      if (data?.success && Array.isArray(itens) && itens.length > 0) {
+        setAuditDetalhamento(itens);
+        if (setTalentos) {
+          setTalentos((prev) =>
+            prev.map((t) =>
+              t.id === auditTalento.id
+                ? { ...t, detalhamento_atributos: itens }
+                : t
+            )
+          );
+        }
+        setSyncDetalhamentoFeedback(
+          "Detalhamento dos atributos calculado e persistido com sucesso na tabela public.mapas_salvos no Supabase!"
+        );
+      } else {
+        setSyncDetalhamentoFeedback(
+          `Falha ao calcular detalhamento: ${data?.error || "Nenhum atributo retornado."}`
+        );
       }
+    } catch (err) {
       setSyncDetalhamentoFeedback(
-        "Detalhamento dos atributos persistido com sucesso na tabela public.mapas_salvos no Supabase!"
+        `Erro ao sincronizar detalhamento: ${err instanceof Error ? err.message : "Falha na requisição."}`
       );
-    } catch {
-      setSyncDetalhamentoFeedback("Erro ao sincronizar detalhamento com Supabase.");
     } finally {
       setSyncingDetalhamentoSupabase(false);
     }
@@ -1272,7 +1316,20 @@ export function PainelControleView({
                 <div className="flex items-center gap-2">
                   <select
                     value={auditTalentoId}
-                    onChange={(e) => setAuditTalentoId(e.target.value)}
+                    onChange={(e) => {
+                      const newId = e.target.value;
+                      setAuditTalentoId(newId);
+                      setSyncDetalhamentoFeedback(null);
+                      const found = talentos.find((t) => t.id === newId);
+                      if (
+                        found?.detalhamento_atributos &&
+                        found.detalhamento_atributos.length > 0
+                      ) {
+                        setAuditDetalhamento(found.detalhamento_atributos);
+                      } else {
+                        setAuditDetalhamento([]);
+                      }
+                    }}
                     className="h-9 rounded-md border border-input bg-background px-3 text-xs font-semibold shadow-sm"
                   >
                     {talentos.map((t) => (

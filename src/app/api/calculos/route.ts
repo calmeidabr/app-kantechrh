@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callMamEngine, getSupabaseAdmin } from "@/lib/supabase";
+import { calcularDetalhamentoAtributosServidor } from "@/lib/detalhamento-server";
 
 export const dynamic = "force-dynamic";
 
@@ -26,20 +27,40 @@ export async function POST(req: NextRequest) {
       "detalhamento-atributos": "/api/v1/detalhamento-atributos",
     };
 
-    const endpoint = endpointMap[action];
-    if (!endpoint) {
-      return NextResponse.json(
-        { success: false, error: `Ação de cálculo desconhecida: ${action}` },
-        { status: 400 }
-      );
-    }
+    let resultData: Record<string, unknown> | null = null;
 
-    const res = await callMamEngine(endpoint, payload || {});
-    if (!res.ok) {
-      return NextResponse.json(
-        { success: false, error: res.error },
-        { status: 503 }
-      );
+    if (action === "detalhamento-atributos") {
+      // 1. Tenta chamar o container Docker mam-kantechrh
+      const res = await callMamEngine("/api/v1/detalhamento-atributos", payload || {});
+      if (
+        res.ok &&
+        (res.data as Record<string, unknown>)?.detalhamento_atributos
+      ) {
+        resultData = res.data as Record<string, unknown>;
+      } else {
+        // Fallback no servidor (BFF): executa o cálculo seguro no servidor Next.js
+        const fallbackDetalhes = calcularDetalhamentoAtributosServidor(
+          (payload || {}) as Parameters<typeof calcularDetalhamentoAtributosServidor>[0]
+        );
+        resultData = { detalhamento_atributos: fallbackDetalhes };
+      }
+    } else {
+      const endpoint = endpointMap[action];
+      if (!endpoint) {
+        return NextResponse.json(
+          { success: false, error: `Ação de cálculo desconhecida: ${action}` },
+          { status: 400 }
+        );
+      }
+
+      const res = await callMamEngine(endpoint, payload || {});
+      if (!res.ok) {
+        return NextResponse.json(
+          { success: false, error: res.error },
+          { status: 503 }
+        );
+      }
+      resultData = res.data as Record<string, unknown>;
     }
 
     // Se solicitado, persiste o detalhamento de atributos diretamente em public.mapas_salvos no Supabase
@@ -80,8 +101,9 @@ export async function POST(req: NextRequest) {
             );
           });
 
-          const detalhes = (res.data as Record<string, unknown>)
-            ?.detalhamento_atributos as Array<Record<string, unknown>> | undefined;
+          const detalhes = resultData?.detalhamento_atributos as
+            | Array<Record<string, unknown>>
+            | undefined;
 
           if (Array.isArray(detalhes)) {
             for (const d of detalhes) {
@@ -129,7 +151,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      result: res.data,
+      result: resultData,
       salvo_supabase: salvoSupabase,
     });
   } catch (err) {
