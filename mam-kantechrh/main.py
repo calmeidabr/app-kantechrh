@@ -11,6 +11,14 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from services.perfil import realizar_calculos_completos
 from services.harmonia import obter_vertices_triangulo, calcular_harmonia_trio
 from services.reference_data import normalize_key
+from services.calculos_app import (
+    calcular_scores_eixos,
+    listar_soft_skills_compativeis,
+    calcular_match_vaga,
+    calcular_harmonia_grupo,
+    calcular_sinergia_departamento,
+    sugerir_requisitos_vaga,
+)
 
 INTERNAL_SECRET = os.getenv(
     "MAM_INTERNAL_SECRET", "kantech-mam-secret-key-2026-isolated"
@@ -244,6 +252,82 @@ async def api_calcular_lote(request: Request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+async def api_enriquecer_talentos_lote(request: Request):
+    try:
+        body = await request.json()
+        talentos = body.get("talentos", [])
+        incluir_vertices = bool(body.get("incluir_vertices", True))
+        items = []
+        for t in talentos:
+            nome = str(t.get("nome") or "").strip()
+            nasc = str(t.get("data_nascimento") or "01/01/1990").strip()
+            scores_eixos = calcular_scores_eixos(t)
+            soft_skills_comp = listar_soft_skills_compativeis(t, scores_eixos)
+            item = {
+                "id": str(t.get("id") or ""),
+                "nome": nome,
+                "scores_eixos": scores_eixos,
+                "soft_skills_compativeis": soft_skills_comp,
+            }
+            if incluir_vertices and nome:
+                try:
+                    verts, kan_str = obter_vertices_triangulo(nome, nasc)
+                    item["vertices_triangulo"] = verts
+                    item["kan_nome"] = kan_str
+                except Exception:
+                    pass
+            items.append(item)
+        return JSONResponse({"processed": len(items), "items": items})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def api_calcular_match_vaga(request: Request):
+    try:
+        body = await request.json()
+        vaga = body.get("vaga") or {}
+        talentos = body.get("talentos") or []
+        resultados = calcular_match_vaga(vaga, talentos)
+        return JSONResponse({"resultados": resultados})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def api_calcular_harmonia_grupo(request: Request):
+    try:
+        body = await request.json()
+        membros_atuais = body.get("membros_atuais") or []
+        candidato = body.get("candidato") or {}
+        res = calcular_harmonia_grupo(membros_atuais, candidato)
+        return JSONResponse(res)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def api_calcular_sinergia_departamento(request: Request):
+    try:
+        body = await request.json()
+        membros = body.get("membros") or []
+        res = calcular_sinergia_departamento(membros)
+        return JSONResponse(res)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def api_sugerir_requisitos_vaga(request: Request):
+    try:
+        body = await request.json()
+        res = sugerir_requisitos_vaga(
+            str(body.get("nome_vaga") or ""),
+            str(body.get("departamento") or ""),
+            str(body.get("descricao_vaga") or ""),
+            str(body.get("senioridade") or ""),
+        )
+        return JSONResponse(res)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 app = Starlette(
     debug=False,
     routes=[
@@ -255,6 +339,27 @@ app = Starlette(
             methods=["POST"],
         ),
         Route("/api/v1/calcular-lote", api_calcular_lote, methods=["POST"]),
+        Route(
+            "/api/v1/enriquecer-talentos-lote",
+            api_enriquecer_talentos_lote,
+            methods=["POST"],
+        ),
+        Route("/api/v1/calcular-match-vaga", api_calcular_match_vaga, methods=["POST"]),
+        Route(
+            "/api/v1/calcular-harmonia-grupo",
+            api_calcular_harmonia_grupo,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/v1/calcular-sinergia-departamento",
+            api_calcular_sinergia_departamento,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/v1/sugerir-requisitos-vaga",
+            api_sugerir_requisitos_vaga,
+            methods=["POST"],
+        ),
     ],
     middleware=[Middleware(InternalSecretMiddleware)],
 )

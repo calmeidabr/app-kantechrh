@@ -72,51 +72,7 @@ const HEATMAP_PALETTES: Record<
 };
 
 function calcularScoresEixos(t: TalentoProfile): Record<string, number> {
-  const seed = t.id.charCodeAt(t.id.length - 1) * 11 + t.nome.length * 17;
-  const isCriacao = t.kan_nome === "Criação";
-  const isMovimento = t.kan_nome === "Movimento";
-  const isFinalidade = t.kan_nome === "Finalidade";
-
-  return {
-    Liderança: t.perfis_lista.includes("Lider")
-      ? 680
-      : isMovimento
-      ? 490
-      : 140 + ((seed * 13) % 380),
-    Relacionamento: t.qualidades_lista.some((q) =>
-      q.toLowerCase().includes("relacionamento")
-    )
-      ? 640
-      : 110 + ((seed * 17) % 410),
-    Criação:
-      isCriacao || t.perfis_lista.includes("Criativo")
-        ? 710
-        : 90 + ((seed * 19) % 360),
-    Organização: t.categorias_lista.includes("Organizado")
-      ? 660
-      : 120 + ((seed * 23) % 390),
-    Flexibilidade: t.categorias_lista.includes("Versátil")
-      ? 620
-      : 80 + ((seed * 29) % 350),
-    Comunicação:
-      t.perfis_lista.includes("Comunicador") ||
-      t.perfis_lista.includes("Influenciador")
-        ? 690
-        : 130 + ((seed * 31) % 390),
-    Análise: t.categorias_lista.includes("Analítico")
-      ? 720
-      : isFinalidade
-      ? 510
-      : 95 + ((seed * 37) % 340),
-    Resultado:
-      t.perfis_lista.includes("Resultado") ||
-      t.perfis_lista.includes("Executor")
-        ? 740
-        : 220 + ((seed * 41) % 420),
-    Empatia: t.categorias_lista.includes("Diplomático")
-      ? 630
-      : 85 + ((seed * 43) % 330),
-  };
+  return t.scores_eixos || {};
 }
 
 function getHeatmapCellStyle(

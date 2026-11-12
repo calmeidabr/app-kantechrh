@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin, callMamEngine, normalizeKey } from "@/lib/supabase";
 import { TALENTOS_MOCK, TalentoProfile, KanType } from "@/lib/mock-data";
-import { obterVerticesTriangulo } from "@/lib/numerologia";
 import { invalidateDiagnosticoCache } from "@/lib/diagnostico-cache";
 import { invalidateFotoCache, setFotoCache } from "@/lib/foto-cache";
 
@@ -244,15 +243,15 @@ function mapSupabaseRowToTalento(
     );
   }
 
-  const dataNascClean = cleanStr(row.data_nascimento, "01/01/1990");
-  const calcTri = obterVerticesTriangulo(nome, dataNascClean);
-  const distinct = calcTri.vertices;
-  const v1 = calcTri.kanNumero || distinct[0];
-  estrutural = calcTri.estrutural || estrutural;
-  direcionamento = calcTri.direcionamento || direcionamento;
-  if ([3, 6, 9].includes(calcTri.kanNumero)) {
-    kanNome = mapKanName(calcTri.kanNumero);
-  }
+  const vt1 = valoresRow ? parseInt(String(valoresRow.vertice_triangulo_1 || ""), 10) : NaN;
+  const vt2 = valoresRow ? parseInt(String(valoresRow.vertice_triangulo_2 || ""), 10) : NaN;
+  const vt3 = valoresRow ? parseInt(String(valoresRow.vertice_triangulo_3 || ""), 10) : NaN;
+  const distinct: [number, number, number] = [
+    !isNaN(vt1) && vt1 > 0 ? vt1 : kanNumero || 9,
+    !isNaN(vt2) && vt2 > 0 ? vt2 : estrutural || 1,
+    !isNaN(vt3) && vt3 > 0 ? vt3 : direcionamento || 7,
+  ];
+  const v1 = distinct[0];
 
   const allSevenProfiles = [
     "Líder",
@@ -421,6 +420,53 @@ export async function GET(req: NextRequest) {
         valRow
       );
     });
+
+    // Enriquecer com cálculos isolados no container mam-kantechrh (scores_eixos, soft_skills_compativeis, vértices)
+    const payloadEnrich = talentos.map((t) => ({
+      id: t.id,
+      nome: t.nome,
+      data_nascimento: t.data_nascimento,
+      kan_nome: t.kan_nome,
+      perfis_lista: t.perfis_lista,
+      categorias_lista: t.categorias_lista,
+      qualidades_lista: t.qualidades_lista,
+    }));
+
+    const enrichRes = await callMamEngine<{
+      items?: Array<{
+        id: string;
+        scores_eixos?: Record<string, number>;
+        soft_skills_compativeis?: string[];
+        vertices_triangulo?: [number, number, number];
+        kan_nome?: string;
+      }>;
+    }>("/api/v1/enriquecer-talentos-lote", {
+      talentos: payloadEnrich,
+      incluir_vertices: true,
+    });
+
+    if (enrichRes.ok && enrichRes.data?.items) {
+      const enrichMap = new Map(
+        enrichRes.data.items.map((item) => [item.id, item])
+      );
+      for (const t of talentos) {
+        const extra = enrichMap.get(t.id);
+        if (extra) {
+          if (extra.scores_eixos) t.scores_eixos = extra.scores_eixos;
+          if (extra.soft_skills_compativeis)
+            t.soft_skills_compativeis = extra.soft_skills_compativeis;
+          if (
+            Array.isArray(extra.vertices_triangulo) &&
+            extra.vertices_triangulo.length === 3
+          ) {
+            t.vertices_triangulo = extra.vertices_triangulo;
+          }
+          if (extra.kan_nome) {
+            t.kan_nome = mapKanName(extra.kan_nome);
+          }
+        }
+      }
+    }
 
     return NextResponse.json({
       source: "supabase",

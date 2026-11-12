@@ -119,51 +119,7 @@ function getKanTooltip(key: string): string {
 }
 
 function calcularScoresEixos(t: TalentoProfile): Record<string, number> {
-  const seed = t.id.charCodeAt(t.id.length - 1) * 11 + t.nome.length * 17;
-  const isCriacao = t.kan_nome === "Criação";
-  const isMovimento = t.kan_nome === "Movimento";
-  const isFinalidade = t.kan_nome === "Finalidade";
-
-  return {
-    Liderança: t.perfis_lista.includes("Lider")
-      ? 680
-      : isMovimento
-      ? 490
-      : 140 + ((seed * 13) % 380),
-    Relacionamento: t.qualidades_lista.some((q) =>
-      q.toLowerCase().includes("relacionamento")
-    )
-      ? 640
-      : 110 + ((seed * 17) % 410),
-    Criação:
-      isCriacao || t.perfis_lista.includes("Criativo")
-        ? 710
-        : 90 + ((seed * 19) % 360),
-    Organização: t.categorias_lista.includes("Organizado")
-      ? 660
-      : 120 + ((seed * 23) % 390),
-    Flexibilidade: t.categorias_lista.includes("Versátil")
-      ? 620
-      : 80 + ((seed * 29) % 350),
-    Comunicação:
-      t.perfis_lista.includes("Comunicador") ||
-      t.perfis_lista.includes("Influenciador")
-        ? 690
-        : 130 + ((seed * 31) % 390),
-    Análise: t.categorias_lista.includes("Analítico")
-      ? 720
-      : isFinalidade
-      ? 510
-      : 95 + ((seed * 37) % 340),
-    Resultado:
-      t.perfis_lista.includes("Resultado") ||
-      t.perfis_lista.includes("Executor")
-        ? 740
-        : 220 + ((seed * 41) % 420),
-    Empatia: t.categorias_lista.includes("Diplomático")
-      ? 630
-      : 85 + ((seed * 43) % 330),
-  };
+  return t.scores_eixos || {};
 }
 
 function getHeatmapCellStyle(
@@ -639,61 +595,51 @@ export function OrganogramaView({
     [filteredColaboradores, deptLeaders]
   );
 
-  // Calculate KAN Synergy / Harmony metrics for the active department
-  const deptSynergyMetrics = useMemo(() => {
-    const total = filteredColaboradores.length;
-    if (total === 0) {
-      return {
+  // Sinergia KAN do departamento calculada exclusivamente no container isolado mam-kantechrh
+  const [deptSynergyMetrics, setDeptSynergyMetrics] = useState({
+    score: 0,
+    status: "Calculando sinergia...",
+    criacao: 0,
+    movimento: 0,
+    finalidade: 0,
+  });
+
+  useEffect(() => {
+    let active = true;
+    if (filteredColaboradores.length === 0) {
+      setDeptSynergyMetrics({
         score: 0,
         status: "Sem integrantes alocados",
         criacao: 0,
         movimento: 0,
         finalidade: 0,
-      };
-    }
-    const criacao = filteredColaboradores.filter(
-      (t) => t.kan_nome === "Criação"
-    ).length;
-    const movimento = filteredColaboradores.filter(
-      (t) => t.kan_nome === "Movimento"
-    ).length;
-    const finalidade = filteredColaboradores.filter(
-      (t) => t.kan_nome === "Finalidade"
-    ).length;
-
-    const activeForces = [criacao > 0, movimento > 0, finalidade > 0].filter(
-      Boolean
-    ).length;
-    const maxForce = Math.max(criacao, movimento, finalidade);
-    const balanceRatio = 1 - (maxForce - total / 3) / Math.max(1, total);
-    const baseScore =
-      activeForces === 3
-        ? Math.min(98, Math.round(78 + balanceRatio * 20))
-        : activeForces === 2
-        ? Math.round(68 + balanceRatio * 14)
-        : 58;
-
-    let status = "Equilíbrio entre Criativos, Movimentadores e Finalizadores";
-    if (activeForces === 1) {
-      if (criacao > 0)
-        status = "Concentração em Criação (Falta Movimento e Finalidade)";
-      else if (movimento > 0)
-        status = "Concentração em Movimento (Falta Criação e Finalidade)";
-      else status = "Concentração em Finalidade (Falta Criação e Movimento)";
-    } else if (activeForces === 2) {
-      if (criacao === 0)
-        status = "Forte em Movimento e Finalidade (Oportunidade em Criação)";
-      else if (movimento === 0)
-        status = "Equilíbrio entre Criativos e Finalizadores";
-      else status = "Forte em Criação e Movimento (Oportunidade em Finalidade)";
+      });
+      return;
     }
 
-    return {
-      score: baseScore,
-      status,
-      criacao,
-      movimento,
-      finalidade,
+    fetch("/api/calculos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "calcular-sinergia-departamento",
+        payload: {
+          membros: filteredColaboradores.map((t) => ({
+            id: t.id,
+            kan_nome: t.kan_nome,
+          })),
+        },
+      }),
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        if (active && res.success && res.result) {
+          setDeptSynergyMetrics(res.result);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
     };
   }, [filteredColaboradores]);
 

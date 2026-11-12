@@ -36,57 +36,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { TalentoProfile } from "@/lib/mock-data";
+import { TalentoProfile, SOFT_SKILLS_OPCOES } from "@/lib/mock-data";
 
 interface PeopleAnalyticsViewProps {
   talentos: TalentoProfile[];
   onInspectTalento?: (talento: TalentoProfile) => void;
 }
 
-const SOFT_SKILLS_DICTIONARY = [
-  {
-    nome: "Liderança Estratégica",
-    kan: ["Movimento", "Finalidade"],
-    perfis: ["Lider", "Resultado"],
-    categorias: ["Visionário", "Realizador"],
-    qualidades: ["Execução", "Justiça"],
-  },
-  {
-    nome: "Inovação & Criatividade",
-    kan: ["Criação"],
-    perfis: ["Criativo", "Influenciador"],
-    categorias: ["Inovador", "Versátil"],
-    qualidades: ["Versatilidade", "Intuição"],
-  },
-  {
-    nome: "Pensamento Analítico",
-    kan: ["Finalidade"],
-    perfis: ["Executor", "Resultado"],
-    categorias: ["Analítico", "Organizado", "Conhecimento"],
-    qualidades: ["Análise", "Organização", "Praticidade e disciplina"],
-  },
-  {
-    nome: "Comunicação & Influência",
-    kan: ["Criação", "Movimento"],
-    perfis: ["Comunicador", "Influenciador", "Vendedor"],
-    categorias: ["Comunicativo", "Magnético", "Diplomático"],
-    qualidades: ["Comunicação", "Relacionamento"],
-  },
-  {
-    nome: "Orientação para Resultados",
-    kan: ["Movimento", "Finalidade"],
-    perfis: ["Resultado", "Executor"],
-    categorias: ["Realizador", "Organizado"],
-    qualidades: ["Execução", "Praticidade e disciplina"],
-  },
-  {
-    nome: "Inteligência Emocional & Empatia",
-    kan: ["Movimento"],
-    perfis: ["Comunicador", "Lider"],
-    categorias: ["Diplomático", "Harmônico", "Justo"],
-    qualidades: ["Relacionamento", "Coletividade", "Serviço"],
-  },
-];
+
 
 const ORDEM_GERACOES = [
   "Baby Boomers",
@@ -195,22 +152,10 @@ export function PeopleAnalyticsView({
       }
 
       if (selectedSoftSkills.length > 0) {
+        const compativeis = t.soft_skills_compativeis || [];
         for (const skName of selectedSoftSkills) {
-          const skDef = SOFT_SKILLS_DICTIONARY.find((s) => s.nome === skName);
-          if (skDef) {
-            const matchKan = skDef.kan.includes(t.kan_nome);
-            const matchPerfil = t.perfis_lista.some((p) =>
-              skDef.perfis.includes(p)
-            );
-            const matchCat = t.categorias_lista.some((c) =>
-              skDef.categorias.includes(c)
-            );
-            const matchQual = t.qualidades_lista.some((q) =>
-              skDef.qualidades.includes(q)
-            );
-            if (!matchKan && !matchPerfil && !matchCat && !matchQual) {
-              return false;
-            }
+          if (!compativeis.includes(skName)) {
+            return false;
           }
         }
       }
@@ -458,12 +403,12 @@ export function PeopleAnalyticsView({
               )}
             </div>
             <div className="flex flex-wrap gap-2">
-              {SOFT_SKILLS_DICTIONARY.map((sk) => {
-                const active = selectedSoftSkills.includes(sk.nome);
+              {SOFT_SKILLS_OPCOES.map((skNome) => {
+                const active = selectedSoftSkills.includes(skNome);
                 return (
                   <button
-                    key={sk.nome}
-                    onClick={() => toggleSoftSkill(sk.nome)}
+                    key={skNome}
+                    onClick={() => toggleSoftSkill(skNome)}
                     className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
                       active
                         ? "border-[#ea580c] bg-[#ea580c] text-white shadow-2xs"
@@ -471,7 +416,7 @@ export function PeopleAnalyticsView({
                     }`}
                   >
                     {active && <CheckCircle2 className="h-3 w-3" />}
-                    {sk.nome}
+                    {skNome}
                   </button>
                 );
               })}

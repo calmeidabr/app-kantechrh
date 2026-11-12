@@ -48,8 +48,7 @@ import {
   QUALIDADES_OPCOES,
   SOFT_SKILLS_OPCOES,
   EIXOS_COMPORTAMENTAIS,
-  calcularScoresEixos,
-  talentoPossuiSoftSkill,
+  getScoresEixos,
   type VagaData,
   type AnaliseHarmoniaItem,
   type KanType,
@@ -846,104 +845,108 @@ export function ProcessoSeletivoView({
     setVagas((prev) => prev.map((v) => (v.id === vagaAtiva.id ? newVaga : v)));
   };
 
-  // Calculate exact MundoKAN matching score for every talent against active vaga
-  const calcularMatchTalento = (t: TalentoProfile) => {
-    const scoresEixos = calcularScoresEixos(t);
+  // Cálculo de aderência e matching executado exclusivamente no container isolado mam-kantechrh
+  interface MatchRankServerItem {
+    talento_id: string;
+    aderenciaPct: number;
+    totalPts: number;
+    tierLabel: string;
+    tierBadgeVariant: "secondary" | "orange" | "success";
+    ptsKan: number;
+    ptsPerfil: number;
+    ptsSoft: number;
+    ptsQual: number;
+    kanStatus: string;
+    perfilStatus: string;
+    softStatus: string;
+    catStatus: string;
+    qualStatus: string;
+    scoresEixos: Record<string, number>;
+  }
 
-    // 1. KAN Match (peso: até 190 pts)
-    const kanCompativel =
-      vagaAtiva.kan_ideal.length === 0 ||
-      vagaAtiva.kan_ideal.some(
-        (k) => k.toLowerCase() === t.kan_nome.toLowerCase()
-      );
-    const ptsKan = kanCompativel ? 190 : 50;
+  const [matchResultsMap, setMatchResultsMap] = useState<
+    Record<string, MatchRankServerItem>
+  >({});
 
-    // 2. Perfis Ideais Match (peso: até 230 pts)
-    const totalPerfis = vagaAtiva.perfis_ideais.length;
-    const perfisHits = vagaAtiva.perfis_ideais.filter((p) =>
-      t.perfis_lista.some((tp) => tp.toLowerCase() === p.toLowerCase())
-    );
-    const taxaPerfil = totalPerfis > 0 ? perfisHits.length / totalPerfis : 1;
-    const ptsPerfil = Math.round(taxaPerfil * 230);
+  useEffect(() => {
+    let active = true;
+    if (!vagaAtiva || talentos.length === 0) return;
 
-    // 3. Soft Skills Relacionadas Match (peso: até 230 pts)
-    const softSkillsDesejadas = vagaAtiva.soft_skills_ideais || [];
-    const totalSoft = softSkillsDesejadas.length;
-    const softSkillsHits = softSkillsDesejadas.filter((sk) =>
-      talentoPossuiSoftSkill(t, sk, scoresEixos)
-    );
-    const taxaSoft = totalSoft > 0 ? softSkillsHits.length / totalSoft : taxaPerfil;
-    const ptsSoft = Math.round(taxaSoft * 230);
+    fetch("/api/calculos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "calcular-match-vaga",
+        payload: {
+          vaga: {
+            id: vagaAtiva.id,
+            kan_ideal: vagaAtiva.kan_ideal,
+            perfis_ideais: vagaAtiva.perfis_ideais,
+            soft_skills_ideais: vagaAtiva.soft_skills_ideais || [],
+            qualidades_ideais: vagaAtiva.qualidades_ideais,
+            categorias_ideais: vagaAtiva.categorias_ideais,
+          },
+          talentos: talentos.map((t) => ({
+            id: t.id,
+            nome: t.nome,
+            kan_nome: t.kan_nome,
+            perfis_lista: t.perfis_lista,
+            qualidades_lista: t.qualidades_lista,
+            categorias_lista: t.categorias_lista,
+            scores_eixos: t.scores_eixos,
+          })),
+        },
+      }),
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        if (active && res.success && Array.isArray(res.result?.resultados)) {
+          const map: Record<string, MatchRankServerItem> = {};
+          for (const item of res.result.resultados) {
+            map[item.talento_id] = item;
+          }
+          setMatchResultsMap(map);
+        }
+      })
+      .catch(() => {});
 
-    // 4. Qualidades & Categorias Match (peso: até 150 pts)
-    const totalQuals = vagaAtiva.qualidades_ideais.length;
-    const qualsHits = vagaAtiva.qualidades_ideais.filter((q) =>
-      t.qualidades_lista.some((tq) => tq.toLowerCase() === q.toLowerCase())
-    );
-    const taxaQual = totalQuals > 0 ? qualsHits.length / totalQuals : 1;
-
-    const totalCats = vagaAtiva.categorias_ideais.length;
-    const catsHits = vagaAtiva.categorias_ideais.filter((c) =>
-      t.categorias_lista.some((tc) => tc.toLowerCase() === c.toLowerCase())
-    );
-    const taxaCat = totalCats > 0 ? catsHits.length / totalCats : 1;
-    const ptsQual = Math.round((taxaQual * 0.6 + taxaCat * 0.4) * 150);
-
-    // Pontuação Global no Padrão do Mapa de Calor (escala 100 a 840 pontos, ex: 740, 680, 610, 560...)
-    const totalPts = Math.min(840, Math.max(120, ptsKan + ptsPerfil + ptsSoft + ptsQual));
-
-    // Aderência Percentual (0 a 100%)
-    const aderenciaPct = Math.min(
-      99,
-      Math.max(
-        15,
-        Math.round(
-          (kanCompativel ? 25 : 0) +
-            taxaPerfil * 30 +
-            taxaSoft * 30 +
-            (taxaQual * 0.6 + taxaCat * 0.4) * 15
-        )
-      )
-    );
-
-    // Classificação por Tiers do Mapa de Calor (getHeatmapCellStyle)
-    let tierLabel = "Inicial";
-    let tierBadgeVariant: "secondary" | "orange" | "success" = "secondary";
-    if (totalPts >= 600) {
-      tierLabel = "Muito Alto";
-      tierBadgeVariant = "success";
-    } else if (totalPts >= 450) {
-      tierLabel = "Alto";
-      tierBadgeVariant = "orange";
-    } else if (totalPts >= 300) {
-      tierLabel = "Médio";
-      tierBadgeVariant = "secondary";
-    } else if (totalPts >= 150) {
-      tierLabel = "Discreto";
-      tierBadgeVariant = "secondary";
-    }
-
-    return {
-      talento: t,
-      aderenciaPct,
-      totalPts,
-      tierLabel,
-      tierBadgeVariant,
-      ptsKan,
-      ptsPerfil,
-      ptsSoft,
-      ptsQual,
-      kanStatus: kanCompativel ? "✓ Compatível" : "✗ Incompatível",
-      perfilStatus: `${perfisHits.length}/${totalPerfis} compatíveis`,
-      softStatus: totalSoft > 0 ? `${softSkillsHits.length}/${totalSoft} compatíveis` : "Padrão",
-      catStatus: `${catsHits.length}/${totalCats} compatíveis`,
-      qualStatus: `${qualsHits.length}/${totalQuals} compatíveis`,
-      scoresEixos,
+    return () => {
+      active = false;
     };
-  };
+  }, [
+    vagaAtiva?.id,
+    vagaAtiva?.kan_ideal,
+    vagaAtiva?.perfis_ideais,
+    vagaAtiva?.soft_skills_ideais,
+    vagaAtiva?.qualidades_ideais,
+    vagaAtiva?.categorias_ideais,
+    talentos,
+  ]);
 
   const todosRankeados = talentos
-    .map(calcularMatchTalento)
+    .map((t) => {
+      const m = matchResultsMap[t.id];
+      return {
+        talento: t,
+        aderenciaPct: m?.aderenciaPct ?? 0,
+        totalPts: m?.totalPts ?? 0,
+        tierLabel: m?.tierLabel ?? "Calculando...",
+        tierBadgeVariant: (m?.tierBadgeVariant ?? "secondary") as
+          | "secondary"
+          | "orange"
+          | "success",
+        ptsKan: m?.ptsKan ?? 0,
+        ptsPerfil: m?.ptsPerfil ?? 0,
+        ptsSoft: m?.ptsSoft ?? 0,
+        ptsQual: m?.ptsQual ?? 0,
+        kanStatus: m?.kanStatus ?? "...",
+        perfilStatus: m?.perfilStatus ?? "...",
+        softStatus: m?.softStatus ?? "...",
+        catStatus: m?.catStatus ?? "...",
+        qualStatus: m?.qualStatus ?? "...",
+        scoresEixos: m?.scoresEixos ?? getScoresEixos(t),
+      };
+    })
     .sort((a, b) => b.totalPts - a.totalPts);
 
   const qAssoc = normText(buscaAssociar);
@@ -976,144 +979,62 @@ export function ProcessoSeletivoView({
   };
 
   const handleSugerirRequisitosIA = async () => {
-    const nome = normText(vagaAtiva.nome_vaga);
-    const depto = normText(vagaAtiva.departamento);
-    const desc = normText(vagaAtiva.descricao_vaga);
-    const combined = `${nome} ${depto} ${desc}`;
-
-    let kanSugerido = ["Finalidade", "Movimento"];
-    let perfisSugeridos = ["Lider", "Resultado", "Comunicador"];
-    let categoriasSugeridas = ["Realizador", "Visionário"];
-    let qualidadesSugeridas = ["Execução", "Comunicação", "Organização", "Análise"];
-    let softSugeridas = [
-      "Liderança",
-      "Comunicação assertiva",
-      "Resolução de problemas",
-      "Proatividade",
-      "Trabalho em equipe",
-    ];
-
-    if (
-      combined.includes("comercial") ||
-      combined.includes("venda") ||
-      combined.includes("account") ||
-      combined.includes("growth") ||
-      combined.includes("hunter")
-    ) {
-      kanSugerido = ["Movimento", "Finalidade"];
-      perfisSugeridos = ["Vendedor", "Resultado", "Influenciador"];
-      categoriasSugeridas = ["Comunicativo", "Realizador", "Magnético"];
-      qualidadesSugeridas = ["Comunicação", "Execução", "Relacionamento", "Praticidade e disciplina"];
-      softSugeridas = [
-        "Comunicação assertiva",
-        "Relacionamento interpessoal",
-        "Negociação",
-        "Proatividade",
-        "Resiliência",
-        "Persuasão e influência",
-      ];
-    } else if (
-      combined.includes("tech") ||
-      combined.includes("eng") ||
-      combined.includes("dev") ||
-      combined.includes("software") ||
-      combined.includes("dados") ||
-      combined.includes("sistema")
-    ) {
-      kanSugerido = ["Criação", "Finalidade"];
-      perfisSugeridos = ["Criativo", "Executor", "Lider"];
-      categoriasSugeridas = ["Analítico", "Inovador", "Realizador"];
-      qualidadesSugeridas = ["Análise", "Execução", "Intuição", "Praticidade e disciplina"];
-      softSugeridas = [
-        "Resolução de problemas",
-        "Pensamento crítico",
-        "Visão sistêmica",
-        "Aprendizado contínuo",
-        "Atenção a detalhes",
-        "Liderança técnica",
-      ];
-    } else if (
-      combined.includes("rh") ||
-      combined.includes("gente") ||
-      combined.includes("cultura") ||
-      combined.includes("people") ||
-      combined.includes("recrut")
-    ) {
-      kanSugerido = ["Criação", "Movimento"];
-      perfisSugeridos = ["Comunicador", "Influenciador", "Lider"];
-      categoriasSugeridas = ["Harmônico", "Comunicativo", "Diplomático"];
-      qualidadesSugeridas = ["Relacionamento", "Comunicação", "Coletividade", "Serviço"];
-      softSugeridas = [
-        "Empatia",
-        "Escuta ativa",
-        "Inteligência emocional",
-        "Comunicação eficaz",
-        "Mediação de conflitos",
-        "Trabalho em equipe",
-      ];
-    } else if (
-      combined.includes("financ") ||
-      combined.includes("contab") ||
-      combined.includes("auditor") ||
-      combined.includes("control")
-    ) {
-      kanSugerido = ["Finalidade"];
-      perfisSugeridos = ["Executor", "Resultado"];
-      categoriasSugeridas = ["Analítico", "Organizado", "Justo"];
-      qualidadesSugeridas = ["Análise", "Organização", "Praticidade e disciplina", "Justiça"];
-      softSugeridas = [
-        "Pensamento analítico",
-        "Atenção a detalhes",
-        "Organização e método",
-        "Tomada de decisão",
-        "Ética e conformidade",
-      ];
-    } else if (
-      vagaAtiva.senioridade === "Executivo" ||
-      combined.includes("diretor") ||
-      combined.includes("head") ||
-      combined.includes("gerente") ||
-      combined.includes("ceo")
-    ) {
-      kanSugerido = ["Finalidade", "Movimento", "Criação"];
-      perfisSugeridos = ["Lider", "Resultado", "Influenciador"];
-      categoriasSugeridas = ["Visionário", "Realizador", "Diplomático"];
-      qualidadesSugeridas = ["Execução", "Relacionamento", "Justiça", "Análise"];
-      softSugeridas = [
-        "Liderança inspiradora",
-        "Visão estratégica",
-        "Tomada de decisão",
-        "Comunicação assertiva",
-        "Gestão de pessoas",
-      ];
-    }
-
-    const updatedVaga: VagaData = {
-      ...vagaAtiva,
-      kan_ideal: kanSugerido,
-      perfis_ideais: perfisSugeridos,
-      categorias_ideais: categoriasSugeridas,
-      qualidades_ideais: qualidadesSugeridas,
-      soft_skills_ideais: softSugeridas,
-    };
-
-    setVagas((prev) =>
-      prev.map((vg) => (vg.id === vagaAtiva.id ? updatedVaga : vg))
-    );
-
     try {
-      await fetch("/api/vagas", {
+      const calcRes = await fetch("/api/calculos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedVaga),
+        body: JSON.stringify({
+          action: "sugerir-requisitos-vaga",
+          payload: {
+            nome_vaga: vagaAtiva.nome_vaga,
+            departamento: vagaAtiva.departamento,
+            descricao_vaga: vagaAtiva.descricao_vaga,
+            senioridade: vagaAtiva.senioridade,
+          },
+        }),
       });
-      setToastMsg(
-        "✨ Requisitos comportamentais e Soft Skills sugeridos pela IA e persistidos com sucesso!"
+      const calcJson = await calcRes.json();
+      if (!calcRes.ok || !calcJson.success || !calcJson.result) {
+        throw new Error(calcJson.error || "Falha ao consultar motor de sugestão");
+      }
+
+      const sug = calcJson.result as {
+        kan_ideal: string[];
+        perfis_ideais: string[];
+        categorias_ideais: string[];
+        qualidades_ideais: string[];
+        soft_skills_ideais: string[];
+      };
+
+      const updatedVaga: VagaData = {
+        ...vagaAtiva,
+        kan_ideal: sug.kan_ideal,
+        perfis_ideais: sug.perfis_ideais,
+        categorias_ideais: sug.categorias_ideais,
+        qualidades_ideais: sug.qualidades_ideais,
+        soft_skills_ideais: sug.soft_skills_ideais,
+      };
+
+      setVagas((prev) =>
+        prev.map((vg) => (vg.id === vagaAtiva.id ? updatedVaga : vg))
       );
+
+      try {
+        await fetch("/api/vagas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedVaga),
+        });
+        setToastMsg(
+          "✨ Requisitos comportamentais e Soft Skills sugeridos pela IA e persistidos com sucesso!"
+        );
+      } catch {
+        setToastMsg(
+          "✨ Requisitos comportamentais e Soft Skills sugeridos pela IA!"
+        );
+      }
     } catch {
-      setToastMsg(
-        "✨ Requisitos comportamentais e Soft Skills sugeridos pela IA!"
-      );
+      setToastMsg("⚠️ Motor de cálculo indisponível para sugerir requisitos.");
     }
     setTimeout(() => setToastMsg(null), 4000);
   };
@@ -1241,107 +1162,72 @@ export function ProcessoSeletivoView({
       })),
   ];
 
-  // Cálculo dinâmico dos 5 critérios e score de Harmonia com base no grupo alvo (Equipe ou Departamento) + Candidato
-  const calcularMetricasHarmoniaGrupo = () => {
-    const todosSim = membrosSimulacaoComCandidato.map((m) => m.talento);
-    const kansPresentes = new Set(todosSim.map((t) => t.kan_nome));
-    const qtdKans = kansPresentes.size;
+  // Cálculo dos 5 critérios e score de Harmonia executado exclusivamente no container isolado mam-kantechrh
+  const [metricasHarmonia, setMetricasHarmonia] = useState<{
+    scorePct: number;
+    classificacao: string;
+    criterios: { titulo: string; nota: string; sub: string }[];
+  }>({
+    scorePct: 0,
+    classificacao: "Calculando...",
+    criterios: [
+      { titulo: "Complementaridade", nota: "—", sub: "Equilíbrio de KANs" },
+      { titulo: "Integração Geométrica", nota: "—", sub: "Conexões de Triângulos" },
+      { titulo: "Balanceamento", nota: "—", sub: "Cobertura de Planos" },
+      { titulo: "Potencial de Entrega", nota: "—", sub: "Materialidade/Praticidade" },
+      { titulo: "Segurança Relacional", nota: "—", sub: "Mitigação de Conflitos" },
+    ],
+  });
 
-    // 1. Complementaridade (diversidade de KANs no grupo com o candidato)
-    const notaComp = qtdKans >= 3 ? 4.8 : qtdKans === 2 ? 4.5 : 4.1;
+  const alvoMembrosKey = alvoMembrosAtuais
+    .filter((m) => m.talento.nome !== candDestaqueObj.nome)
+    .map((m) => m.talento.id)
+    .join(",");
 
-    // 2. Integração Geométrica (conexão de vértices do candidato com o grupo)
-    const verticesGrupo = new Set(
-      alvoMembrosAtuais.flatMap((m) => m.talento.vertices_triangulo)
-    );
-    const verticesCompartilhados = candDestaqueObj.vertices_triangulo.filter(
-      (v) => verticesGrupo.has(v)
-    ).length;
-    const notaGeom =
-      alvoMembrosAtuais.length === 0
-        ? 4.6
-        : verticesCompartilhados >= 2
-        ? 4.7
-        : verticesCompartilhados === 1
-        ? 4.6
-        : 4.4;
+  useEffect(() => {
+    let active = true;
+    if (!candDestaqueObj) return;
 
-    // 3. Balanceamento (cobertura dos 9 eixos comportamentais)
-    const mediasEixos = EIXOS_COMPORTAMENTAIS.map((eixo) => {
-      const soma = todosSim.reduce(
-        (acc, t) => acc + (calcularScoresEixos(t)[eixo] || 300),
-        0
-      );
-      return soma / Math.max(1, todosSim.length);
-    });
-    const eixosFortes = mediasEixos.filter((m) => m >= 400).length;
-    const notaBal = Math.min(
-      4.9,
-      Math.max(4.2, Number((4.0 + (eixosFortes / 9) * 0.9).toFixed(1)))
-    );
+    const membrosParaCalculo = alvoMembrosAtuais
+      .filter((m) => m.talento.nome !== candDestaqueObj.nome)
+      .map((m) => ({
+        id: m.talento.id,
+        nome: m.talento.nome,
+        kan_nome: m.talento.kan_nome,
+        vertices_triangulo: m.talento.vertices_triangulo,
+        scores_eixos: m.talento.scores_eixos,
+      }));
 
-    // 4. Potencial de Entrega (Eixos Resultado + Organização + Análise do candidato)
-    const scoresCand = calcularScoresEixos(candDestaqueObj);
-    const mediaEntrega =
-      ((scoresCand["Resultado"] || 450) +
-        (scoresCand["Organização"] || 450) +
-        (scoresCand["Análise"] || 450)) /
-      3;
-    const notaEntrega =
-      mediaEntrega >= 550 ? 4.9 : mediaEntrega >= 420 ? 4.7 : 4.4;
-
-    // 5. Segurança Relacional (Empatia + Relacionamento + Comunicação)
-    const mediaRel =
-      ((scoresCand["Relacionamento"] || 450) +
-        (scoresCand["Empatia"] || 450) +
-        (scoresCand["Comunicação"] || 450)) /
-      3;
-    const notaRel = mediaRel >= 550 ? 4.8 : mediaRel >= 420 ? 4.6 : 4.4;
-
-    const mediaFinal5 =
-      (notaComp + notaGeom + notaBal + notaEntrega + notaRel) / 5;
-    const scorePct = Number(((mediaFinal5 / 5) * 100).toFixed(1));
-    const classificacao =
-      scorePct >= 90
-        ? "Encaixe Muito Alto"
-        : scorePct >= 82
-        ? "Encaixe Alto"
-        : "Encaixe Adequado";
-
-    return {
-      scorePct,
-      classificacao,
-      criterios: [
-        {
-          titulo: "Complementaridade",
-          nota: `${notaComp.toFixed(1)}/5.0`,
-          sub: "Equilíbrio de KANs",
+    fetch("/api/calculos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "calcular-harmonia-grupo",
+        payload: {
+          membros_atuais: membrosParaCalculo,
+          candidato: {
+            id: candDestaqueObj.id,
+            nome: candDestaqueObj.nome,
+            kan_nome: candDestaqueObj.kan_nome,
+            vertices_triangulo: candDestaqueObj.vertices_triangulo,
+            scores_eixos: candDestaqueObj.scores_eixos,
+          },
         },
-        {
-          titulo: "Integração Geométrica",
-          nota: `${notaGeom.toFixed(1)}/5.0`,
-          sub: "Conexões de Triângulos",
-        },
-        {
-          titulo: "Balanceamento",
-          nota: `${notaBal.toFixed(1)}/5.0`,
-          sub: "Cobertura de Planos",
-        },
-        {
-          titulo: "Potencial de Entrega",
-          nota: `${notaEntrega.toFixed(1)}/5.0`,
-          sub: "Materialidade/Praticidade",
-        },
-        {
-          titulo: "Segurança Relacional",
-          nota: `${notaRel.toFixed(1)}/5.0`,
-          sub: "Mitigação de Conflitos",
-        },
-      ],
+      }),
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        if (active && res.success && res.result) {
+          setMetricasHarmonia(res.result);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
     };
-  };
-
-  const metricasHarmonia = calcularMetricasHarmoniaGrupo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candDestaqueObj?.id, alvoMembrosKey]);
 
   const handleConfirmarSalvarHarmonia = async () => {
     if (!vagaAtiva) return;
@@ -3194,7 +3080,7 @@ export function ProcessoSeletivoView({
                           const scoresMembros =
                             membrosSimulacaoComCandidato.map(
                               ({ talento: m, isCandidato }) => {
-                                const sc = calcularScoresEixos(m)[eixo] || 200;
+                                const sc = getScoresEixos(m)[eixo] || 0;
                                 return { membro: m, pts: sc, isCandidato };
                               }
                             );
