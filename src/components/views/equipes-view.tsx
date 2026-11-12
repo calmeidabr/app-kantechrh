@@ -1055,14 +1055,14 @@ export function EquipesView({
                       <div>
                         <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                           <Triangle className="h-4 w-4 text-[#ea580c]" />
-                          Geometria de Triângulos Harmônicos — {eq.nome}
+                          Análise de Harmonia - {eq.nome}
                         </h4>
                         <p className="text-xs text-slate-500">
-                          Projeção oficial sobre o Plano KAN (Fogo • Terra • Água • Ar). A esfera preta indica o vértice do KAN principal de cada membro.
+                          Projeção gráfica dos integrantes. A esfera preta indica o KAN de cada membro.
                         </p>
                       </div>
                       <Badge variant="purple">
-                        {triangleMembersInput.length} Triângulos Projetados
+                        {triangleMembersInput.length} Membros Projetados
                       </Badge>
                     </div>
 

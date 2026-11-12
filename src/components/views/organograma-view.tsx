@@ -2507,11 +2507,22 @@ export function OrganogramaView({
                           </Button>
                         </div>
 
-                        {/* 1. TRIÂNGULOS HARMÔNICOS DO DEPARTAMENTO */}
+                        {/* 1. ANÁLISE DE HARMONIA DO DEPARTAMENTO */}
                         <div className="space-y-2">
-                          <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
-                            1. Triângulos Harmônicos — {deptTitle}
-                          </h4>
+                          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <Triangle className="h-4 w-4 text-[#ea580c]" />
+                                Análise de Harmonia - {deptTitle}
+                              </h4>
+                              <p className="text-xs text-slate-500">
+                                Projeção gráfica dos integrantes. A esfera preta indica o KAN de cada membro.
+                              </p>
+                            </div>
+                            <Badge variant="purple">
+                              {deptTalentos.length} Membros Projetados
+                            </Badge>
+                          </div>
                           <KanTrianglesSvg
                             membros={deptTalentos.map((t) => ({
                               nome: t.nome,

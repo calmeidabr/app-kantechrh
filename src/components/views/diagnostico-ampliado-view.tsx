@@ -979,10 +979,10 @@ export function DiagnosticoAmpliadoView({
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Activity className="h-4 w-4 text-[#ea580c]" />
-                  Triângulos Harmônicos da Equipe
+                  Análise de Harmonia - {selectedEquipeObj.nome}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Projeção geométrica dos membros ativos no Plano de Tesla
+                  Projeção gráfica dos integrantes. A esfera preta indica o KAN de cada membro.
                 </CardDescription>
               </CardHeader>
               <CardContent>
