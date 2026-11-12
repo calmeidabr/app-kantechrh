@@ -481,14 +481,17 @@ def determinar_soft_skills_linha(perfil: str, categoria: str, qualidade: str, at
         else:
             ri_q = REPETICAO_DB.get(str(val_q))
             if ri_q:
-                p_v = get_from_row(ri_q, "perfil") or "N/A"
-                c_v = get_from_row(ri_q, "categoria") or "N/A"
+                p_v = get_from_row(ri_q, "perfil") or ""
+                c_v = get_from_row(ri_q, "categoria") or ""
                 qual_en = (
                     get_from_row(ri_q, "qualidade")
                     or get_from_row(ri_q, "area de suporte")
                     or get_from_row(ri_q, "categoria")
+                    or ""
                 )
-                attr_t_q = f"Repetição {val_q}"
+                attr_t_q = "Tabela Repetição"
+            else:
+                attr_t_q = "Tabela Repetição"
 
         if qual_en:
             qn = remover_acentos(str(qual_en).strip()).upper()
@@ -497,8 +500,11 @@ def determinar_soft_skills_linha(perfil: str, categoria: str, qualidade: str, at
                     score_qual_df.at[idx_name, campo_q] += int(PESO_DB.get(campo_q, 1))
                     break
 
-        attr_display = attr_t_q if (attr_t_q and attr_t_q != "NAN") else "N/A"
-        soft_skills_str = determinar_soft_skills_linha(p_v, c_v, qual_en, attr_display, campo_q)
+        attr_display = attr_t_q if (attr_t_q and attr_t_q != "NAN") else ""
+        p_clean = "" if (p_v == "N/A" or not p_v) else str(p_v)
+        c_clean = "" if (c_v == "N/A" or not c_v) else str(c_v)
+        q_clean = "" if (qual_en == "N/A" or not qual_en) else str(qual_en)
+        soft_skills_str = determinar_soft_skills_linha(p_clean, c_clean, q_clean, attr_display, campo_q)
 
         dados_auditoria_qual.append(
             {
@@ -509,12 +515,12 @@ def determinar_soft_skills_linha(perfil: str, categoria: str, qualidade: str, at
                 "Matriz": attr_display,
                 "Atributo": attr_display,
                 "atributo": attr_display,
-                "Perfil": str(p_v),
-                "perfil": str(p_v),
-                "Categoria": str(c_v),
-                "categoria": str(c_v),
-                "Qualidade": str(qual_en) if qual_en else "N/A",
-                "qualidade": str(qual_en) if qual_en else "N/A",
+                "Perfil": p_clean,
+                "perfil": p_clean,
+                "Categoria": c_clean,
+                "categoria": c_clean,
+                "Qualidade": q_clean,
+                "qualidade": q_clean,
                 "Soft Skills": soft_skills_str,
                 "soft_skills": soft_skills_str,
             }

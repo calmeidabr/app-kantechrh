@@ -1395,27 +1395,25 @@ export function PainelControleView({
               </div>
 
               {/* 1. TABELA DETALHAMENTO DOS ATRIBUTOS (Rastreabilidade Metodológica do Diagnóstico - app.mundokan.com.br) */}
-              <div className="space-y-3 rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900/60">
+              <div className="space-y-3 rounded-xl border border-slate-700/80 bg-[#0c101d] p-4 shadow-sm dark:border-slate-800 dark:bg-[#0c101d]">
                 <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                      <h4 className="text-base font-bold text-white tracking-wide">
                         Detalhamento dos Atributos
                       </h4>
                       <Badge
                         variant="outline"
-                        className="text-[10px] font-semibold text-[#510851] border-[#510851]/40"
+                        className="text-[10px] font-semibold text-purple-300 border-purple-500/40 bg-purple-500/10"
                       >
-                        Rastreabilidade do Diagnóstico
+                        Rastreabilidade Metodológica KAN
                       </Badge>
-                      <Badge variant="secondary" className="text-[10px]">
+                      <Badge variant="secondary" className="text-[10px] bg-slate-800 text-slate-300">
                         mam-kantechrh
                       </Badge>
                     </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Decomposição do cálculo numérico dos campos metodológicos e
-                      mapeamento dos atributos para perfil, categoria, qualidade e
-                      soft skills.
+                    <p className="mt-1 text-xs text-slate-400">
+                      Rastreamento completo da decomposição numérica dos campos e mapeamento na Tabela Matriz, Perfil, Categoria, Qualidade e Soft skills.
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1426,13 +1424,13 @@ export function PainelControleView({
                       disabled={
                         syncingDetalhamentoSupabase || loadingDetalhamento
                       }
-                      className="h-8 gap-1.5 text-xs font-semibold"
+                      className="h-8 gap-1.5 text-xs font-semibold border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
                     >
                       <Database
                         className={`h-3.5 w-3.5 ${
                           syncingDetalhamentoSupabase
-                            ? "animate-spin"
-                            : "text-[#510851]"
+                            ? "animate-spin text-purple-400"
+                            : "text-[#ea580c]"
                         }`}
                       />
                       {syncingDetalhamentoSupabase
@@ -1443,58 +1441,43 @@ export function PainelControleView({
                 </div>
 
                 {syncDetalhamentoFeedback && (
-                  <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800 dark:border-emerald-800/40 dark:bg-emerald-950/30 dark:text-emerald-300">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium ${
+                    syncDetalhamentoFeedback.startsWith("Falha") || syncDetalhamentoFeedback.startsWith("Erro")
+                      ? "border-red-800/40 bg-red-950/30 text-red-300"
+                      : "border-emerald-800/40 bg-emerald-950/30 text-emerald-300"
+                  }`}>
+                    <CheckCircle2 className={`h-4 w-4 ${
+                      syncDetalhamentoFeedback.startsWith("Falha") || syncDetalhamentoFeedback.startsWith("Erro")
+                        ? "text-red-400"
+                        : "text-emerald-400"
+                    }`} />
                     <span>{syncDetalhamentoFeedback}</span>
                   </div>
                 )}
 
                 {loadingDetalhamento ? (
-                  <div className="flex items-center justify-center gap-2 py-8 text-xs text-muted-foreground">
-                    <RefreshCw className="h-4 w-4 animate-spin text-[#510851]" />
+                  <div className="flex items-center justify-center gap-2 py-8 text-xs text-slate-400">
+                    <RefreshCw className="h-4 w-4 animate-spin text-[#ea580c]" />
                     <span>
-                      Calculando decomposição de atributos via container seguro
-                      mam-kantechrh...
+                      Calculando decomposição de atributos via motor seguro KAN...
                     </span>
                   </div>
                 ) : auditDetalhamento.length > 0 ? (
-                  <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50 dark:bg-slate-800/60 text-[11px] uppercase tracking-wider text-muted-foreground">
+                  <div className="overflow-x-auto rounded-lg border border-slate-800 bg-[#0f1424]">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-[#161d33] text-[11px] font-bold text-slate-300 border-b border-slate-800">
                         <tr>
-                          <th className="px-3 py-2.5 font-bold">Campo</th>
-                          <th className="px-2 py-2.5 text-center font-bold">
-                            Cálculo Numérico
-                          </th>
-                          <th className="px-3 py-2.5 font-bold">Atributo</th>
-                          <th className="px-3 py-2.5 font-bold">Perfil</th>
-                          <th className="px-3 py-2.5 font-bold">Categoria</th>
-                          <th className="px-3 py-2.5 font-bold">Qualidade</th>
-                          <th className="px-3 py-2.5 font-bold">Soft Skills</th>
+                          <th className="px-3.5 py-2.5 font-bold">Campo</th>
+                          <th className="px-3.5 py-2.5 font-bold">Valor</th>
+                          <th className="px-3.5 py-2.5 font-bold">Matriz</th>
+                          <th className="px-3.5 py-2.5 font-bold">Perfil</th>
+                          <th className="px-3.5 py-2.5 font-bold">Categoria</th>
+                          <th className="px-3.5 py-2.5 font-bold">Qualidade</th>
+                          <th className="px-3.5 py-2.5 font-bold">Soft skills</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                      <tbody className="divide-y divide-slate-800/70 text-slate-300 font-normal">
                         {auditDetalhamento.map((item, idx) => {
-                          const perfilNorm = String(item.perfil || "").trim();
-                          const getPerfilBadgeClass = (p: string) => {
-                            const pl = p.toLowerCase();
-                            if (pl.includes("líder") || pl.includes("lider"))
-                              return "bg-[#510851] text-white";
-                            if (pl.includes("resultado"))
-                              return "bg-[#ea580c] text-white";
-                            if (pl.includes("executor"))
-                              return "bg-violet-600 text-white";
-                            if (pl.includes("criativo"))
-                              return "bg-emerald-600 text-white";
-                            if (pl.includes("comunicador"))
-                              return "bg-indigo-600 text-white";
-                            if (pl.includes("influenciador"))
-                              return "bg-amber-500 text-slate-900";
-                            if (pl.includes("vendedor"))
-                              return "bg-pink-600 text-white";
-                            return "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200";
-                          };
-
                           const softSkillsList = String(item.soft_skills || "")
                             .split(",")
                             .map((s) => s.trim())
@@ -1503,77 +1486,39 @@ export function PainelControleView({
                           return (
                             <tr
                               key={`${item.campo}-${idx}`}
-                              className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                              className="hover:bg-slate-800/30 transition-colors"
                             >
-                              <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">
-                                <span className="font-semibold">{item.campo}</span>
+                              <td className="px-3.5 py-2.5 font-medium text-slate-200 whitespace-nowrap">
+                                {item.campo}
                               </td>
-                              <td className="px-2 py-2 text-center whitespace-nowrap">
-                                <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#ea580c]/10 px-2 font-mono text-xs font-bold text-[#ea580c] border border-[#ea580c]/30">
-                                  {item.valor || "-"}
-                                </span>
+                              <td className="px-3.5 py-2.5 text-slate-300 whitespace-nowrap font-mono">
+                                {item.valor || ""}
                               </td>
-                              <td className="px-3 py-2 font-mono text-xs font-bold uppercase tracking-tight text-slate-800 dark:text-slate-200 whitespace-nowrap">
-                                {item.atributo || "N/A"}
+                              <td className="px-3.5 py-2.5 text-slate-200 whitespace-nowrap font-medium">
+                                {item.atributo || ""}
                               </td>
-                              <td className="px-3 py-2 whitespace-nowrap">
-                                {item.perfil && item.perfil !== "N/A" ? (
-                                  <Badge
-                                    className={`text-[10px] font-semibold ${getPerfilBadgeClass(
-                                      perfilNorm
-                                    )}`}
-                                  >
-                                    {item.perfil}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-muted-foreground text-[11px]">
-                                    -
-                                  </span>
-                                )}
+                              <td className="px-3.5 py-2.5 text-slate-300 whitespace-nowrap">
+                                {item.perfil && item.perfil !== "N/A" ? item.perfil : ""}
                               </td>
-                              <td className="px-3 py-2 whitespace-nowrap">
-                                {item.categoria && item.categoria !== "N/A" ? (
-                                  <Badge
-                                    variant="outline"
-                                    className="text-[10px] font-medium border-slate-300 dark:border-slate-700"
-                                  >
-                                    {item.categoria}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-muted-foreground text-[11px]">
-                                    -
-                                  </span>
-                                )}
+                              <td className="px-3.5 py-2.5 text-slate-300 whitespace-nowrap">
+                                {item.categoria && item.categoria !== "N/A" ? item.categoria : ""}
                               </td>
-                              <td className="px-3 py-2 whitespace-nowrap">
-                                {item.qualidade && item.qualidade !== "N/A" ? (
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-[10px] font-medium"
-                                  >
-                                    {item.qualidade}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-muted-foreground text-[11px]">
-                                    -
-                                  </span>
-                                )}
+                              <td className="px-3.5 py-2.5 text-slate-300 whitespace-nowrap">
+                                {item.qualidade && item.qualidade !== "N/A" ? item.qualidade : ""}
                               </td>
-                              <td className="px-3 py-2">
+                              <td className="px-3.5 py-2.5 text-slate-300">
                                 <div className="flex flex-wrap gap-1">
                                   {softSkillsList.length > 0 ? (
                                     softSkillsList.map((skill, sIdx) => (
                                       <span
                                         key={sIdx}
-                                        className="inline-flex items-center rounded-md bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 text-[10px] font-medium text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/40"
+                                        className="inline-flex items-center rounded bg-purple-950/60 px-2 py-0.5 text-[11px] font-medium text-purple-200 border border-purple-800/40"
                                       >
                                         {skill}
                                       </span>
                                     ))
                                   ) : (
-                                    <span className="text-muted-foreground text-[11px]">
-                                      -
-                                    </span>
+                                    ""
                                   )}
                                 </div>
                               </td>
@@ -1584,15 +1529,15 @@ export function PainelControleView({
                     </table>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 dark:border-slate-700 py-6 text-center">
-                    <p className="text-xs text-muted-foreground">
+                  <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-700 py-6 text-center">
+                    <p className="text-xs text-slate-400">
                       Nenhum detalhamento carregado ainda para este talento.
                     </p>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleSincronizarDetalhamentoSupabase()}
-                      className="mt-2 text-xs"
+                      className="mt-2 text-xs border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
                     >
                       Calcular Detalhamento no mam-kantechrh
                     </Button>

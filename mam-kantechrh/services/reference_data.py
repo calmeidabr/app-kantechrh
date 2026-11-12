@@ -51,9 +51,9 @@ def _read_csv_safe(filename: str) -> pd.DataFrame:
     if not os.path.exists(filepath):
         return pd.DataFrame()
     try:
-        df = pd.read_csv(filepath, sep=";")
+        df = pd.read_csv(filepath, sep=";", encoding="utf-8-sig")
         if df.shape[1] <= 1:
-            df = pd.read_csv(filepath, sep=",")
+            df = pd.read_csv(filepath, sep=",", encoding="utf-8-sig")
         return df
     except Exception:
         return pd.DataFrame()

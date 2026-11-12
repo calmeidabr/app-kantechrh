@@ -32,9 +32,11 @@ export async function POST(req: NextRequest) {
     if (action === "detalhamento-atributos") {
       // 1. Tenta chamar o container Docker mam-kantechrh
       const res = await callMamEngine("/api/v1/detalhamento-atributos", payload || {});
+      const mamItens = (res.data as Record<string, unknown>)?.detalhamento_atributos;
       if (
         res.ok &&
-        (res.data as Record<string, unknown>)?.detalhamento_atributos
+        Array.isArray(mamItens) &&
+        mamItens.length > 0
       ) {
         resultData = res.data as Record<string, unknown>;
       } else {

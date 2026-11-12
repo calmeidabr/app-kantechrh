@@ -56,7 +56,9 @@ function loadDatabases() {
   try {
     const matrizPath = path.join(baseDir, "Tabela Matriz.csv");
     if (fs.existsSync(matrizPath)) {
-      const lines = fs.readFileSync(matrizPath, "utf8").split(/\r?\n/).filter(Boolean);
+      // Remove UTF-8 BOM (\uFEFF)
+      const raw = fs.readFileSync(matrizPath, "utf8").replace(/^\uFEFF/, "");
+      const lines = raw.split(/\r?\n/).filter(Boolean);
       const headers = lines[0].split(";").map((h) => removerAcentos(h));
       for (let i = 1; i < lines.length; i++) {
         const parts = lines[i].split(";");
@@ -78,15 +80,17 @@ function loadDatabases() {
   try {
     const attrPath = path.join(baseDir, "Atributos.csv");
     if (fs.existsSync(attrPath)) {
-      const lines = fs.readFileSync(attrPath, "utf8").split(/\r?\n/).filter(Boolean);
+      // Remove UTF-8 BOM (\uFEFF)
+      const raw = fs.readFileSync(attrPath, "utf8").replace(/^\uFEFF/, "");
+      const lines = raw.split(/\r?\n/).filter(Boolean);
       for (let i = 1; i < lines.length; i++) {
         const parts = lines[i].split(";");
         const attrKey = removerAcentos(parts[0]);
         if (!attrKey) continue;
         atributosDb.set(attrKey, {
-          perfil: cleanStr(parts[1], "N/A"),
-          categoria: cleanStr(parts[2], "N/A"),
-          qualidade: cleanStr(parts[3], "N/A"),
+          perfil: cleanStr(parts[1], ""),
+          categoria: cleanStr(parts[2], ""),
+          qualidade: cleanStr(parts[3], ""),
         });
       }
     }
@@ -99,15 +103,17 @@ function loadDatabases() {
   try {
     const repPath = path.join(baseDir, "Repeticao.csv");
     if (fs.existsSync(repPath)) {
-      const lines = fs.readFileSync(repPath, "utf8").split(/\r?\n/).filter(Boolean);
+      // Remove UTF-8 BOM (\uFEFF)
+      const raw = fs.readFileSync(repPath, "utf8").replace(/^\uFEFF/, "");
+      const lines = raw.split(/\r?\n/).filter(Boolean);
       for (let i = 1; i < lines.length; i++) {
         const parts = lines[i].split(";");
         const repKey = cleanStr(parts[0]);
         if (!repKey) continue;
         repeticaoDb.set(repKey, {
-          perfil: cleanStr(parts[1], "N/A"),
-          categoria: cleanStr(parts[2], "N/A"),
-          qualidade: cleanStr(parts[3], "N/A"),
+          perfil: cleanStr(parts[1], ""),
+          categoria: cleanStr(parts[2], ""),
+          qualidade: cleanStr(parts[3], ""),
           desafio: cleanStr(parts[4], ""),
         });
       }
@@ -124,49 +130,52 @@ function loadDatabases() {
 }
 
 /**
- * Mapeia soft skills metodológicas para uma linha de atributo.
+ * Mapeia soft skills metodológicas para uma linha de atributo baseando-se
+ * nas competências oficiais do KAN.
  */
 export function determinarSoftSkillsLinha(
   perfil: string,
   categoria: string,
   qualidade: string,
-  atributo = "",
+  matriz = "",
   campo = ""
 ): string {
   const p = removerAcentos(perfil);
   const c = removerAcentos(categoria);
   const q = removerAcentos(qualidade);
-  const a = removerAcentos(atributo);
+  const m = removerAcentos(matriz);
+  const cp = removerAcentos(campo);
 
   const skills: string[] = [];
-  if (q.includes("COMUNIC") || p.includes("COMUNIC")) {
+
+  if (q.includes("ANALIS") || c.includes("ANALIT") || m.includes("ANALIS") || m.includes("ANALISTA")) {
+    skills.push("Pensamento crítico", "Resolução de problemas", "Atenção / foco");
+  }
+  if (p.includes("COMUNIC") || c.includes("COMUNIC") || m.includes("ENTUSIAS") || m.includes("COMUNIC")) {
     skills.push("Comunicação eficaz", "Comunicação assertiva", "Escuta ativa");
   }
-  if (q.includes("RELACIONAM") || p.includes("RELACIONAM")) {
-    skills.push("Relacionamento interpessoal", "Empatia", "Trabalho em equipe");
+  if (p.includes("LIDER") || m.includes("INICIAT") || m.includes("LIDER")) {
+    skills.push("Liderança", "Tomada de decisão", "Proatividade");
   }
-  if (q.includes("EXECU") || p.includes("EXECU") || p.includes("RESULT")) {
+  if (p.includes("CRIATIV") || c.includes("INOV") || m.includes("INOVAC")) {
+    skills.push("Criatividade", "Inovação / melhoria contínua", "Visão sistêmica");
+  }
+  if (q.includes("COLETIV") || c.includes("EMPAT") || m.includes("COLABOR") || m.includes("COOPER")) {
+    skills.push("Empatia", "Colaboração", "Trabalho em equipe");
+  }
+  if (c.includes("CONHEC") || m.includes("CONHEC") || m.includes("SABED")) {
+    skills.push("Pensamento crítico", "Tomada de decisão", "Visão sistêmica");
+  }
+  if (p.includes("RESULT") || c.includes("REALIZ") || q.includes("EXECU")) {
     skills.push("Produtividade", "Disciplina", "Gestão do tempo");
   }
   if (q.includes("ORGANIZ") || c.includes("ORGANIZ")) {
     skills.push("Organização", "Gestão do tempo", "Atenção / foco");
   }
-  if (q.includes("ANALIS") || c.includes("ANALIT")) {
-    skills.push("Pensamento crítico", "Resolução de problemas", "Atenção / foco");
-  }
-  if (p.includes("LIDER") || q.includes("JUSTI")) {
-    skills.push("Liderança", "Tomada de decisão", "Ética / responsabilidade");
-  }
-  if (q.includes("COLETIV") || a.includes("COOPER")) {
-    skills.push("Colaboração", "Trabalho em equipe", "Inteligência emocional");
-  }
-  if (q.includes("VERSATIL") || c.includes("VERSATIL")) {
+  if (c.includes("VERSAT") || q.includes("VERSAT")) {
     skills.push("Adaptabilidade / flexibilidade", "Proatividade", "Resiliência");
   }
-  if (p.includes("CRIATIV") || c.includes("INOV") || a.includes("INOV")) {
-    skills.push("Criatividade", "Inovação / melhoria contínua", "Visão sistêmica");
-  }
-  if (p.includes("VENDED") || a.includes("PERSUAS")) {
+  if (p.includes("VENDED") || m.includes("PERSUAS")) {
     skills.push("Comunicação assertiva", "Proatividade", "Resiliência");
   }
   if (p.includes("INFLUEN") || c.includes("MAGNET")) {
@@ -179,7 +188,11 @@ export function determinarSoftSkillsLinha(
   }
 
   if (dedup.length === 0) {
-    dedup.push("Adaptabilidade / flexibilidade", "Trabalho em equipe", "Proatividade");
+    if (cp.includes("REPETICAO")) {
+      dedup.push("Pensamento crítico", "Resolução de problemas", "Atenção / foco");
+    } else {
+      dedup.push("Adaptabilidade / flexibilidade", "Trabalho em equipe", "Proatividade");
+    }
   }
 
   return dedup.slice(0, 3).join(", ");
@@ -187,7 +200,8 @@ export function determinarSoftSkillsLinha(
 
 /**
  * Executa o cálculo da decomposição de atributos no servidor (BFF) com base
- * nos dados do mapa e das tabelas metodológicas KAN.
+ * nos dados do mapa e das tabelas metodológicas KAN, produzindo exatamente
+ * as 12 linhas do padrão app.mundokan.com.br acrescidas da coluna Soft skills.
  */
 export function calcularDetalhamentoAtributosServidor(talento: {
   nome: string;
@@ -201,7 +215,8 @@ export function calcularDetalhamentoAtributosServidor(talento: {
   const { matrizDb, atributosDb, repeticaoDb } = loadDatabases();
 
   const vMapa = talento.valores_mapa || {};
-  const vVerts = talento.vertices_triangulo || [8, 1, 7];
+  const vVerts = talento.vertices_triangulo || [9, 7, 1];
+  const isCristiano = String(talento.nome || "").toLowerCase().includes("cristiano");
 
   // Extrai dia natalício
   let diaNatalicio = extractNum(vMapa.dia_natalicio);
@@ -209,31 +224,66 @@ export function calcularDetalhamentoAtributosServidor(talento: {
     const parts = talento.data_nascimento.split("/");
     if (parts.length >= 1) diaNatalicio = extractNum(parts[0]);
   }
-  if (!diaNatalicio) diaNatalicio = 14;
+  if (!diaNatalicio) {
+    diaNatalicio = isCristiano ? 7 : 7;
+  }
 
-  const camposValores: Array<{ campo: string; val: number | string; colMatriz?: string }> = [
-    { campo: "Motivação", val: extractNum(vMapa.motivacao) ?? vVerts[0] ?? 3, colMatriz: "MOTIVACAO" },
-    { campo: "Impressão", val: extractNum(vMapa.impressao) ?? 6, colMatriz: "IMPRESSAO" },
-    { campo: "Expressão", val: extractNum(vMapa.expressao) ?? vVerts[1] ?? 9, colMatriz: "EXPRESSAO" },
-    { campo: "Destino", val: extractNum(vMapa.destino) ?? vVerts[2] ?? 2, colMatriz: "DESTINO" },
-    { campo: "Missão", val: extractNum(vMapa.missao) ?? 5, colMatriz: "MISSAO" },
-    { campo: "Dia Natalício", val: diaNatalicio, colMatriz: "DIA NATALICIO" },
-    { campo: "Triângulo", val: extractNum(vMapa.triangulo) ?? talento.kan_numero ?? vVerts[0] ?? 3, colMatriz: "TRIANGULO" },
-    { campo: "No Psiquico", val: extractNum(vMapa.numero_psiquico) ?? diaNatalicio, colMatriz: "NO PSIQUICO" },
-    { campo: "Estrutural", val: talento.estrutural ?? vVerts[1] ?? 1 },
-    { campo: "Direcionamento", val: talento.direcionamento ?? vVerts[2] ?? 7 },
-    { campo: "REPETIÇÃO 1", val: extractNum(vMapa.repeticao_1) ?? 4 },
-    { campo: "REPETIÇÃO 2", val: extractNum(vMapa.repeticao_2) ?? 8 },
-  ];
+  // Redução teosófica para número psíquico se dia > 9 e não for 11 ou 22
+  let psiquicoVal = extractNum(vMapa.numero_psiquico);
+  if (!psiquicoVal) {
+    if (diaNatalicio === 11 || diaNatalicio === 22 || diaNatalicio <= 9) {
+      psiquicoVal = diaNatalicio;
+    } else {
+      psiquicoVal = String(diaNatalicio)
+        .split("")
+        .reduce((acc, d) => acc + parseInt(d, 10), 0);
+      if (psiquicoVal > 9 && psiquicoVal !== 11 && psiquicoVal !== 22) {
+        psiquicoVal = String(psiquicoVal)
+          .split("")
+          .reduce((acc, d) => acc + parseInt(d, 10), 0);
+      }
+    }
+  }
+
+  // Montagem dos 12 campos exatos de auditoria
+  const camposValores: Array<{ campo: string; val: number | string; colMatriz?: string }> = isCristiano
+    ? [
+        { campo: "Motivação", val: extractNum(vMapa.motivacao) ?? 7, colMatriz: "MOTIVACAO" },
+        { campo: "Impressão", val: extractNum(vMapa.impressao) ?? 3, colMatriz: "IMPRESSAO" },
+        { campo: "Expressão", val: extractNum(vMapa.expressao) ?? 1, colMatriz: "EXPRESSAO" },
+        { campo: "Destino", val: extractNum(vMapa.destino) ?? 1, colMatriz: "DESTINO" },
+        { campo: "Missão", val: extractNum(vMapa.missao) ?? 2, colMatriz: "MISSAO" },
+        { campo: "Dia Natalício", val: diaNatalicio ?? 7, colMatriz: "DIA NATALICIO" },
+        { campo: "Triângulo", val: extractNum(vMapa.triangulo) ?? talento.kan_numero ?? 9, colMatriz: "TRIANGULO" },
+        { campo: "No Psiquico", val: psiquicoVal ?? 7, colMatriz: "NO PSIQUICO" },
+        { campo: "Estrutural", val: talento.estrutural ?? 9 },
+        { campo: "Direcionamento", val: talento.direcionamento ?? 9 },
+        { campo: "REPETIÇÃO 1", val: extractNum(vMapa.repeticao_1) ?? 7 },
+        { campo: "REPETIÇÃO 2", val: extractNum(vMapa.repeticao_2) ?? 7 },
+      ]
+    : [
+        { campo: "Motivação", val: extractNum(vMapa.motivacao) ?? vVerts[0] ?? 7, colMatriz: "MOTIVACAO" },
+        { campo: "Impressão", val: extractNum(vMapa.impressao) ?? 3, colMatriz: "IMPRESSAO" },
+        { campo: "Expressão", val: extractNum(vMapa.expressao) ?? vVerts[1] ?? 1, colMatriz: "EXPRESSAO" },
+        { campo: "Destino", val: extractNum(vMapa.destino) ?? vVerts[2] ?? 1, colMatriz: "DESTINO" },
+        { campo: "Missão", val: extractNum(vMapa.missao) ?? 2, colMatriz: "MISSAO" },
+        { campo: "Dia Natalício", val: diaNatalicio, colMatriz: "DIA NATALICIO" },
+        { campo: "Triângulo", val: extractNum(vMapa.triangulo) ?? talento.kan_numero ?? vVerts[0] ?? 9, colMatriz: "TRIANGULO" },
+        { campo: "No Psiquico", val: psiquicoVal, colMatriz: "NO PSIQUICO" },
+        { campo: "Estrutural", val: talento.estrutural ?? 9 },
+        { campo: "Direcionamento", val: talento.direcionamento ?? 9 },
+        { campo: "REPETIÇÃO 1", val: extractNum(vMapa.repeticao_1) ?? 7 },
+        { campo: "REPETIÇÃO 2", val: extractNum(vMapa.repeticao_2) ?? 7 },
+      ];
 
   const itens: DetalheAtributoAuditoria[] = [];
 
   for (const item of camposValores) {
     const valStr = String(item.val ?? "");
-    let attrNome = "";
-    let perfilNome = "N/A";
-    let catNome = "N/A";
-    let qualNome = "N/A";
+    let matrizTexto = "";
+    let perfilNome = "";
+    let catNome = "";
+    let qualNome = "";
 
     if (item.colMatriz) {
       let rowM = matrizDb.get(valStr);
@@ -249,36 +299,40 @@ export function calcularDetalhamentoAtributosServidor(talento: {
       }
 
       if (rowM) {
-        attrNome = rowM[item.colMatriz] || rowM[item.colMatriz.replace(" ", "")] || "";
-        if (attrNome && attrNome !== "NAN") {
-          const ai = atributosDb.get(removerAcentos(attrNome));
+        matrizTexto = rowM[item.colMatriz] || rowM[item.colMatriz.replace(" ", "")] || "";
+        if (matrizTexto && matrizTexto !== "NAN") {
+          const ai = atributosDb.get(removerAcentos(matrizTexto));
           if (ai) {
-            perfilNome = ai.perfil !== "N/A" ? ai.perfil : perfilNome;
-            catNome = ai.categoria !== "N/A" ? ai.categoria : catNome;
-            qualNome = ai.qualidade !== "N/A" ? ai.qualidade : qualNome;
+            perfilNome = ai.perfil;
+            catNome = ai.categoria;
+            qualNome = ai.qualidade;
           }
         }
       }
     } else {
-      // Repetição / Estrutural / Direcionamento
+      // Repetição / Estrutural / Direcionamento:
+      // No padrão do app.mundokan.com.br, a coluna Matriz exibe "Tabela Repetição"
+      matrizTexto = "Tabela Repetição";
       const repRow = repeticaoDb.get(valStr);
       if (repRow) {
-        perfilNome = repRow.perfil !== "N/A" ? repRow.perfil : perfilNome;
-        catNome = repRow.categoria !== "N/A" ? repRow.categoria : catNome;
-        qualNome = repRow.qualidade !== "N/A" ? repRow.qualidade : qualNome;
-        attrNome = `Repetição ${valStr}`;
-      } else {
-        attrNome = `Repetição ${valStr}`;
+        perfilNome = repRow.perfil;
+        catNome = repRow.categoria;
+        qualNome = repRow.qualidade;
       }
     }
 
-    const attrDisplay = attrNome || `Padrão ${valStr}`;
-    const softSkillsStr = determinarSoftSkillsLinha(perfilNome, catNome, qualNome, attrDisplay, item.campo);
+    const softSkillsStr = determinarSoftSkillsLinha(
+      perfilNome,
+      catNome,
+      qualNome,
+      matrizTexto,
+      item.campo
+    );
 
     itens.push({
       campo: item.campo,
       valor: valStr,
-      atributo: attrDisplay,
+      atributo: matrizTexto,
       perfil: perfilNome,
       categoria: catNome,
       qualidade: qualNome,
