@@ -199,6 +199,9 @@ interface CachedDbTables {
   timestamp: number;
   atributosAmpliado: Record<string, unknown>[];
   perfilCategoriaAmpliado: Record<string, unknown>[];
+  forcasCentrais: Record<string, unknown>[];
+  riscosAmpliado: Record<string, unknown>[];
+  qualidadesDb: Record<string, string>;
   mapPerfilEixo: Record<string, string>;
   mapCatEixo: Record<string, string>;
   pesoDb: Record<string, number>;
@@ -223,6 +226,9 @@ async function getReferenceTables(): Promise<CachedDbTables> {
   const [
     { data: attrData },
     { data: perfCatData },
+    { data: forcasData },
+    { data: riscosData },
+    { data: qualidadesData },
     { data: perfFocoData },
     { data: catAmpData },
     { data: pesoData },
@@ -234,6 +240,9 @@ async function getReferenceTables(): Promise<CachedDbTables> {
   ] = await Promise.all([
     supabase.from("atributos_ampliado").select("*").limit(500),
     supabase.from("perfil_categoria_ampliado").select("*").limit(300),
+    supabase.from("forcas_centrais").select("*").limit(200),
+    supabase.from("riscos_ampliado").select("*").limit(300),
+    supabase.from("qualidades").select("*").limit(100),
     supabase.from("perfil_foco_ampliado").select("*").limit(100),
     supabase.from("categoria_ampliado").select("*").limit(100),
     supabase.from("peso").select("*").limit(50),
@@ -364,10 +373,25 @@ async function getReferenceTables(): Promise<CachedDbTables> {
     }
   }
 
+  const qualidadesDb: Record<string, string> = {};
+  if (qualidadesData) {
+    for (const q of qualidadesData) {
+      const k = cleanStr(q.qualidade);
+      const d = cleanStr(q.descricao);
+      if (k && d) {
+        qualidadesDb[k] = d;
+        qualidadesDb[normalizarTermo(k)] = d;
+      }
+    }
+  }
+
   cachedTables = {
     timestamp: Date.now(),
     atributosAmpliado: (attrData || []) as Record<string, unknown>[],
     perfilCategoriaAmpliado: (perfCatData || []) as Record<string, unknown>[],
+    forcasCentrais: (forcasData || []) as Record<string, unknown>[],
+    riscosAmpliado: (riscosData || []) as Record<string, unknown>[],
+    qualidadesDb,
     mapPerfilEixo,
     mapCatEixo,
     pesoDb,
@@ -1080,6 +1104,202 @@ function calcularDiagnosticoMembro(
     });
   }
 
+  // =========================================================================
+  // 1. KAN E MOTIVADORES + COMPORTAMENTOS OBSERVÁVEIS + POSSÍVEL EXCESSO
+  // =========================================================================
+  const primeiroNome = nomeMembro.trim().split(/\s+/)[0] || nomeMembro;
+  const kanRevisadoMap: Record<
+    string,
+    { nomeCap: string; resumo: string; capacidades: string; excesso: string }
+  > = {
+    CRIAÇÃO: {
+      nomeCap: "Criação",
+      resumo:
+        "representa a energia de geração de possibilidades, inovação aplicada, experimentação e transformação de ideias em melhorias.",
+      capacidades:
+        "questionar padrões, conectar elementos aparentemente distantes e imaginar alternativas antes mesmo que um problema esteja completamente formulado. Essa energia favorece inovação, diferenciação, experimentação e evolução contínua de produtos, processos e formas de trabalho. Seu melhor desempenho aparece quando existe espaço para explorar, testar e aperfeiçoar ideias com critérios claros de valor.",
+      excesso:
+        "Converter criatividade em execução priorizada, evitando dispersão, excesso de alternativas ou criações que não chegam à aplicação.",
+    },
+    MOVIMENTO: {
+      nomeCap: "Movimento",
+      resumo:
+        "representa a energia de conexão entre pessoas, informações, atividades e oportunidades, reduzindo silos e acelerando a cooperação.",
+      capacidades:
+        "criar conexões, facilitar trocas, aproximar áreas e acelerar a comunicação entre diferentes pontos da organização. Atua como propulsor(a) de equipes, reduzindo silos, identificando dependências e transformando relações em cooperação, velocidade e eficiência. Essa energia é especialmente valiosa em ambientes dinâmicos, projetos interdisciplinares, mudanças organizacionais e situações que exigem articulação rápida.",
+      excesso:
+        "Equilibrar movimento com foco, organização e conclusão, evitando dispersão, excesso de interação ou dificuldade de sustentar uma iniciativa até o resultado final.",
+    },
+    FINALIDADE: {
+      nomeCap: "Finalidade",
+      resumo:
+        "representa a energia de concentração de esforços, conclusão de ciclos, responsabilidade por entregas e foco em resultados.",
+      capacidades:
+        "concluir atividades e encerrar ciclos, manter foco, evitar dispersão e concentrar energia em objetivos definidos. Essa orientação favorece persistência, responsabilidade e capacidade de conduzir entregas até o final. Seu melhor desempenho aparece quando existem metas claras, prioridades definidas, responsabilidades explícitas e critérios objetivos de conclusão.",
+      excesso:
+        "Equilibrar persistência com flexibilidade, repriorização, delegação e capacidade de interromper ou redirecionar uma atividade quando o contexto exigir.",
+    },
+  };
+
+  const kanRev = kanRevisadoMap[kanNome] || kanRevisadoMap.FINALIDADE;
+  const kanMotivadoresTexto = `O KAN de ${kanRev.nomeCap} ${kanRev.resumo} ${primeiroNome} tende a ${kanRev.capacidades}`;
+
+  // Comportamentos Observáveis (a partir das Qualidades mapeadas na tabela `qualidades` do Supabase)
+  const rawQualStr = cleanStr(valRow.qualidades);
+  const qualTerms: string[] = [];
+  if (rawQualStr) {
+    for (const q of rawQualStr.split(/[,;|/]/)) {
+      const qt = q.trim();
+      if (qt && !qualTerms.includes(qt)) qualTerms.push(qt);
+    }
+  }
+  for (const dItem of detalhesAtributosList) {
+    const aSup = cleanStr(dItem["Área de Suporte"]);
+    if (aSup && aSup !== "N/D" && !qualTerms.includes(aSup)) {
+      qualTerms.push(aSup);
+    }
+  }
+  const qualDescs: string[] = [];
+  for (const qt of qualTerms) {
+    const descQ =
+      tables.qualidadesDb[qt] || tables.qualidadesDb[normalizarTermo(qt)];
+    if (descQ && !qualDescs.includes(descQ)) {
+      qualDescs.push(descQ);
+    }
+  }
+  if (qualDescs.length === 0) {
+    for (const fallbackQ of ["Execução", "Análise", "Relacionamento"]) {
+      const d = tables.qualidadesDb[normalizarTermo(fallbackQ)];
+      if (d && !qualDescs.includes(d)) qualDescs.push(d);
+    }
+  }
+  const comportamentosObservaveisTxt =
+    qualDescs.slice(0, 4).join(" ") ||
+    "Orientado a resultados, transforma objetivos em ações concretas com consistência, análise de contexto e colaboração com a equipe.";
+
+  const kanMotivadoresObj = {
+    texto: kanMotivadoresTexto,
+    comportamentos_observaveis: comportamentosObservaveisTxt,
+    possivel_excesso: kanRev.excesso,
+  };
+
+  // =========================================================================
+  // 2. FORÇAS APLICADAS (da tabela `forcas_centrais` do Supabase)
+  // =========================================================================
+  const forcasAplicadasList: Array<{
+    forca: string;
+    como_aparece: string;
+    valor_para_o_negocio: string;
+    possivel_excesso: string;
+  }> = [];
+  const addedForcasNorm = new Set<string>();
+
+  const tryAddForca = (term: string) => {
+    const tNorm = normalizarTermo(term);
+    if (!tNorm || addedForcasNorm.has(tNorm)) return;
+    let found = tables.forcasCentrais.find(
+      (f) => normalizarTermo(f.forca) === tNorm
+    );
+    if (!found) {
+      found = tables.forcasCentrais.find((f) => {
+        const fn = normalizarTermo(f.forca);
+        return fn.includes(tNorm) || tNorm.includes(fn);
+      });
+    }
+    if (found) {
+      const fNome = cleanStr(found.forca);
+      const fKey = normalizarTermo(fNome);
+      if (!addedForcasNorm.has(fKey)) {
+        addedForcasNorm.add(fKey);
+        forcasAplicadasList.push({
+          forca: fNome,
+          como_aparece: cleanStr(found.como_aparece),
+          valor_para_o_negocio: cleanStr(found.valor_para_o_negocio),
+          possivel_excesso: cleanStr(found.possivel_excesso),
+        });
+      }
+    }
+  };
+
+  const rawForcasTerms = (
+    forcasTxt || "Liderança, resultados, execução, disciplina e persistência"
+  )
+    .replace(/\./g, "")
+    .split(/[,;]|\s+e\s+/i)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  for (const ft of rawForcasTerms) {
+    tryAddForca(ft);
+  }
+  // Complementar com os eixos mais pontuados caso tenha menos de 5 forças
+  const sortedEixosEntries = Object.entries(scoreEixos).sort(
+    (a, b) => b[1] - a[1]
+  );
+  for (const [eNome] of sortedEixosEntries) {
+    if (forcasAplicadasList.length >= 5) break;
+    tryAddForca(eNome);
+  }
+  for (const [skNome] of sortedSkills) {
+    if (forcasAplicadasList.length >= 5) break;
+    tryAddForca(skNome);
+  }
+
+  // =========================================================================
+  // 3. RISCO COMPORTAMENTAL (da tabela `riscos_ampliado` do Supabase)
+  // =========================================================================
+  const rPriorNorm = normalizarTermo(riscoPriorTxt);
+  const dRiscoNorm = normalizarTermo(descRiscoTxt);
+  let matchedRisco = tables.riscosAmpliado.find(
+    (r) =>
+      (rPriorNorm &&
+        normalizarTermo(r.risco_prioritario) === rPriorNorm) ||
+      (dRiscoNorm &&
+        normalizarTermo(r.descricao_do_risco) === dRiscoNorm)
+  );
+  if (!matchedRisco && rPriorNorm) {
+    matchedRisco = tables.riscosAmpliado.find((r) => {
+      const rn = normalizarTermo(r.risco_prioritario);
+      return rn.includes(rPriorNorm) || rPriorNorm.includes(rn);
+    });
+  }
+  if (!matchedRisco) {
+    for (const dItem of detalhesAtributosList) {
+      const rp = normalizarTermo(dItem["Risco Prioritário"]);
+      if (rp && rp !== "n/d") {
+        matchedRisco = tables.riscosAmpliado.find(
+          (r) =>
+            normalizarTermo(r.risco_prioritario) === rp ||
+            normalizarTermo(r.risco_prioritario).includes(rp)
+        );
+        if (matchedRisco) break;
+      }
+    }
+  }
+
+  const riscoComportamentalObj = {
+    risco:
+      cleanStr(matchedRisco?.risco_prioritario) ||
+      riscoPriorTxt ||
+      "Centralização, sobrecarga operacional e baixa delegação.",
+    origem_provavel:
+      cleanStr(matchedRisco?.origem_provavel) ||
+      "Forte senso de responsabilidade pela entrega, padrão elevado de exigência e necessidade de controle de riscos.",
+    gatilhos:
+      cleanStr(matchedRisco?.gatilhos) ||
+      "Projetos críticos, pressão por prazos, percepção de baixa maturidade na execução alheia ou falta de alinhamento prévio.",
+    comportamentos_observaveis:
+      cleanStr(matchedRisco?.comportamentos_observaveis) ||
+      descRiscoTxt ||
+      "Assume tarefas operacionais diretamente, revisa excessivamente entregas e concentra decisões sob seu controle.",
+    impacto_potencial:
+      cleanStr(matchedRisco?.impacto_potencial) ||
+      "Sobrecarga da liderança, menor autonomia e escala da equipe e risco de gargalos decisórios.",
+    competencias_de_desenvolvimento:
+      cleanStr(matchedRisco?.competencias_de_desenvolvimento) ||
+      "Delegação estruturada, comunicação de expectativas, acompanhamento por checkpoints e desenvolvimento da equipe.",
+  };
+
   return {
     nome: nomeMembro,
     perfil_predominante: perfilPredominante,
@@ -1107,6 +1327,9 @@ function calcularDiagnosticoMembro(
     eixo_perfil_top: eixoPerfilTop,
     eixo_cat_top: eixoCatTop,
     maior_peso: maiorPeso,
+    kan_motivadores: kanMotivadoresObj,
+    forcas_aplicadas: forcasAplicadasList,
+    risco_comportamental: riscoComportamentalObj,
     // Admin Painel de Controle tables
     colunas_score: COLUNAS_SCORE,
     colunas_eixos_score: colunasEixosScore,

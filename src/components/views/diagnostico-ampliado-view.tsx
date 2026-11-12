@@ -55,6 +55,25 @@ export interface DiagnosticoAmpliadoResponse {
   eixo_perfil_top: string;
   eixo_cat_top: string;
   maior_peso: number;
+  kan_motivadores?: {
+    texto: string;
+    comportamentos_observaveis: string;
+    possivel_excesso: string;
+  };
+  forcas_aplicadas?: Array<{
+    forca: string;
+    como_aparece: string;
+    valor_para_o_negocio: string;
+    possivel_excesso: string;
+  }>;
+  risco_comportamental?: {
+    risco: string;
+    origem_provavel: string;
+    gatilhos: string;
+    comportamentos_observaveis: string;
+    impacto_potencial: string;
+    competencias_de_desenvolvimento: string;
+  };
   colunas_score: string[];
   colunas_eixos_score: string[];
   score_eixos_matrix: Record<string, Record<string, number>>;
@@ -369,6 +388,396 @@ export function DiagnosticoAmpliadoView({
       null
     );
   }, [talentos, diagInd, talentoSelNome, selectedTalento]);
+
+  const handleBaixarDiagnosticoPdf = () => {
+    if (!diagInd) return;
+    const printWin = window.open("", "_blank", "width=1024,height=900");
+    if (!printWin) return;
+
+    const esc = (s?: string | number | null) =>
+      String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+    const avatarUrl = talentoIndividualObj?.avatar
+      ? talentoIndividualObj.avatar.startsWith("http")
+        ? talentoIndividualObj.avatar
+        : `${window.location.origin}${talentoIndividualObj.avatar}`
+      : "";
+
+    const dataNasc = talentoIndividualObj?.data_nascimento || "";
+    const cargo = talentoIndividualObj?.cargo || "Especialista Corporativo";
+
+    const eixosBarsHtml = activeEixosRows
+      .map((row) => {
+        const isHigh = row.pts >= 300;
+        const isMed = row.pts >= 100 && row.pts < 300;
+        const barColor = isHigh ? "#f97316" : isMed ? "#eab308" : "#ef4444";
+        const textColor = isHigh ? "#c2410c" : isMed ? "#a16207" : "#dc2626";
+        const label = isHigh ? "Alta" : isMed ? "Média" : "Baixa";
+        const pct = Math.min(
+          100,
+          Math.max(4, Math.round((row.pts / refMaxScore) * 100))
+        );
+        return `
+          <div style="margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+              <span style="font-size:12px;font-weight:600;color:#1e293b;">${esc(row.nome)}</span>
+              <span style="font-size:11px;font-weight:700;color:${textColor};">${label}</span>
+            </div>
+            <div style="height:6px;width:100%;background:#e2e8f0;border-radius:999px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:${barColor};border-radius:999px;"></div>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    const skillsBarsHtml = top8SoftSkills
+      .map(([skNome, skPts]) => {
+        const isHigh = skPts >= 300;
+        const isMed = skPts >= 100 && skPts < 300;
+        const barColor = isHigh ? "#f97316" : isMed ? "#eab308" : "#ef4444";
+        const textColor = isHigh ? "#c2410c" : isMed ? "#a16207" : "#dc2626";
+        const label = isHigh ? "Alta" : isMed ? "Média" : "Baixa";
+        const pct =
+          skPts >= 100
+            ? Math.min(100, Math.max(4, Math.round((skPts / refMaxSk) * 100)))
+            : 4;
+        return `
+          <div style="margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;gap:8px;">
+              <span style="font-size:12px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(skNome)}</span>
+              <span style="font-size:11px;font-weight:700;color:${textColor};flex-shrink:0;">${label}</span>
+            </div>
+            <div style="height:6px;width:100%;background:#e2e8f0;border-radius:999px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:${barColor};border-radius:999px;"></div>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    const cards9EixosHtml = (diagInd.eixos_config || [])
+      .map((eItem) => {
+        const pts = diagInd.score_eixos[eItem.nome] || 0;
+        const isAlta = pts >= 300;
+        const isMedia = pts >= 100 && pts < 300;
+        const nivel = isAlta ? "ALTA" : isMedia ? "MÉDIA" : "BAIXA";
+        const badgeBg = isAlta
+          ? "#d1fae5"
+          : isMedia
+          ? "#fef3c7"
+          : "#f1f5f9";
+        const badgeText = isAlta
+          ? "#059669"
+          : isMedia
+          ? "#d97706"
+          : "#64748b";
+        const barColorD = isAlta
+          ? "#10b981"
+          : isMedia
+          ? "#f59e0b"
+          : "#64748b";
+        const barPctD =
+          pts > 0
+            ? Math.min(100, Math.max(8, Math.round((pts / maxEixoVal) * 100)))
+            : 4;
+        return `
+          <div style="border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-size:13px;font-weight:700;color:#0f172a;">${esc(eItem.nome)}</span>
+              <span style="background:${badgeBg};color:${badgeText};border-radius:10px;padding:2px 8px;font-size:10px;font-weight:800;letter-spacing:0.5px;">${nivel}</span>
+            </div>
+            <div style="font-size:11px;color:#64748b;line-height:1.35;min-height:30px;margin-bottom:8px;">
+              ${esc(eItem.desc)}
+            </div>
+            <div style="margin-bottom:6px;">
+              <span style="font-size:16px;font-weight:800;color:${barColorD};">${pts} <span style="font-size:11px;font-weight:500;color:#94a3b8;">pts</span></span>
+            </div>
+            <div style="height:7px;width:100%;background:#e2e8f0;border-radius:6px;overflow:hidden;">
+              <div style="height:100%;width:${barPctD}%;background:${barColorD};border-radius:6px;"></div>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    const forcasRowsHtml = (diagInd.forcas_aplicadas || [])
+      .map(
+        (f, idx, arr) => `
+          <tr style="${idx < arr.length - 1 ? "border-bottom:1px solid rgba(251,146,60,0.35);" : ""}">
+            <td style="padding:12px 14px;font-weight:700;color:#0f172a;border-right:1px solid rgba(251,146,60,0.35);background:rgba(251,146,60,0.03);width:20%;vertical-align:top;">
+              ${esc(f.forca)}
+            </td>
+            <td style="padding:12px 14px;color:#334155;border-right:1px solid rgba(251,146,60,0.35);width:27%;vertical-align:top;line-height:1.45;">
+              ${esc(f.como_aparece)}
+            </td>
+            <td style="padding:12px 14px;color:#334155;border-right:1px solid rgba(251,146,60,0.35);width:27%;vertical-align:top;line-height:1.45;">
+              ${esc(f.valor_para_o_negocio)}
+            </td>
+            <td style="padding:12px 14px;color:#475569;width:26%;vertical-align:top;line-height:1.45;">
+              ${esc(f.possivel_excesso)}
+            </td>
+          </tr>
+        `
+      )
+      .join("");
+
+    const riscoObj = diagInd.risco_comportamental || {
+      risco: diagInd.risco_prior,
+      origem_provavel:
+        "Forte senso de responsabilidade pela entrega, padrão elevado de exigência e necessidade de controle de riscos.",
+      gatilhos:
+        "Projetos críticos, pressão por prazos, percepção de baixa maturidade na execução alheia ou falta de alinhamento prévio.",
+      comportamentos_observaveis: diagInd.desc_risco,
+      impacto_potencial:
+        "Sobrecarga da liderança, menor autonomia e escala da equipe e risco de gargalos decisórios.",
+      competencias_de_desenvolvimento:
+        "Delegação estruturada, comunicação de expectativas, acompanhamento por checkpoints e desenvolvimento da equipe.",
+    };
+
+    const riscoRows = [
+      { campo: "Risco", valor: riscoObj.risco },
+      { campo: "Origem provável", valor: riscoObj.origem_provavel },
+      { campo: "Gatilhos", valor: riscoObj.gatilhos },
+      {
+        campo: "Comportamentos observáveis",
+        valor: riscoObj.comportamentos_observaveis,
+      },
+      { campo: "Impacto potencial", valor: riscoObj.impacto_potencial },
+      {
+        campo: "Competências de desenvolvimento",
+        valor: riscoObj.competencias_de_desenvolvimento,
+      },
+    ];
+
+    const riscoRowsHtml = riscoRows
+      .map(
+        (r, idx) => `
+          <tr style="${idx < riscoRows.length - 1 ? "border-bottom:1px solid rgba(251,146,60,0.35);" : ""}">
+            <td style="padding:12px 16px;font-weight:700;color:#0f172a;border-right:1px solid rgba(251,146,60,0.35);background:rgba(251,146,60,0.03);width:28%;vertical-align:top;">
+              ${esc(r.campo)}
+            </td>
+            <td style="padding:12px 16px;color:#334155;vertical-align:top;line-height:1.5;">
+              ${esc(r.valor)}
+            </td>
+          </tr>
+        `
+      )
+      .join("");
+
+    const htmlDoc = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Diagnóstico Individual - ${esc(diagInd.nome)}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      margin: 0;
+      padding: 24px 32px;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #0f172a;
+      background: #ffffff;
+    }
+    @page {
+      size: A4;
+      margin: 14mm 14mm;
+    }
+    .page-break {
+      page-break-before: always;
+    }
+    .avoid-break {
+      page-break-inside: avoid;
+    }
+  </style>
+</head>
+<body>
+  <!-- HEADER -->
+  <div style="display:flex;align-items:center;gap:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px 20px;margin-bottom:22px;">
+    ${
+      avatarUrl
+        ? `<img src="${esc(avatarUrl)}" alt="${esc(diagInd.nome)}" style="width:56px;height:56px;border-radius:999px;border:2.5px solid #ea580c;object-fit:cover;flex-shrink:0;" />`
+        : `<div style="width:56px;height:56px;border-radius:999px;border:2.5px solid #ea580c;background:#fff7ed;color:#ea580c;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;flex-shrink:0;">${esc(diagInd.nome.charAt(0))}</div>`
+    }
+    <div>
+      <div style="font-size:20px;font-weight:800;letter-spacing:-0.3px;color:#0f172a;">
+        Diagnóstico Individual: <span style="color:#ea580c;">${esc(diagInd.nome)}</span>
+      </div>
+      <div style="margin-top:4px;font-size:12px;color:#64748b;font-weight:500;">
+        ${dataNasc ? `Nascimento: <strong style="color:#1e293b;">${esc(dataNasc)}</strong> • ` : ""}${esc(cargo)}
+      </div>
+    </div>
+  </div>
+
+  <!-- SEÇÃO 1: RESUMO -->
+  <h2 style="font-size:15px;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;color:#0f172a;margin:0 0 12px 0;">
+    RESUMO
+  </h2>
+
+  <!-- BOX 4 QUADRANTES + KAN (ESTILO ONLINE BORDA LARANJA) -->
+  <div class="avoid-break" style="border:1.5px solid #fb923c;border-radius:14px;overflow:hidden;background:#ffffff;margin-bottom:20px;">
+    <table style="width:100%;border-collapse:collapse;">
+      <tbody>
+        <tr>
+          <td style="width:50%;padding:18px 20px;border-bottom:1px solid rgba(251,146,60,0.35);border-right:1px solid rgba(251,146,60,0.35);vertical-align:top;">
+            <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:6px;">🎯 Perfil Predominante</div>
+            <div style="font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-0.3px;">${esc(diagInd.perfil_predominante)}</div>
+            ${diagInd.resumo ? `<div style="margin-top:6px;font-size:12px;color:#64748b;line-height:1.45;">${esc(diagInd.resumo)}</div>` : ""}
+          </td>
+          <td style="width:50%;padding:18px 20px;border-bottom:1px solid rgba(251,146,60,0.35);vertical-align:top;">
+            <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:6px;">⚡ Forças Centrais</div>
+            <div style="font-size:13px;font-weight:700;color:#1e293b;line-height:1.5;">${esc(diagInd.forcas)}</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="width:50%;padding:18px 20px;border-bottom:1px solid rgba(251,146,60,0.35);border-right:1px solid rgba(251,146,60,0.35);vertical-align:top;">
+            <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:6px;">🧭 Contexto de Maior Aderência</div>
+            <div style="font-size:13px;font-weight:700;color:#1e293b;line-height:1.5;">${esc(diagInd.contexto)}</div>
+          </td>
+          <td style="width:50%;padding:18px 20px;border-bottom:1px solid rgba(251,146,60,0.35);vertical-align:top;">
+            <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px;">⚠️ Risco Prioritário</div>
+            ${diagInd.risco_prior ? `<div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:4px;">${esc(diagInd.risco_prior)}</div>` : ""}
+            <div style="font-size:12px;color:#475569;line-height:1.45;">${esc(diagInd.desc_risco)}</div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;background:rgba(251,146,60,0.04);padding:14px 20px;">
+      <div style="min-width:140px;">
+        <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:2px;">🔥 KAN</div>
+        <div style="font-size:18px;font-weight:800;color:#f97316;">${esc(diagInd.kan_nome)}</div>
+      </div>
+      <div style="flex:1;font-size:12px;color:#475569;line-height:1.45;border-left:1px solid rgba(251,146,60,0.3);padding-left:16px;">
+        ${esc(diagInd.kan_desc)}
+      </div>
+    </div>
+  </div>
+
+  <!-- DOIS CARDS LADO A LADO: EIXOS COMPORTAMENTAIS & SOFT SKILLS -->
+  <div class="avoid-break" style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:12px;">
+    <div style="border:1.5px solid #fb923c;border-radius:14px;padding:16px;background:#ffffff;">
+      <div style="font-size:14px;font-weight:800;color:#0f172a;">Eixos Comportamentais</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:12px;">${activeEixosRows.length} eixos</div>
+      ${eixosBarsHtml}
+    </div>
+    <div style="border:1.5px solid #38bdf8;border-radius:14px;padding:16px;background:#ffffff;">
+      <div style="font-size:14px;font-weight:800;color:#0f172a;">Soft Skills Predominantes</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:12px;">Top 8 soft skills</div>
+      ${skillsBarsHtml}
+    </div>
+  </div>
+
+  <p style="font-size:11px;color:#64748b;line-height:1.5;margin:0 0 24px 0;">
+    Resultado consolidado dos eixos predominantes (Perfil <strong>${esc(diagInd.perfil_top)}</strong> ➔ Eixo <strong>${esc(diagInd.eixo_perfil_top)}</strong> | Categoria <strong>${esc(diagInd.cat_top)}</strong> ➔ Eixo <strong>${esc(diagInd.eixo_cat_top)}</strong>). Classificação: <strong>Alta (Laranja)</strong>, <strong>Média (Amarelo)</strong> e <strong>Baixa (Vermelho)</strong>.
+  </p>
+
+  <!-- PÁGINA 2: DETALHAMENTO DOS 9 EIXOS + KAN E MOTIVADORES + FORÇAS APLICADAS -->
+  <div class="page-break"></div>
+
+  <div class="avoid-break" style="border:1px solid #e2e8f0;border-radius:14px;padding:18px;background:#ffffff;margin-bottom:24px;">
+    <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:14px;">
+      Detalhamento dos 9 Eixos em Cards e Níveis
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;">
+      ${cards9EixosHtml}
+    </div>
+  </div>
+
+  <!-- KAN E MOTIVADORES / COMPORTAMENTOS OBSERVÁVEIS / POSSÍVEL EXCESSO -->
+  <div class="avoid-break" style="border:1.5px solid #fb923c;border-radius:14px;overflow:hidden;background:#ffffff;margin-bottom:24px;">
+    <div style="background:rgba(251,146,60,0.06);border-bottom:1px solid rgba(251,146,60,0.35);padding:12px 18px;">
+      <span style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;color:#ea580c;">
+        KAN e Motivadores — ${esc(diagInd.kan_nome)}
+      </span>
+    </div>
+    <div style="padding:16px 18px;display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:4px;">KAN e Motivadores</div>
+        <div style="font-size:12px;color:#334155;line-height:1.55;">
+          ${esc(diagInd.kan_motivadores?.texto || diagInd.kan_desc)}
+        </div>
+      </div>
+      <div style="border-top:1px solid rgba(251,146,60,0.25);padding-top:12px;">
+        <div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:4px;">Comportamentos Observáveis</div>
+        <div style="font-size:12px;color:#334155;line-height:1.55;">
+          ${esc(diagInd.kan_motivadores?.comportamentos_observaveis || "")}
+        </div>
+      </div>
+      <div style="border-top:1px solid rgba(251,146,60,0.25);padding-top:12px;">
+        <div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:4px;">Possível excesso</div>
+        <div style="font-size:12px;color:#334155;line-height:1.55;">
+          ${esc(diagInd.kan_motivadores?.possivel_excesso || "")}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FORÇAS APLICADAS (FORMATADA COMO A TABELA RESUMO) -->
+  <div class="avoid-break" style="margin-bottom:24px;">
+    <h3 style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#0f172a;margin:0 0 10px 0;">
+      Forças Aplicadas
+    </h3>
+    <div style="border:1.5px solid #fb923c;border-radius:14px;overflow:hidden;background:#ffffff;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;text-align:left;">
+        <thead>
+          <tr style="border-bottom:1.5px solid rgba(251,146,60,0.45);background:rgba(251,146,60,0.08);">
+            <th style="padding:11px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#ea580c;border-right:1px solid rgba(251,146,60,0.35);">Força</th>
+            <th style="padding:11px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#ea580c;border-right:1px solid rgba(251,146,60,0.35);">Como aparece</th>
+            <th style="padding:11px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#ea580c;border-right:1px solid rgba(251,146,60,0.35);">Valor para o negócio</th>
+            <th style="padding:11px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#ea580c;">Possível excesso</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${forcasRowsHtml}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- RISCO COMPORTAMENTAL (FORMATADO COMO A TABELA RESUMO) -->
+  <div class="avoid-break" style="margin-bottom:16px;">
+    <h3 style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#0f172a;margin:0 0 10px 0;">
+      Risco Comportamental
+    </h3>
+    <div style="border:1.5px solid #fb923c;border-radius:14px;overflow:hidden;background:#ffffff;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;text-align:left;">
+        <thead>
+          <tr style="border-bottom:1.5px solid rgba(251,146,60,0.45);background:rgba(251,146,60,0.08);">
+            <th style="padding:11px 16px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#ea580c;border-right:1px solid rgba(251,146,60,0.35);width:28%;">Campo</th>
+            <th style="padding:11px 16px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#ea580c;">Leitura KAN</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${riscoRowsHtml}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        window.focus();
+        window.print();
+      }, 350);
+    });
+  </script>
+</body>
+</html>`;
+
+    printWin.document.open();
+    printWin.document.write(htmlDoc);
+    printWin.document.close();
+  };
 
   return (
     <div className="space-y-6">
@@ -1040,11 +1449,25 @@ export function DiagnosticoAmpliadoView({
                 )}
               </div>
             </div>
-            {loadingInd && (
-              <span className="text-xs text-slate-400 animate-pulse">
-                Carregando diagnóstico ampliado...
-              </span>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {loadingInd && (
+                <span className="text-xs text-slate-400 animate-pulse">
+                  Carregando diagnóstico ampliado...
+                </span>
+              )}
+              {diagInd && !loadingInd && (
+                <Button
+                  type="button"
+                  variant="orange"
+                  size="sm"
+                  onClick={handleBaixarDiagnosticoPdf}
+                  className="gap-2 font-bold shadow-xs"
+                >
+                  <Download className="h-4 w-4" />
+                  Baixar Diagnóstico Completo PDF
+                </Button>
+              )}
+            </div>
           </div>
 
           {diagInd && (
