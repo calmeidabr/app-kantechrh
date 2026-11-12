@@ -10,6 +10,16 @@ export interface SoftSkillScore {
   cor: string;
 }
 
+export interface DetalheAtributoAuditoria {
+  campo: string;
+  valor: string | number;
+  atributo: string;
+  perfil: string;
+  categoria: string;
+  qualidade: string;
+  soft_skills: string;
+}
+
 export type KanType = "Criação" | "Movimento" | "Finalidade";
 
 export interface TalentoProfile {
@@ -45,6 +55,7 @@ export interface TalentoProfile {
   valores_mapa?: Record<string, string>;
   scores_eixos?: Record<string, number>;
   soft_skills_compativeis?: string[];
+  detalhamento_atributos?: DetalheAtributoAuditoria[];
 }
 
 export interface EquipeMember {

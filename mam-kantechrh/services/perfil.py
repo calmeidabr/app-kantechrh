@@ -413,6 +413,48 @@ def realizar_calculos_completos(
     score_qual_df = pd.DataFrame(0, index=lista_quals, columns=colunas_score)
     dados_auditoria_qual = []
 
+def determinar_soft_skills_linha(perfil: str, categoria: str, qualidade: str, atributo: str = "", campo: str = "") -> str:
+    """Mapeia soft skills metodológicas para a linha de detalhamento dos atributos."""
+    p = remover_acentos(str(perfil or "")).upper()
+    c = remover_acentos(str(categoria or "")).upper()
+    q = remover_acentos(str(qualidade or "")).upper()
+    a = remover_acentos(str(atributo or "")).upper()
+
+    skills = []
+    if "COMUNIC" in q or "COMUNIC" in p:
+        skills.extend(["Comunicação eficaz", "Comunicação assertiva", "Escuta ativa"])
+    if "RELACIONAM" in q or "RELACIONAM" in p:
+        skills.extend(["Relacionamento interpessoal", "Empatia", "Trabalho em equipe"])
+    if "EXECU" in q or "EXECU" in p or "RESULT" in p:
+        skills.extend(["Produtividade", "Disciplina", "Gestão do tempo"])
+    if "ORGANIZ" in q or "ORGANIZ" in c:
+        skills.extend(["Organização", "Gestão do tempo", "Atenção / foco"])
+    if "ANALIS" in q or "ANALIT" in c:
+        skills.extend(["Pensamento crítico", "Resolução de problemas", "Atenção / foco"])
+    if "LIDER" in p or "JUSTI" in q:
+        skills.extend(["Liderança", "Tomada de decisão", "Ética / responsabilidade"])
+    if "COLETIV" in q or "COOPER" in a:
+        skills.extend(["Colaboração", "Trabalho em equipe", "Inteligência emocional"])
+    if "VERSATIL" in q or "VERSATIL" in c:
+        skills.extend(["Adaptabilidade / flexibilidade", "Proatividade", "Resiliência"])
+    if "CRIATIV" in p or "INOV" in c or "INOV" in a:
+        skills.extend(["Criatividade", "Inovação / melhoria contínua", "Visão sistêmica"])
+    if "VENDED" in p or "PERSUAS" in a:
+        skills.extend(["Comunicação assertiva", "Proatividade", "Resiliência"])
+    if "INFLUEN" in p or "MAGNET" in c:
+        skills.extend(["Comunicação eficaz", "Relacionamento interpessoal", "Liderança"])
+
+    dedup = []
+    for s in skills:
+        if s not in dedup:
+            dedup.append(s)
+
+    if not dedup:
+        dedup = ["Adaptabilidade / flexibilidade", "Trabalho em equipe", "Proatividade"]
+
+    return ", ".join(dedup[:3])
+
+
     for campo_q in colunas_score:
         val_q = valores_originais_score.get(campo_q)
         if val_q is None:
@@ -446,7 +488,7 @@ def realizar_calculos_completos(
                     or get_from_row(ri_q, "area de suporte")
                     or get_from_row(ri_q, "categoria")
                 )
-                attr_t_q = "Tabela Repetição"
+                attr_t_q = f"Repetição {val_q}"
 
         if qual_en:
             qn = remover_acentos(str(qual_en).strip()).upper()
@@ -455,14 +497,26 @@ def realizar_calculos_completos(
                     score_qual_df.at[idx_name, campo_q] += int(PESO_DB.get(campo_q, 1))
                     break
 
+        attr_display = attr_t_q if (attr_t_q and attr_t_q != "NAN") else "N/A"
+        soft_skills_str = determinar_soft_skills_linha(p_v, c_v, qual_en, attr_display, campo_q)
+
         dados_auditoria_qual.append(
             {
                 "Campo": campo_q,
+                "campo": campo_q,
                 "Valor": str(val_q),
-                "Matriz": attr_t_q if attr_t_q else "N/A",
+                "valor": str(val_q),
+                "Matriz": attr_display,
+                "Atributo": attr_display,
+                "atributo": attr_display,
                 "Perfil": str(p_v),
+                "perfil": str(p_v),
                 "Categoria": str(c_v),
+                "categoria": str(c_v),
                 "Qualidade": str(qual_en) if qual_en else "N/A",
+                "qualidade": str(qual_en) if qual_en else "N/A",
+                "Soft Skills": soft_skills_str,
+                "soft_skills": soft_skills_str,
             }
         )
 
@@ -591,3 +645,12 @@ def realizar_calculos_completos(
         score_qual_df.to_dict(orient="index"),
         dados_auditoria_qual,
     )
+
+
+def obter_detalhamento_atributos_talento(nome: str, data_nascimento: str) -> list:
+    """Executa o processamento do perfil e retorna a tabela Detalhamento dos Atributos."""
+    try:
+        res = processar_perfil_completo(nome, data_nascimento, "", "")
+        return res[12] if len(res) > 12 else []
+    except Exception:
+        return []

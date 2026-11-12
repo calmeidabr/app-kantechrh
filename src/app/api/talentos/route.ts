@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin, callMamEngine, normalizeKey } from "@/lib/supabase";
-import { TALENTOS_MOCK, TalentoProfile, KanType } from "@/lib/mock-data";
+import { TALENTOS_MOCK, TalentoProfile, KanType, DetalheAtributoAuditoria } from "@/lib/mock-data";
 import { invalidateDiagnosticoCache } from "@/lib/diagnostico-cache";
 import { invalidateFotoCache, setFotoCache } from "@/lib/foto-cache";
 
@@ -86,6 +86,7 @@ function mapSupabaseRowToTalento(
   let qualidadesLista: string[] = [];
   const indicadoresPerfil: { Campo: string; Valor: string; Descricao: string }[] = [];
   const mapaDetalhado: Record<string, string> = {};
+  const detalhamentoAtributos: DetalheAtributoAuditoria[] = [];
 
   if (typeof pJsonRaw === "string" && pJsonRaw.trim().startsWith("[")) {
     try {
@@ -164,6 +165,38 @@ function mapSupabaseRowToTalento(
               Descricao: rawDesc || "Fator de atenção para gestão de liderança.",
             });
           }
+        } else if (
+          campoOrig === "DetalhamentoAtributosJSON" &&
+          typeof rawVal === "string" &&
+          rawVal.trim().startsWith("[")
+        ) {
+          try {
+            const list = JSON.parse(rawVal) as Array<Record<string, unknown>>;
+            for (const itemD of list) {
+              detalhamentoAtributos.push({
+                campo: cleanStr(itemD.campo || itemD.Campo),
+                valor: cleanStr(itemD.valor || itemD.Valor),
+                atributo: cleanStr(itemD.atributo || itemD.Atributo || itemD.Matriz),
+                perfil: cleanStr(itemD.perfil || itemD.Perfil),
+                categoria: cleanStr(itemD.categoria || itemD.Categoria),
+                qualidade: cleanStr(itemD.qualidade || itemD.Qualidade),
+                soft_skills: cleanStr(itemD.soft_skills || itemD["Soft Skills"]),
+              });
+            }
+          } catch {
+            // ignore
+          }
+        } else if (campoOrig.startsWith("Detalhamento:")) {
+          const nomeCampo = campoOrig.replace("Detalhamento:", "").trim();
+          detalhamentoAtributos.push({
+            campo: nomeCampo,
+            valor: rawVal,
+            atributo: cleanStr(item.Atributo || item.Resultado || item.Matriz),
+            perfil: cleanStr(item.Perfil),
+            categoria: cleanStr(item.Categoria),
+            qualidade: cleanStr(item.Qualidade),
+            soft_skills: cleanStr(item.SoftSkills || item.soft_skills || item["Soft Skills"]),
+          });
         } else if (campoOrig.includes("Mapa:")) {
           const k = campoOrig.split("Mapa:")[1]?.trim();
           if (k && rawVal) mapaDetalhado[k] = rawVal;
@@ -346,6 +379,8 @@ function mapSupabaseRowToTalento(
     ai_diagnosis: aiParagraphs,
     tenant_id: cleanStr(row.tenant_id, "00000000-0000-0000-0000-000000000000"),
     valores_mapa: valoresMapa,
+    detalhamento_atributos:
+      detalhamentoAtributos.length > 0 ? detalhamentoAtributos : undefined,
   };
 }
 

@@ -8,7 +8,7 @@ from starlette.requests import Request
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from services.perfil import realizar_calculos_completos
+from services.perfil import realizar_calculos_completos, obter_detalhamento_atributos_talento
 from services.harmonia import obter_vertices_triangulo, calcular_harmonia_trio
 from services.reference_data import normalize_key
 from services.calculos_app import (
@@ -115,6 +115,39 @@ def _build_full_calculation(
             }
         )
 
+    # Detalhamento dos Atributos para Auditoria (rastreabilidade metodológica do cálculo)
+    for item_aud in auditoria_qual:
+        campo_aud = str(item_aud.get("Campo") or item_aud.get("campo") or "")
+        attr_aud = str(item_aud.get("Atributo") or item_aud.get("Matriz") or item_aud.get("atributo") or "")
+        perf_aud = str(item_aud.get("Perfil") or item_aud.get("perfil") or "")
+        cat_aud = str(item_aud.get("Categoria") or item_aud.get("categoria") or "")
+        qual_aud = str(item_aud.get("Qualidade") or item_aud.get("qualidade") or "")
+        soft_aud = str(item_aud.get("Soft Skills") or item_aud.get("soft_skills") or "")
+        val_aud = str(item_aud.get("Valor") or item_aud.get("valor") or "")
+
+        dados_para_salvar.append(
+            {
+                "Campo": f"Detalhamento: {campo_aud}",
+                "Valor": val_aud,
+                "Atributo": attr_aud,
+                "Perfil": perf_aud,
+                "Categoria": cat_aud,
+                "Qualidade": qual_aud,
+                "SoftSkills": soft_aud,
+                "Resultado": attr_aud,
+                "Descricao": f"Atributo: {attr_aud} | Perfil: {perf_aud} | Categoria: {cat_aud} | Qualidade: {qual_aud} | Soft Skills: {soft_aud}",
+            }
+        )
+
+    dados_para_salvar.append(
+        {
+            "Campo": "DetalhamentoAtributosJSON",
+            "Valor": json.dumps(auditoria_qual, ensure_ascii=False),
+            "Descricao": "Detalhamento completo dos atributos e soft skills para auditoria",
+            "Resultado": "OK",
+        }
+    )
+
     # Monta valores_resumo compatível com public.mapas_salvos_valores
     mapa_lookup = {}
     for item in dados:
@@ -169,9 +202,10 @@ def _build_full_calculation(
         "perfil_json": json.dumps(dados_para_salvar, ensure_ascii=False),
         "valores_resumo": valores_resumo,
         "score_df_calc": score_df_dict,
-        "score_cat_df": score_cat_dict,
+        "score_cat_df": score_cat_df_dict if "score_cat_df_dict" in locals() else score_cat_dict,
         "score_qual_df": score_qual_dict,
         "auditoria_qualidades": auditoria_qual,
+        "detalhamento_atributos": auditoria_qual,
     }
 
 
@@ -257,6 +291,7 @@ async def api_enriquecer_talentos_lote(request: Request):
         body = await request.json()
         talentos = body.get("talentos", [])
         incluir_vertices = bool(body.get("incluir_vertices", True))
+        incluir_detalhamento = bool(body.get("incluir_detalhamento", False))
         items = []
         for t in talentos:
             nome = str(t.get("nome") or "").strip()
@@ -276,8 +311,30 @@ async def api_enriquecer_talentos_lote(request: Request):
                     item["kan_nome"] = kan_str
                 except Exception:
                     pass
+            if incluir_detalhamento and nome:
+                try:
+                    item["detalhamento_atributos"] = obter_detalhamento_atributos_talento(nome, nasc)
+                except Exception:
+                    pass
             items.append(item)
         return JSONResponse({"processed": len(items), "items": items})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def api_detalhamento_atributos(request: Request):
+    """Calcula e retorna a tabela Detalhamento dos Atributos rastreando toda a metodologia KAN."""
+    try:
+        body = await request.json()
+        nome = str(body.get("nome") or "").strip()
+        data_nascimento = str(body.get("data_nascimento") or "").strip()
+        if not nome or not data_nascimento:
+            return JSONResponse(
+                {"error": "Campos nome e data_nascimento são obrigatórios."},
+                status_code=400,
+            )
+        detalhes = obter_detalhamento_atributos_talento(nome, data_nascimento)
+        return JSONResponse({"detalhamento_atributos": detalhes})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
@@ -342,6 +399,11 @@ app = Starlette(
         Route(
             "/api/v1/enriquecer-talentos-lote",
             api_enriquecer_talentos_lote,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/v1/detalhamento-atributos",
+            api_detalhamento_atributos,
             methods=["POST"],
         ),
         Route("/api/v1/calcular-match-vaga", api_calcular_match_vaga, methods=["POST"]),

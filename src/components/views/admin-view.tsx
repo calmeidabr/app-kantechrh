@@ -39,6 +39,7 @@ import {
   EquipeData,
   KAN_OPCOES,
   PERFIS_OPCOES,
+  DetalheAtributoAuditoria,
 } from "@/lib/mock-data";
 import { KanTrianglesSvg } from "@/components/kan-triangles-svg";
 import { DiagnosticoAmpliadoView } from "@/components/views/diagnostico-ampliado-view";
@@ -201,6 +202,15 @@ export function PainelControleView({
   const [batchSyncSuccess, setBatchSyncSuccess] = useState<string | null>(null);
   const [auditFilterKan, setAuditFilterKan] = useState<string>("");
   const [auditFilterPerfil, setAuditFilterPerfil] = useState<string>("");
+  const [auditDetalhamento, setAuditDetalhamento] = useState<
+    DetalheAtributoAuditoria[]
+  >([]);
+  const [loadingDetalhamento, setLoadingDetalhamento] = useState(false);
+  const [syncingDetalhamentoSupabase, setSyncingDetalhamentoSupabase] =
+    useState(false);
+  const [syncDetalhamentoFeedback, setSyncDetalhamentoFeedback] = useState<
+    string | null
+  >(null);
 
   // State: Mapa Numerológico
   const [mapaTalentoId, setMapaTalentoId] = useState<string>(
@@ -390,6 +400,80 @@ export function PainelControleView({
       setBatchSyncSuccess(
         `${talentos.length} mapas recalculados via container interno mam-kantechrh e sincronizados em public.mapas_salvos_valores!`
       );
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab !== "auditoria" || !auditTalento) return;
+
+    if (
+      auditTalento.detalhamento_atributos &&
+      auditTalento.detalhamento_atributos.length > 0
+    ) {
+      setAuditDetalhamento(auditTalento.detalhamento_atributos);
+      return;
+    }
+
+    let active = true;
+    async function carregarDetalhamento() {
+      setLoadingDetalhamento(true);
+      try {
+        const res = await fetch("/api/calculos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "detalhamento-atributos",
+            payload: {
+              nome: auditTalento.nome,
+              data_nascimento: auditTalento.data_nascimento,
+            },
+          }),
+        });
+        const data = await res.json();
+        if (active && data?.result?.detalhamento_atributos) {
+          setAuditDetalhamento(data.result.detalhamento_atributos);
+        }
+      } catch (e) {
+        console.error("Erro ao carregar detalhamento dos atributos:", e);
+      } finally {
+        if (active) setLoadingDetalhamento(false);
+      }
+    }
+
+    carregarDetalhamento();
+    return () => {
+      active = false;
+    };
+  }, [activeTab, auditTalento]);
+
+  const handleSincronizarDetalhamentoSupabase = async () => {
+    if (!auditTalento) return;
+    setSyncingDetalhamentoSupabase(true);
+    setSyncDetalhamentoFeedback(null);
+    try {
+      const res = await fetch("/api/calculos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "detalhamento-atributos",
+          payload: {
+            nome: auditTalento.nome,
+            data_nascimento: auditTalento.data_nascimento,
+            salvar_supabase: true,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (data?.result?.detalhamento_atributos) {
+        setAuditDetalhamento(data.result.detalhamento_atributos);
+      }
+      setSyncDetalhamentoFeedback(
+        "Detalhamento dos atributos persistido com sucesso na tabela public.mapas_salvos no Supabase!"
+      );
+    } catch {
+      setSyncDetalhamentoFeedback("Erro ao sincronizar detalhamento com Supabase.");
+    } finally {
+      setSyncingDetalhamentoSupabase(false);
     }
   };
 
@@ -1253,11 +1337,217 @@ export function PainelControleView({
                 ))}
               </div>
 
-              {/* Score Perfil Matrix Table */}
+              {/* 1. TABELA DETALHAMENTO DOS ATRIBUTOS (Rastreabilidade Metodológica do Diagnóstico - app.mundokan.com.br) */}
+              <div className="space-y-3 rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900/60">
+                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                        Detalhamento dos Atributos
+                      </h4>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] font-semibold text-[#510851] border-[#510851]/40"
+                      >
+                        Rastreabilidade do Diagnóstico
+                      </Badge>
+                      <Badge variant="secondary" className="text-[10px]">
+                        mam-kantechrh
+                      </Badge>
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Decomposição do cálculo numérico dos campos metodológicos e
+                      mapeamento dos atributos para perfil, categoria, qualidade e
+                      soft skills.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSincronizarDetalhamentoSupabase}
+                      disabled={
+                        syncingDetalhamentoSupabase || loadingDetalhamento
+                      }
+                      className="h-8 gap-1.5 text-xs font-semibold"
+                    >
+                      <Database
+                        className={`h-3.5 w-3.5 ${
+                          syncingDetalhamentoSupabase
+                            ? "animate-spin"
+                            : "text-[#510851]"
+                        }`}
+                      />
+                      {syncingDetalhamentoSupabase
+                        ? "Gravando no Supabase..."
+                        : "Salvar no Supabase (mapas_salvos)"}
+                    </Button>
+                  </div>
+                </div>
+
+                {syncDetalhamentoFeedback && (
+                  <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800 dark:border-emerald-800/40 dark:bg-emerald-950/30 dark:text-emerald-300">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>{syncDetalhamentoFeedback}</span>
+                  </div>
+                )}
+
+                {loadingDetalhamento ? (
+                  <div className="flex items-center justify-center gap-2 py-8 text-xs text-muted-foreground">
+                    <RefreshCw className="h-4 w-4 animate-spin text-[#510851]" />
+                    <span>
+                      Calculando decomposição de atributos via container seguro
+                      mam-kantechrh...
+                    </span>
+                  </div>
+                ) : auditDetalhamento.length > 0 ? (
+                  <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 dark:bg-slate-800/60 text-[11px] uppercase tracking-wider text-muted-foreground">
+                        <tr>
+                          <th className="px-3 py-2.5 font-bold">Campo</th>
+                          <th className="px-2 py-2.5 text-center font-bold">
+                            Cálculo Numérico
+                          </th>
+                          <th className="px-3 py-2.5 font-bold">Atributo</th>
+                          <th className="px-3 py-2.5 font-bold">Perfil</th>
+                          <th className="px-3 py-2.5 font-bold">Categoria</th>
+                          <th className="px-3 py-2.5 font-bold">Qualidade</th>
+                          <th className="px-3 py-2.5 font-bold">Soft Skills</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                        {auditDetalhamento.map((item, idx) => {
+                          const perfilNorm = String(item.perfil || "").trim();
+                          const getPerfilBadgeClass = (p: string) => {
+                            const pl = p.toLowerCase();
+                            if (pl.includes("líder") || pl.includes("lider"))
+                              return "bg-[#510851] text-white";
+                            if (pl.includes("resultado"))
+                              return "bg-[#ea580c] text-white";
+                            if (pl.includes("executor"))
+                              return "bg-violet-600 text-white";
+                            if (pl.includes("criativo"))
+                              return "bg-emerald-600 text-white";
+                            if (pl.includes("comunicador"))
+                              return "bg-indigo-600 text-white";
+                            if (pl.includes("influenciador"))
+                              return "bg-amber-500 text-slate-900";
+                            if (pl.includes("vendedor"))
+                              return "bg-pink-600 text-white";
+                            return "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200";
+                          };
+
+                          const softSkillsList = String(item.soft_skills || "")
+                            .split(",")
+                            .map((s) => s.trim())
+                            .filter(Boolean);
+
+                          return (
+                            <tr
+                              key={`${item.campo}-${idx}`}
+                              className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                            >
+                              <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                                <span className="font-semibold">{item.campo}</span>
+                              </td>
+                              <td className="px-2 py-2 text-center whitespace-nowrap">
+                                <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#ea580c]/10 px-2 font-mono text-xs font-bold text-[#ea580c] border border-[#ea580c]/30">
+                                  {item.valor || "-"}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 font-mono text-xs font-bold uppercase tracking-tight text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                                {item.atributo || "N/A"}
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                {item.perfil && item.perfil !== "N/A" ? (
+                                  <Badge
+                                    className={`text-[10px] font-semibold ${getPerfilBadgeClass(
+                                      perfilNorm
+                                    )}`}
+                                  >
+                                    {item.perfil}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-[11px]">
+                                    -
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                {item.categoria && item.categoria !== "N/A" ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] font-medium border-slate-300 dark:border-slate-700"
+                                  >
+                                    {item.categoria}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-[11px]">
+                                    -
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                {item.qualidade && item.qualidade !== "N/A" ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-[10px] font-medium"
+                                  >
+                                    {item.qualidade}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-[11px]">
+                                    -
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2">
+                                <div className="flex flex-wrap gap-1">
+                                  {softSkillsList.length > 0 ? (
+                                    softSkillsList.map((skill, sIdx) => (
+                                      <span
+                                        key={sIdx}
+                                        className="inline-flex items-center rounded-md bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 text-[10px] font-medium text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/40"
+                                      >
+                                        {skill}
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="text-muted-foreground text-[11px]">
+                                      -
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 dark:border-slate-700 py-6 text-center">
+                    <p className="text-xs text-muted-foreground">
+                      Nenhum detalhamento carregado ainda para este talento.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSincronizarDetalhamentoSupabase()}
+                      className="mt-2 text-xs"
+                    >
+                      Calcular Detalhamento no mam-kantechrh
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Score Perfil Matrix Table */}
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-[#510851] dark:text-purple-300">
-                    1. Matriz de Auditoria — Score Perfil (`score_df_calc`)
+                    2. Matriz de Auditoria — Score Perfil (`score_df_calc`)
                   </h4>
                   <Badge className="bg-[#510851] text-white">
                     Selecionado: {auditTalento.perfis_lista.join(", ")}
