@@ -1166,8 +1166,8 @@ export function DiagnosticoAmpliadoView({
                   <div className="space-y-2.5">
                     {activeEixosRows.length > 0 ? (
                       activeEixosRows.map((row) => {
-                        const isHigh = row.pts >= 400;
-                        const isMed = row.pts >= 100 && row.pts < 400;
+                        const isHigh = row.pts >= 300;
+                        const isMed = row.pts >= 100 && row.pts < 300;
                         const barColor = isHigh
                           ? "#f97316"
                           : isMed
@@ -1226,8 +1226,8 @@ export function DiagnosticoAmpliadoView({
                   <div className="space-y-2.5">
                     {top8SoftSkills.length > 0 ? (
                       top8SoftSkills.map(([skNome, skPts]) => {
-                        const isHigh = skPts >= 400;
-                        const isMed = skPts >= 100 && skPts < 400;
+                        const isHigh = skPts >= 300;
+                        const isMed = skPts >= 100 && skPts < 300;
                         const barColor = isHigh
                           ? "#f97316"
                           : isMed
@@ -1382,6 +1382,17 @@ export function DiagnosticoAmpliadoView({
                             </div>
                             <div className="mb-2.5 h-8 overflow-hidden text-xs leading-snug text-slate-500 dark:text-slate-400">
                               {eItem.desc}
+                            </div>
+                            <div className="mb-1.5 flex items-baseline justify-between">
+                              <span
+                                className="text-lg font-extrabold"
+                                style={{ color: barColorD }}
+                              >
+                                {pts}{" "}
+                                <span className="text-xs font-medium text-slate-400">
+                                  pts
+                                </span>
+                              </span>
                             </div>
                             <div className="h-2 w-full overflow-hidden rounded-md bg-slate-200 dark:bg-slate-800">
                               <div
