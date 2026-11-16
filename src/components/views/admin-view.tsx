@@ -1307,10 +1307,7 @@ export function PainelControleView({
                     Auditoria Técnica de Scores e Decomposição de Cálculo
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Inspeção de pesos por indicador (`Motivação`, `Impressão`,
-                    `Expressão`, `Destino`, `Missão`, `Dia Natalício`,
-                    `Triângulo`, `Psíquico`, `Estrutural`, `Direcionamento`,
-                    `Repetição 1 & 2`)
+                    Inspeção de pesos por indicador
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1334,7 +1331,7 @@ export function PainelControleView({
                   >
                     {talentos.map((t) => (
                       <option key={t.id} value={t.id}>
-                        Auditar: {t.nome} ({t.kan_nome})
+                        {t.nome}
                       </option>
                     ))}
                   </select>
