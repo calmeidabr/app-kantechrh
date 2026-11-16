@@ -43,13 +43,7 @@ function resolveCoord(valNum: number): [number, number] | null {
   if (valNum in COORDS_MAP) {
     return COORDS_MAP[valNum];
   }
-  const valReduz = String(Math.abs(valNum))
-    .split("")
-    .reduce((acc, d) => acc + (parseInt(d, 10) || 0), 0);
-  if (valReduz in COORDS_MAP) {
-    return COORDS_MAP[valReduz];
-  }
-  return null;
+  return COORDS_MAP[9];
 }
 
 export interface TriangleMemberInput {

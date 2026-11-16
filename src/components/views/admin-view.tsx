@@ -206,6 +206,23 @@ export function PainelControleView({
   const [auditDetalhamento, setAuditDetalhamento] = useState<
     DetalheAtributoAuditoria[]
   >([]);
+  const [auditScorePerfis, setAuditScorePerfis] = useState<
+    Array<{
+      perfil: string;
+      motivacao: number;
+      impressao: number;
+      expressao: number;
+      destino: number;
+      missao: number;
+      dia_natalicio?: number;
+      triangulo?: number;
+      psiquico?: number;
+      estrutural: number;
+      direcionamento: number;
+      repeticao: number;
+      total: number;
+    }>
+  >([]);
   const [loadingDetalhamento, setLoadingDetalhamento] = useState(false);
   const [syncingDetalhamentoSupabase, setSyncingDetalhamentoSupabase] =
     useState(false);
@@ -423,14 +440,18 @@ export function PainelControleView({
   useEffect(() => {
     if (activeTab !== "auditoria" || !auditTalento) return;
 
-    if (isDetalhamentoCompleto(auditTalento.detalhamento_atributos)) {
+    const jaPossuiDetalhamento = isDetalhamentoCompleto(
+      auditTalento.detalhamento_atributos
+    );
+    if (jaPossuiDetalhamento && auditTalento.detalhamento_atributos) {
       setAuditDetalhamento(auditTalento.detalhamento_atributos);
-      return;
     }
 
     let active = true;
     async function carregarDetalhamento() {
-      setLoadingDetalhamento(true);
+      if (!jaPossuiDetalhamento) {
+        setLoadingDetalhamento(true);
+      }
       try {
         const res = await fetch("/api/calculos", {
           method: "POST",
@@ -451,21 +472,22 @@ export function PainelControleView({
         });
         const data = await res.json();
         const itens = data?.result?.detalhamento_atributos;
-        if (
-          active &&
-          data?.success &&
-          Array.isArray(itens) &&
-          itens.length > 0
-        ) {
-          setAuditDetalhamento(itens);
-          if (setTalentos) {
-            setTalentos((prev) =>
-              prev.map((t) =>
-                t.id === auditTalento.id
-                  ? { ...t, detalhamento_atributos: itens }
-                  : t
-              )
-            );
+        const scoresPerf = data?.result?.score_perfis;
+        if (active && data?.success) {
+          if (Array.isArray(scoresPerf)) {
+            setAuditScorePerfis(scoresPerf);
+          }
+          if (Array.isArray(itens) && itens.length > 0) {
+            setAuditDetalhamento(itens);
+            if (setTalentos && !jaPossuiDetalhamento) {
+              setTalentos((prev) =>
+                prev.map((t) =>
+                  t.id === auditTalento.id
+                    ? { ...t, detalhamento_atributos: itens }
+                    : t
+                )
+              );
+            }
           }
         }
       } catch (e) {
@@ -506,6 +528,10 @@ export function PainelControleView({
       });
       const data = await res.json();
       const itens = data?.result?.detalhamento_atributos;
+      const scoresPerf = data?.result?.score_perfis;
+      if (Array.isArray(scoresPerf)) {
+        setAuditScorePerfis(scoresPerf);
+      }
       if (data?.success && Array.isArray(itens) && itens.length > 0) {
         setAuditDetalhamento(itens);
         if (setTalentos) {
@@ -1567,27 +1593,26 @@ export function PainelControleView({
                     <thead className="bg-muted/60 text-[11px] uppercase text-muted-foreground">
                       <tr>
                         <th className="px-3 py-2">Perfil</th>
-                        <th className="px-2 py-2 text-center">Motiv. (20)</th>
-                        <th className="px-2 py-2 text-center">Impr. (10)</th>
-                        <th className="px-2 py-2 text-center">Expr. (20)</th>
-                        <th className="px-2 py-2 text-center">Dest. (25)</th>
-                        <th className="px-2 py-2 text-center">Missão (30)</th>
-                        <th className="px-2 py-2 text-center">Estrut. (25)</th>
-                        <th className="px-2 py-2 text-center">Direc. (20)</th>
-                        <th className="px-2 py-2 text-center">Rep 1/2 (55)</th>
+                        <th className="px-2 py-2 text-center">Motiv.</th>
+                        <th className="px-2 py-2 text-center">Impr.</th>
+                        <th className="px-2 py-2 text-center">Expr.</th>
+                        <th className="px-2 py-2 text-center">Dest.</th>
+                        <th className="px-2 py-2 text-center">Missão</th>
+                        <th className="px-2 py-2 text-center">Estrut.</th>
+                        <th className="px-2 py-2 text-center">Direc.</th>
+                        <th className="px-2 py-2 text-center">Rep 1/2</th>
                         <th className="px-3 py-2 text-right font-bold">
                           Total Score
                         </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {PERFIS_OPCOES.map((perf, idx) => {
+                      {PERFIS_OPCOES.map((perf) => {
                         const isSelected =
                           auditTalento.perfis_lista.includes(perf);
-                        const base = isSelected ? 45 : 15 + ((idx * 7) % 20);
-                        const total = isSelected
-                          ? 265 - idx * 10
-                          : 95 + ((idx * 19) % 80);
+                        const rowBackend = auditScorePerfis.find(
+                          (r) => r.perfil.toLowerCase() === perf.toLowerCase()
+                        );
                         return (
                           <tr
                             key={perf}
@@ -1603,26 +1628,32 @@ export function PainelControleView({
                               )}
                               {perf}
                             </td>
-                            <td className="px-2 py-2 text-center">{base}</td>
                             <td className="px-2 py-2 text-center">
-                              {Math.round(base * 0.5)}
-                            </td>
-                            <td className="px-2 py-2 text-center">{base}</td>
-                            <td className="px-2 py-2 text-center">
-                              {base + 10}
+                              {rowBackend?.motivacao ?? 0}
                             </td>
                             <td className="px-2 py-2 text-center">
-                              {base + 15}
-                            </td>
-                            <td className="px-2 py-2 text-center">{base}</td>
-                            <td className="px-2 py-2 text-center">
-                              {Math.round(base * 0.8)}
+                              {rowBackend?.impressao ?? 0}
                             </td>
                             <td className="px-2 py-2 text-center">
-                              {isSelected ? 55 : 20}
+                              {rowBackend?.expressao ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.destino ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.missao ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.estrutural ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.direcionamento ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.repeticao ?? 0}
                             </td>
                             <td className="px-3 py-2 text-right font-mono font-bold text-[#510851] dark:text-purple-300">
-                              {total} pts
+                              {rowBackend?.total ?? 0} pts
                             </td>
                           </tr>
                         );
@@ -1888,26 +1919,39 @@ export function PainelControleView({
                     {[
                       {
                         campo: "Motivação",
-                        num: String(mapaTalento.vertices_triangulo[0]),
-                        exp: "Soma das vogais do nome de batismo — revela o impulso interior e o que move a alma do profissional.",
-                        desc: `Com vibração ${mapaTalento.vertices_triangulo[0]}, o talento demonstra forte direcionamento para liderança estratégica e realização, buscando ambientes onde possa exercer autonomia e propósito claro.`,
+                        num: String(
+                          mapaTalento.valores_mapa?.motivacao ||
+                            mapaTalento.detalhamento_atributos?.find(
+                              (d) => d.campo === "Motivação"
+                            )?.valor ||
+                            mapaTalento.vertices_triangulo[0]
+                        ),
+                        exp: "Indicador processado no motor isolado mam-kantechrh — revela o impulso interior e direcionador motivacional do profissional.",
+                        desc: `O talento demonstra forte direcionamento estratégico e orientação para realização, buscando ambientes onde possa exercer autonomia e propósito claro.`,
                       },
                       {
                         campo: "Impressão",
                         num: String(
-                          ((mapaTalento.estrutural +
-                            mapaTalento.direcionamento) %
-                            9) +
-                            1
+                          mapaTalento.valores_mapa?.impressao ||
+                            mapaTalento.detalhamento_atributos?.find(
+                              (d) => d.campo === "Impressão"
+                            )?.valor ||
+                            "-"
                         ),
-                        exp: "Soma das consoantes — indica a primeira impressão projetada em processos seletivos e reuniões.",
+                        exp: "Indicador processado no motor isolado mam-kantechrh — reflete a postura percebida em interações corporativas e processos seletivos.",
                         desc: "Projeta postura executiva confiável, transmitindo segurança técnica e capacidade de estruturação logo no primeiro contato.",
                       },
                       {
                         campo: "Expressão",
-                        num: String(mapaTalento.estrutural),
-                        exp: "Soma total das letras — sintetiza os talentos naturais e a forma de interagir em equipe.",
-                        desc: `Expressão ${mapaTalento.estrutural} potencializa os perfis ${mapaTalento.perfis_lista.join(
+                        num: String(
+                          mapaTalento.valores_mapa?.expressao ||
+                            mapaTalento.detalhamento_atributos?.find(
+                              (d) => d.campo === "Expressão"
+                            )?.valor ||
+                            mapaTalento.estrutural
+                        ),
+                        exp: "Indicador processado no motor isolado mam-kantechrh — sintetiza os talentos operacionais e a forma de atuação em equipe.",
+                        desc: `Potencializa os perfis ${mapaTalento.perfis_lista.join(
                           " e "
                         )}, com destaque para as qualidades de ${mapaTalento.qualidades_lista
                           .slice(0, 3)
@@ -1915,23 +1959,35 @@ export function PainelControleView({
                       },
                       {
                         campo: "Destino",
-                        num: String(mapaTalento.direcionamento),
-                        exp: "Soma reduzida da data de nascimento — aponta a trajetória evolutiva e o ciclo de realização profissional.",
+                        num: String(
+                          mapaTalento.valores_mapa?.destino ||
+                            mapaTalento.detalhamento_atributos?.find(
+                              (d) => d.campo === "Destino"
+                            )?.valor ||
+                            mapaTalento.direcionamento
+                        ),
+                        exp: "Indicador processado no motor isolado mam-kantechrh — aponta a trajetória evolutiva e o ciclo de realização profissional.",
                         desc: `Caminho voltado para posições de ${mapaTalento.cargo}, exigindo equilíbrio constante frente aos desafios operacionais de alta pressão.`,
                       },
                       {
                         campo: "Missão",
-                        num: String(mapaTalento.kan_numero),
-                        exp: "Síntese entre Expressão e Destino — vocação de longo prazo na organização.",
+                        num: String(
+                          mapaTalento.valores_mapa?.missao ||
+                            mapaTalento.detalhamento_atributos?.find(
+                              (d) => d.campo === "Missão"
+                            )?.valor ||
+                            mapaTalento.kan_numero
+                        ),
+                        exp: "Indicador processado no motor isolado mam-kantechrh — vocação estratégica de longo prazo na organização.",
                         desc: "Integrar visão estratégica e entrega prática, atuando como ponto de estabilidade no Triângulo Harmônico da equipe.",
                       },
                       {
                         campo: "Estrutural & Direcionamento KAN",
                         num: `${mapaTalento.estrutural} / ${mapaTalento.direcionamento}`,
-                        exp: "Eixos proprietários da Metodologia KAN calculados sobre o Plano de Tesla (3-6-9).",
+                        exp: "Eixos proprietários da Metodologia KAN processados remotamente no container mam-kantechrh.",
                         desc: `Força primordial ${mapaTalento.kan_nome.toUpperCase()} com vértices harmônicos ${mapaTalento.vertices_triangulo.join(
                           " - "
-                        )}, conferindo sustentação energética para projetos de alta complexidade.`,
+                        )}, conferindo sustentação para projetos de alta complexidade.`,
                       },
                     ].map((row) => (
                       <tr key={row.campo} className="hover:bg-muted/30">
@@ -2229,29 +2285,26 @@ export function PainelControleView({
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">
-                  Simulador Dinâmico de Fórmulas Numerológicas
-                  (`ESTUDOS_FORMULAS`)
+                  Simulador de Indicadores no Motor Isolado (`mam-kantechrh`)
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Combine variáveis do mapa (`MOTIVACAO`, `EXPRESSAO`,
-                  `DESTINO`, `ESTRUTURAL`, `DIRECIONAMENTO`) para testar novos
-                  indicadores no `mam-kantechrh`
+                  Execução remota e protegida de simulações comportamentais diretamente no container `mam-kantechrh`
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <Input
                     defaultValue="Índice de Sinergia Executiva"
-                    placeholder="Nome da Fórmula"
+                    placeholder="Nome do Indicador"
                     className="text-xs"
                   />
                   <Input
-                    defaultValue="REDUZIR(EXPRESSAO + DESTINO + ESTRUTURAL)"
-                    placeholder="Expressão Matemática"
+                    defaultValue="PRESET_SINERGIA_MAM_V1"
+                    placeholder="Identificador do Preset no Servidor"
                     className="font-mono text-xs"
                   />
                   <Button className="bg-[#510851] text-xs text-white hover:bg-[#510851]/90">
-                    Testar Fórmula na Base ({talentos.length} Talentos)
+                    Executar no mam-kantechrh ({talentos.length} Talentos)
                   </Button>
                 </div>
               </CardContent>

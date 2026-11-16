@@ -323,7 +323,7 @@ async def api_enriquecer_talentos_lote(request: Request):
 
 
 async def api_detalhamento_atributos(request: Request):
-    """Calcula e retorna a tabela Detalhamento dos Atributos rastreando toda a metodologia KAN."""
+    """Calcula e retorna a tabela Detalhamento dos Atributos e Score Perfil rastreando toda a metodologia KAN."""
     try:
         body = await request.json()
         nome = str(body.get("nome") or "").strip()
@@ -333,8 +333,47 @@ async def api_detalhamento_atributos(request: Request):
                 {"error": "Campos nome e data_nascimento são obrigatórios."},
                 status_code=400,
             )
-        detalhes = obter_detalhamento_atributos_talento(nome, data_nascimento)
-        return JSONResponse({"detalhamento_atributos": detalhes})
+        calc = _build_full_calculation(nome, data_nascimento)
+        detalhes = calc.get("detalhamento_atributos") or []
+        score_df = calc.get("score_df_calc") or {}
+        perfis_ordem = [
+            "Lider",
+            "Resultado",
+            "Executor",
+            "Criativo",
+            "Comunicador",
+            "Influenciador",
+            "Vendedor",
+        ]
+        score_perfis = []
+        for p in perfis_ordem:
+            row_s = score_df.get(p) or {}
+            rep_sum = int(row_s.get("REPETIÇÃO 1", 0) or 0) + int(
+                row_s.get("REPETIÇÃO 2", 0) or 0
+            )
+            score_perfis.append(
+                {
+                    "perfil": p,
+                    "motivacao": int(row_s.get("Motivação", 0) or 0),
+                    "impressao": int(row_s.get("Impressão", 0) or 0),
+                    "expressao": int(row_s.get("Expressão", 0) or 0),
+                    "destino": int(row_s.get("Destino", 0) or 0),
+                    "missao": int(row_s.get("Missão", 0) or 0),
+                    "dia_natalicio": int(row_s.get("Dia Natalício", 0) or 0),
+                    "triangulo": int(row_s.get("Triângulo", 0) or 0),
+                    "psiquico": int(row_s.get("No Psiquico", 0) or 0),
+                    "estrutural": int(row_s.get("Estrutural", 0) or 0),
+                    "direcionamento": int(row_s.get("Direcionamento", 0) or 0),
+                    "repeticao": rep_sum,
+                    "total": int(row_s.get("TOTAL", 0) or 0),
+                }
+            )
+        return JSONResponse(
+            {
+                "detalhamento_atributos": detalhes,
+                "score_perfis": score_perfis,
+            }
+        )
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 

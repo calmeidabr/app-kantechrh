@@ -848,3 +848,102 @@ export function calcularDetalhamentoAtributosServidor(talento: {
 
   return itens;
 }
+
+export interface ScorePerfilAuditoriaRow {
+  perfil: string;
+  motivacao: number;
+  impressao: number;
+  expressao: number;
+  destino: number;
+  missao: number;
+  dia_natalicio: number;
+  triangulo: number;
+  psiquico: number;
+  estrutural: number;
+  direcionamento: number;
+  repeticao: number;
+  total: number;
+}
+
+const PESOS_CAMPOS_OFICIAIS: Record<string, number> = {
+  Motivação: 150,
+  Impressão: 150,
+  Expressão: 300,
+  Destino: 150,
+  Missão: 300,
+  "Dia Natalício": 150,
+  Triângulo: 150,
+  "No Psiquico": 100,
+  Estrutural: 0,
+  Direcionamento: 0,
+  "REPETIÇÃO 1": 100,
+  "REPETIÇÃO 2": 100,
+};
+
+/**
+ * Calcula a matriz de auditoria de Score por Perfil (score_df_calc) exclusivamente no servidor.
+ */
+export function calcularScorePerfisServidor(
+  detalhamento: DetalheAtributoAuditoria[]
+): ScorePerfilAuditoriaRow[] {
+  const perfisOrdem = [
+    "Lider",
+    "Resultado",
+    "Executor",
+    "Criativo",
+    "Comunicador",
+    "Influenciador",
+    "Vendedor",
+  ];
+
+  return perfisOrdem.map((perf) => {
+    const pNorm = removerAcentos(perf);
+    const getPts = (campoNome: string) => {
+      const item = detalhamento.find((d) => d.campo === campoNome);
+      if (!item || !item.perfil) return 0;
+      return removerAcentos(item.perfil) === pNorm
+        ? PESOS_CAMPOS_OFICIAIS[campoNome] ?? 0
+        : 0;
+    };
+
+    const motivacao = getPts("Motivação");
+    const impressao = getPts("Impressão");
+    const expressao = getPts("Expressão");
+    const destino = getPts("Destino");
+    const missao = getPts("Missão");
+    const dia_natalicio = getPts("Dia Natalício");
+    const triangulo = getPts("Triângulo");
+    const psiquico = getPts("No Psiquico");
+    const estrutural = getPts("Estrutural");
+    const direcionamento = getPts("Direcionamento");
+    const repeticao = getPts("REPETIÇÃO 1") + getPts("REPETIÇÃO 2");
+    const total =
+      motivacao +
+      impressao +
+      expressao +
+      destino +
+      missao +
+      dia_natalicio +
+      triangulo +
+      psiquico +
+      estrutural +
+      direcionamento +
+      repeticao;
+
+    return {
+      perfil: perf,
+      motivacao,
+      impressao,
+      expressao,
+      destino,
+      missao,
+      dia_natalicio,
+      triangulo,
+      psiquico,
+      estrutural,
+      direcionamento,
+      repeticao,
+      total,
+    };
+  });
+}

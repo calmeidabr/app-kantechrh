@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { callMamEngine, getSupabaseAdmin } from "@/lib/supabase";
 import {
   calcularDetalhamentoAtributosServidor,
+  calcularScorePerfisServidor,
   isDetalhamentoValido,
 } from "@/lib/detalhamento-server";
 import type { DetalheAtributoAuditoria } from "@/lib/mock-data";
@@ -39,13 +40,21 @@ export async function POST(req: NextRequest) {
       const mamItens = (res.data as Record<string, unknown>)
         ?.detalhamento_atributos as DetalheAtributoAuditoria[] | undefined;
       if (res.ok && isDetalhamentoValido(mamItens)) {
-        resultData = res.data as Record<string, unknown>;
+        const rawData = res.data as Record<string, unknown>;
+        resultData = {
+          ...rawData,
+          score_perfis:
+            rawData.score_perfis || calcularScorePerfisServidor(mamItens!),
+        };
       } else {
         // Fallback no servidor (BFF): executa o cálculo seguro no servidor Next.js
         const fallbackDetalhes = calcularDetalhamentoAtributosServidor(
           (payload || {}) as Parameters<typeof calcularDetalhamentoAtributosServidor>[0]
         );
-        resultData = { detalhamento_atributos: fallbackDetalhes };
+        resultData = {
+          detalhamento_atributos: fallbackDetalhes,
+          score_perfis: calcularScorePerfisServidor(fallbackDetalhes),
+        };
       }
     } else {
       const endpoint = endpointMap[action];
