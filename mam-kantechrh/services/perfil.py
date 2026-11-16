@@ -413,87 +413,191 @@ def realizar_calculos_completos(
     score_qual_df = pd.DataFrame(0, index=lista_quals, columns=colunas_score)
     dados_auditoria_qual = []
 
-def determinar_soft_skills_linha(perfil: str, categoria: str, qualidade: str, atributo: str = "", campo: str = "") -> str:
-    """Mapeia soft skills metodológicas para a linha de detalhamento dos atributos."""
-    p = remover_acentos(str(perfil or "")).upper()
-    c = remover_acentos(str(categoria or "")).upper()
-    q = remover_acentos(str(qualidade or "")).upper()
-    a = remover_acentos(str(atributo or "")).upper()
+    def determinar_soft_skills_linha(
+        perfil: str,
+        categoria: str,
+        qualidade: str,
+        atributo: str = "",
+        campo: str = "",
+    ) -> str:
+        """Mapeia e valida as Soft Skills oficiais do catálogo KAN para a linha de detalhamento."""
+        p = remover_acentos(str(perfil or "")).upper()
+        c = remover_acentos(str(categoria or "")).upper()
+        q = remover_acentos(str(qualidade or "")).upper()
+        m = remover_acentos(str(atributo or "")).upper()
+        cp = remover_acentos(str(campo or "")).upper()
 
-    skills = []
-    if "COMUNIC" in q or "COMUNIC" in p:
-        skills.extend(["Comunicação eficaz", "Comunicação assertiva", "Escuta ativa"])
-    if "RELACIONAM" in q or "RELACIONAM" in p:
-        skills.extend(["Relacionamento interpessoal", "Empatia", "Trabalho em equipe"])
-    if "EXECU" in q or "EXECU" in p or "RESULT" in p:
-        skills.extend(["Produtividade", "Disciplina", "Gestão do tempo"])
-    if "ORGANIZ" in q or "ORGANIZ" in c:
-        skills.extend(["Organização", "Gestão do tempo", "Atenção / foco"])
-    if "ANALIS" in q or "ANALIT" in c:
-        skills.extend(["Pensamento crítico", "Resolução de problemas", "Atenção / foco"])
-    if "LIDER" in p or "JUSTI" in q:
-        skills.extend(["Liderança", "Tomada de decisão", "Ética / responsabilidade"])
-    if "COLETIV" in q or "COOPER" in a:
-        skills.extend(["Colaboração", "Trabalho em equipe", "Inteligência emocional"])
-    if "VERSATIL" in q or "VERSATIL" in c:
-        skills.extend(["Adaptabilidade / flexibilidade", "Proatividade", "Resiliência"])
-    if "CRIATIV" in p or "INOV" in c or "INOV" in a:
-        skills.extend(["Criatividade", "Inovação / melhoria contínua", "Visão sistêmica"])
-    if "VENDED" in p or "PERSUAS" in a:
-        skills.extend(["Comunicação assertiva", "Proatividade", "Resiliência"])
-    if "INFLUEN" in p or "MAGNET" in c:
-        skills.extend(["Comunicação eficaz", "Relacionamento interpessoal", "Liderança"])
+        por_perfil = []
+        por_categoria = []
+        por_qualidade = []
+        por_matriz = []
 
-    dedup = []
-    for s in skills:
-        if s not in dedup:
-            dedup.append(s)
+        if "LIDER" in p:
+            por_perfil.extend(["Liderança", "Tomada de decisão", "Visão sistêmica"])
+        elif "COMUNICADOR" in p:
+            por_perfil.extend(["Comunicação eficaz", "Comunicação assertiva", "Escuta ativa"])
+        elif "CRIATIVO" in p:
+            por_perfil.extend(["Criatividade", "Inovação / melhoria contínua", "Visão sistêmica"])
+        elif "EXECUTOR" in p:
+            por_perfil.extend(["Produtividade", "Disciplina", "Organização"])
+        elif "RESULTADO" in p:
+            por_perfil.extend(["Produtividade", "Gestão do tempo", "Resolução de problemas"])
+        elif "VENDEDOR" in p:
+            por_perfil.extend(["Comunicação assertiva", "Proatividade", "Resiliência"])
+        elif "INFLUENCIADOR" in p:
+            por_perfil.extend(["Relacionamento interpessoal", "Comunicação eficaz", "Inteligência emocional"])
 
-    if not dedup:
-        dedup = ["Adaptabilidade / flexibilidade", "Trabalho em equipe", "Proatividade"]
+        if "ANALIT" in c:
+            por_categoria.extend(["Pensamento crítico", "Resolução de problemas", "Atenção / foco"])
+        elif "COMUNICAT" in c:
+            por_categoria.extend(["Comunicação eficaz", "Comunicação assertiva", "Escuta ativa"])
+        elif "INOVAD" in c:
+            por_categoria.extend(["Inovação / melhoria contínua", "Criatividade", "Proatividade"])
+        elif "EMPAT" in c:
+            por_categoria.extend(["Empatia", "Colaboração", "Trabalho em equipe"])
+        elif "CONHEC" in c:
+            por_categoria.extend(["Visão sistêmica", "Aprendizado contínuo", "Pensamento crítico"])
+        elif "REALIZ" in c:
+            por_categoria.extend(["Produtividade", "Disciplina", "Gestão do tempo"])
+        elif "ORGANIZ" in c:
+            por_categoria.extend(["Organização", "Gestão do tempo", "Atenção / foco"])
+        elif "VERSAT" in c:
+            por_categoria.extend(["Adaptabilidade / flexibilidade", "Proatividade", "Resiliência"])
+        elif "MAGNET" in c:
+            por_categoria.extend(["Relacionamento interpessoal", "Comunicação eficaz", "Trabalho em equipe"])
+        elif "DIPLOMAT" in c:
+            por_categoria.extend(["Escuta ativa", "Relacionamento interpessoal", "Inteligência emocional"])
+        elif "HARMON" in c:
+            por_categoria.extend(["Trabalho em equipe", "Colaboração", "Empatia"])
+        elif "JUSTO" in c:
+            por_categoria.extend(["Ética / responsabilidade", "Tomada de decisão", "Inteligência emocional"])
+        elif "INTUIT" in c:
+            por_categoria.extend(["Inteligência emocional", "Visão sistêmica", "Criatividade"])
+        elif "VISION" in c:
+            por_categoria.extend(["Visão sistêmica", "Inovação / melhoria contínua", "Tomada de decisão"])
 
-    return ", ".join(dedup[:3])
+        if "ANALIS" in q:
+            por_qualidade.extend(["Pensamento crítico", "Resolução de problemas", "Atenção / foco"])
+        elif "COLETIV" in q:
+            por_qualidade.extend(["Colaboração", "Trabalho em equipe", "Relacionamento interpessoal"])
+        elif "COMUNIC" in q:
+            por_qualidade.extend(["Comunicação eficaz", "Comunicação assertiva", "Escuta ativa"])
+        elif "EXECU" in q:
+            por_qualidade.extend(["Produtividade", "Disciplina", "Proatividade"])
+        elif "ORGANIZ" in q:
+            por_qualidade.extend(["Organização", "Gestão do tempo", "Atenção / foco"])
+        elif "RELACIONAM" in q:
+            por_qualidade.extend(["Relacionamento interpessoal", "Empatia", "Trabalho em equipe"])
+        elif "SERVIC" in q:
+            por_qualidade.extend(["Colaboração", "Trabalho em equipe", "Empatia"])
+        elif "VERSATIL" in q:
+            por_qualidade.extend(["Adaptabilidade / flexibilidade", "Resiliência", "Proatividade"])
+        elif "INTUIC" in q:
+            por_qualidade.extend(["Visão sistêmica", "Inteligência emocional", "Criatividade"])
+        elif "JUSTIC" in q:
+            por_qualidade.extend(["Ética / responsabilidade", "Tomada de decisão", "Inteligência emocional"])
+        elif "DISCIPLIN" in q:
+            por_qualidade.extend(["Disciplina", "Pontualidade", "Gestão do tempo"])
 
+        if "INICIAT" in m or "PIONEIR" in m or "PIONIER" in m:
+            por_matriz.extend(["Proatividade", "Liderança", "Inovação / melhoria contínua"])
+        elif "INOVAC" in m:
+            por_matriz.extend(["Criatividade", "Inovação / melhoria contínua", "Visão sistêmica"])
+        elif "COLABOR" in m or "COOPER" in m:
+            por_matriz.extend(["Colaboração", "Empatia", "Trabalho em equipe"])
+        elif "CONHEC" in m or "INTELECT" in m:
+            por_matriz.extend(["Aprendizado contínuo", "Visão sistêmica", "Pensamento crítico"])
+        elif "ANALIS" in m or "PERIC" in m or "PERSPIC" in m or "SELETIV" in m:
+            por_matriz.extend(["Pensamento crítico", "Resolução de problemas", "Atenção / foco"])
+        elif "ENTUSIAS" in m or "COMUNIC" in m or "EXPRESS" in m:
+            por_matriz.extend(["Comunicação eficaz", "Comunicação assertiva", "Escuta ativa"])
+        elif "PERSUAS" in m:
+            por_matriz.extend(["Comunicação assertiva", "Comunicação eficaz", "Proatividade"])
+        elif "DIPLOMAC" in m or "HABILID" in m:
+            por_matriz.extend(["Escuta ativa", "Relacionamento interpessoal", "Inteligência emocional"])
+        elif "RESPONSAB" in m:
+            por_matriz.extend(["Ética / responsabilidade", "Disciplina", "Pontualidade"])
+        elif "DETERMIN" in m or "PERSIST" in m or "VONTAD" in m or "CORAG" in m:
+            por_matriz.extend(["Resiliência", "Proatividade", "Disciplina"])
+
+        selecionadas = []
+
+        def add_unique(sk):
+            if sk and sk not in selecionadas:
+                selecionadas.append(sk)
+
+        if por_perfil:
+            add_unique(por_perfil[0])
+        if por_categoria:
+            add_unique(por_categoria[0])
+        if por_qualidade:
+            add_unique(por_qualidade[0])
+        if por_matriz:
+            add_unique(por_matriz[0])
+
+        if len(por_categoria) > 1:
+            add_unique(por_categoria[1])
+        if len(por_qualidade) > 1:
+            add_unique(por_qualidade[1])
+        if len(por_matriz) > 1:
+            add_unique(por_matriz[1])
+        if len(por_perfil) > 1:
+            add_unique(por_perfil[1])
+
+        for s in por_matriz + por_categoria + por_qualidade + por_perfil:
+            add_unique(s)
+
+        if not selecionadas:
+            if "REPETICAO" in cp:
+                selecionadas = ["Pensamento crítico", "Resolução de problemas", "Atenção / foco"]
+            else:
+                selecionadas = ["Adaptabilidade / flexibilidade", "Trabalho em equipe", "Proatividade"]
+
+        return ", ".join(selecionadas[:3])
 
     for campo_q in colunas_score:
         val_q = valores_originais_score.get(campo_q)
         if val_q is None:
             continue
-        qual_en = None
-        p_v = "N/A"
-        c_v = "N/A"
+        qual_en = ""
+        p_v = ""
+        c_v = ""
         attr_t_q = ""
         if campo_q in mapa_col_matriz:
             row_m_q = MATRIZ_DB.get(str(val_q))
             if row_m_q:
-                attr_t_q = str(get_from_row(row_m_q, campo_q) or "").upper()
-                if attr_t_q and attr_t_q != "NAN":
-                    ai_q = ATRIBUTOS_DB.get(attr_t_q)
-                    if ai_q:
-                        p_v = get_from_row(ai_q, "perfil") or "N/A"
-                        c_v = get_from_row(ai_q, "categoria") or "N/A"
-                        qual_en = (
-                            get_from_row(ai_q, "qualidades")
-                            or get_from_row(ai_q, "qualidade")
-                            or get_from_row(ai_q, "area de suporte")
-                            or get_from_row(ai_q, "categoria")
-                        )
+                attr_t_q = str(get_from_row(row_m_q, campo_q) or "").strip().upper()
+            if (not attr_t_q or attr_t_q == "NAN") and str(val_q).isdigit() and int(val_q) > 9:
+                num_reduz = sum(int(d) for d in str(val_q))
+                while num_reduz > 9:
+                    num_reduz = sum(int(d) for d in str(num_reduz))
+                row_m_reduz = MATRIZ_DB.get(str(num_reduz))
+                if row_m_reduz:
+                    attr_t_q = str(get_from_row(row_m_reduz, campo_q) or "").strip().upper()
+            if attr_t_q and attr_t_q != "NAN":
+                ai_q = ATRIBUTOS_DB.get(attr_t_q) or ATRIBUTOS_DB.get(remover_acentos(attr_t_q).upper().strip())
+                if ai_q:
+                    p_v = str(get_from_row(ai_q, "perfil") or "").strip()
+                    c_v = str(get_from_row(ai_q, "categoria") or "").strip()
+                    qual_en = str(
+                        get_from_row(ai_q, "area de suporte")
+                        or get_from_row(ai_q, "qualidade")
+                        or get_from_row(ai_q, "qualidades")
+                        or ""
+                    ).strip()
         else:
             ri_q = REPETICAO_DB.get(str(val_q))
             if ri_q:
-                p_v = get_from_row(ri_q, "perfil") or ""
-                c_v = get_from_row(ri_q, "categoria") or ""
-                qual_en = (
-                    get_from_row(ri_q, "qualidade")
-                    or get_from_row(ri_q, "area de suporte")
-                    or get_from_row(ri_q, "categoria")
+                p_v = str(get_from_row(ri_q, "perfil") or "").strip()
+                c_v = str(get_from_row(ri_q, "categoria") or "").strip()
+                qual_en = str(
+                    get_from_row(ri_q, "area de suporte")
+                    or get_from_row(ri_q, "qualidade")
                     or ""
-                )
-                attr_t_q = "Tabela Repetição"
-            else:
-                attr_t_q = "Tabela Repetição"
+                ).strip()
+            attr_t_q = "Tabela Repetição"
 
-        if qual_en:
+        if qual_en and qual_en.upper() != "NAN":
             qn = remover_acentos(str(qual_en).strip()).upper()
             for idx_name in score_qual_df.index:
                 if remover_acentos(idx_name).upper() == qn:
@@ -501,9 +605,9 @@ def determinar_soft_skills_linha(perfil: str, categoria: str, qualidade: str, at
                     break
 
         attr_display = attr_t_q if (attr_t_q and attr_t_q != "NAN") else ""
-        p_clean = "" if (p_v == "N/A" or not p_v) else str(p_v)
-        c_clean = "" if (c_v == "N/A" or not c_v) else str(c_v)
-        q_clean = "" if (qual_en == "N/A" or not qual_en) else str(qual_en)
+        p_clean = "" if (p_v.upper() in ("N/A", "NAN") or not p_v) else str(p_v)
+        c_clean = "" if (c_v.upper() in ("N/A", "NAN") or not c_v) else str(c_v)
+        q_clean = "" if (qual_en.upper() in ("N/A", "NAN") or not qual_en) else str(qual_en)
         soft_skills_str = determinar_soft_skills_linha(p_clean, c_clean, q_clean, attr_display, campo_q)
 
         dados_auditoria_qual.append(
@@ -656,7 +760,20 @@ def determinar_soft_skills_linha(perfil: str, categoria: str, qualidade: str, at
 def obter_detalhamento_atributos_talento(nome: str, data_nascimento: str) -> list:
     """Executa o processamento do perfil e retorna a tabela Detalhamento dos Atributos."""
     try:
-        res = processar_perfil_completo(nome, data_nascimento, "", "")
-        return res[12] if len(res) > 12 else []
+        import datetime
+
+        s = str(data_nascimento or "").strip()
+        nasc_tuple = (7, 3, 1971)
+        for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
+            try:
+                dt = datetime.datetime.strptime(s, fmt)
+                nasc_tuple = (dt.day, dt.month, dt.year)
+                break
+            except ValueError:
+                continue
+        hoje = datetime.date.today()
+        data_atual_tuple = (hoje.day, hoje.month, hoje.year)
+        res = realizar_calculos_completos(nome, nasc_tuple, data_atual_tuple, "", "")
+        return res[12] if res and len(res) > 12 else []
     except Exception:
         return []

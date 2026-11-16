@@ -404,13 +404,26 @@ export function PainelControleView({
     }
   };
 
+  const isDetalhamentoCompleto = (
+    itens?: DetalheAtributoAuditoria[] | null
+  ): itens is DetalheAtributoAuditoria[] => {
+    if (!Array.isArray(itens) || itens.length < 12) return false;
+    const primeirosOitoComMatriz = itens
+      .slice(0, 8)
+      .every((it) => Boolean(it.atributo && it.atributo.trim() !== ""));
+    const possuiMapeamento = itens.some(
+      (it) =>
+        Boolean(it.perfil && it.perfil.trim() !== "") ||
+        Boolean(it.categoria && it.categoria.trim() !== "") ||
+        Boolean(it.qualidade && it.qualidade.trim() !== "")
+    );
+    return primeirosOitoComMatriz && possuiMapeamento;
+  };
+
   useEffect(() => {
     if (activeTab !== "auditoria" || !auditTalento) return;
 
-    if (
-      auditTalento.detalhamento_atributos &&
-      auditTalento.detalhamento_atributos.length > 0
-    ) {
+    if (isDetalhamentoCompleto(auditTalento.detalhamento_atributos)) {
       setAuditDetalhamento(auditTalento.detalhamento_atributos);
       return;
     }
@@ -1318,10 +1331,7 @@ export function PainelControleView({
                       setAuditTalentoId(newId);
                       setSyncDetalhamentoFeedback(null);
                       const found = talentos.find((t) => t.id === newId);
-                      if (
-                        found?.detalhamento_atributos &&
-                        found.detalhamento_atributos.length > 0
-                      ) {
+                      if (isDetalhamentoCompleto(found?.detalhamento_atributos)) {
                         setAuditDetalhamento(found.detalhamento_atributos);
                       } else {
                         setAuditDetalhamento([]);

@@ -54,7 +54,7 @@ def _read_csv_safe(filename: str) -> pd.DataFrame:
         df = pd.read_csv(filepath, sep=";", encoding="utf-8-sig")
         if df.shape[1] <= 1:
             df = pd.read_csv(filepath, sep=",", encoding="utf-8-sig")
-        return df
+        return df.fillna("")
     except Exception:
         return pd.DataFrame()
 
@@ -101,9 +101,10 @@ def get_atributos_db():
             get_from_row(row_dict, "atributo")
             or get_from_row(row_dict, "ATRIBUTOS")
             or ""
-        ).upper()
+        ).upper().strip()
         if attr_val:
             resultado[attr_val] = row_dict
+            resultado[remover_acentos(attr_val).upper().strip()] = row_dict
     return resultado
 
 

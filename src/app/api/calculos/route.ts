@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callMamEngine, getSupabaseAdmin } from "@/lib/supabase";
-import { calcularDetalhamentoAtributosServidor } from "@/lib/detalhamento-server";
+import {
+  calcularDetalhamentoAtributosServidor,
+  isDetalhamentoValido,
+} from "@/lib/detalhamento-server";
+import type { DetalheAtributoAuditoria } from "@/lib/mock-data";
 
 export const dynamic = "force-dynamic";
 
@@ -32,12 +36,9 @@ export async function POST(req: NextRequest) {
     if (action === "detalhamento-atributos") {
       // 1. Tenta chamar o container Docker mam-kantechrh
       const res = await callMamEngine("/api/v1/detalhamento-atributos", payload || {});
-      const mamItens = (res.data as Record<string, unknown>)?.detalhamento_atributos;
-      if (
-        res.ok &&
-        Array.isArray(mamItens) &&
-        mamItens.length > 0
-      ) {
+      const mamItens = (res.data as Record<string, unknown>)
+        ?.detalhamento_atributos as DetalheAtributoAuditoria[] | undefined;
+      if (res.ok && isDetalhamentoValido(mamItens)) {
         resultData = res.data as Record<string, unknown>;
       } else {
         // Fallback no servidor (BFF): executa o cálculo seguro no servidor Next.js

@@ -3,6 +3,10 @@ import { getSupabaseAdmin, callMamEngine, normalizeKey } from "@/lib/supabase";
 import { TALENTOS_MOCK, TalentoProfile, KanType, DetalheAtributoAuditoria } from "@/lib/mock-data";
 import { invalidateDiagnosticoCache } from "@/lib/diagnostico-cache";
 import { invalidateFotoCache, setFotoCache } from "@/lib/foto-cache";
+import {
+  calcularDetalhamentoAtributosServidor,
+  isDetalhamentoValido,
+} from "@/lib/detalhamento-server";
 
 export const dynamic = "force-dynamic";
 
@@ -330,6 +334,10 @@ function mapSupabaseRowToTalento(
   const deptoClean = cleanStr(row.departamento) || grupoClean;
   const empresaClean = cleanStr(row.empresa) || "Mundo Kan";
 
+  const dataNascClean = cleanStr(row.data_nascimento, "01/01/1990");
+  const estruturalFinal = estrutural || distinct[1];
+  const direcionamentoFinal = direcionamento || distinct[2];
+
   const valoresMapa: Record<string, string> = {
     motivacao: cleanStr(valoresRow?.motivacao || mapaDetalhado["Motivação"]),
     impressao: cleanStr(valoresRow?.impressao || mapaDetalhado["Impressão"]),
@@ -337,14 +345,27 @@ function mapSupabaseRowToTalento(
     destino: cleanStr(valoresRow?.destino || mapaDetalhado["Destino"]),
     missao: cleanStr(valoresRow?.missao || mapaDetalhado["Missão"]),
     numero_psiquico: cleanStr(valoresRow?.numero_psiquico || mapaDetalhado["Número Psíquico"]),
-    dia_natalicio: cleanStr(valoresRow?.dia_natalicio),
+    dia_natalicio: cleanStr(valoresRow?.dia_natalicio || mapaDetalhado["Dia Natalício"]),
+    triangulo: cleanStr(valoresRow?.triangulo || mapaDetalhado["Triângulo Harmônico"]),
+    estrutural: cleanStr(valoresRow?.estrutural || String(estruturalFinal)),
+    direcionamento: cleanStr(valoresRow?.direcionamento || String(direcionamentoFinal)),
     licoes_carmicas: cleanStr(valoresRow?.licoes_carmicas || mapaDetalhado["Lições Cármicas"]),
     dividas_carmicas: cleanStr(valoresRow?.dividas_carmicas || mapaDetalhado["Dívidas Cármicas"]),
     tendencias_ocultas: cleanStr(valoresRow?.tendencias_ocultas || mapaDetalhado["Tendências Ocultas"]),
     resposta_subconsciente: cleanStr(valoresRow?.resposta_subconsciente || mapaDetalhado["Resposta Subconsciente"]),
     repeticao_1: cleanStr(valoresRow?.repeticao_1),
-    repeticao_2: cleanStr(valoresRow?.repeticao_2),
+    repeticao_2: cleanStr(valoresRow?.repeticao_2 || valoresRow?.repeticao_mapa || mapaDetalhado["Repetição Mapa"]),
   };
+
+  const detalhamentoCalculado = calcularDetalhamentoAtributosServidor({
+    nome,
+    data_nascimento: dataNascClean,
+    valores_mapa: valoresMapa,
+    vertices_triangulo: [distinct[0], distinct[1], distinct[2]],
+    estrutural: estruturalFinal,
+    direcionamento: direcionamentoFinal,
+    kan_numero: v1,
+  });
 
   const rowId = String(row.id || idx + 1);
 
@@ -353,7 +374,7 @@ function mapSupabaseRowToTalento(
     codigo: String(10000000 + ((Number(row.id) || idx + 1) * 7919) % 89999999),
     nome,
     email: `${normalizeKey(nome).slice(0, 16) || "talento"}@mundokan.com.br`,
-    data_nascimento: cleanStr(row.data_nascimento, "01/01/1990"),
+    data_nascimento: dataNascClean,
     profissao: profissaoClean,
     cargo: cargoClean,
     grupo: grupoClean,
@@ -366,8 +387,8 @@ function mapSupabaseRowToTalento(
     experiencias: cleanStr(row.experiencias),
     kan_numero: v1,
     kan_nome: kanNome,
-    estrutural: estrutural || distinct[1],
-    direcionamento: direcionamento || distinct[2],
+    estrutural: estruturalFinal,
+    direcionamento: direcionamentoFinal,
     perfil_dominante: `${perfisLista[0] || "Líder"} ${categoriasLista[0] || "Realizador"}`,
     perfis_lista: perfisLista,
     categorias_lista: categoriasLista,
@@ -379,8 +400,11 @@ function mapSupabaseRowToTalento(
     ai_diagnosis: aiParagraphs,
     tenant_id: cleanStr(row.tenant_id, "00000000-0000-0000-0000-000000000000"),
     valores_mapa: valoresMapa,
-    detalhamento_atributos:
-      detalhamentoAtributos.length > 0 ? detalhamentoAtributos : undefined,
+    detalhamento_atributos: isDetalhamentoValido(detalhamentoCalculado)
+      ? detalhamentoCalculado
+      : isDetalhamentoValido(detalhamentoAtributos)
+      ? detalhamentoAtributos
+      : detalhamentoCalculado,
   };
 }
 
