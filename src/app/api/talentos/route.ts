@@ -5,7 +5,9 @@ import { invalidateDiagnosticoCache } from "@/lib/diagnostico-cache";
 import { invalidateFotoCache, setFotoCache } from "@/lib/foto-cache";
 import {
   calcularDetalhamentoAtributosServidor,
+  calcularPerfilNumerologicoServidor,
   isDetalhamentoValido,
+  normalizarKanNumero,
 } from "@/lib/detalhamento-server";
 
 export const dynamic = "force-dynamic";
@@ -36,21 +38,25 @@ function mapKanName(kanVal: unknown): KanType {
   if (s.includes("CRIA") || s.includes("CRIACAO")) return "Criação";
   if (s.includes("FINALIDADE")) return "Finalidade";
   const num = parseInt(s, 10);
-  if (num === 3) return "Criação";
-  if (num === 6) return "Movimento";
-  if (num === 9) return "Finalidade";
+  if (!isNaN(num)) {
+    const kNorm = normalizarKanNumero(num);
+    if (kNorm === 3) return "Criação";
+    if (kNorm === 6) return "Movimento";
+    return "Finalidade";
+  }
   return "Finalidade";
 }
 
-function mapKanNumberFromName(kanName: string, rawVal?: unknown): number {
+function mapKanNumberFromName(kanName: string, rawVal?: unknown): 3 | 6 | 9 {
+  if (kanName === "Criação") return 3;
+  if (kanName === "Movimento") return 6;
+  if (kanName === "Finalidade") return 9;
   const s = cleanStr(rawVal);
   const match = s.match(/\d+/);
   if (match) {
     const n = parseInt(match[0], 10);
-    if (n >= 1 && n <= 22) return n;
+    if (!isNaN(n)) return normalizarKanNumero(n);
   }
-  if (kanName === "Criação") return 3;
-  if (kanName === "Movimento") return 6;
   return 9;
 }
 
@@ -79,12 +85,14 @@ function mapSupabaseRowToTalento(
   valores_mapa?: Record<string, string>;
 } {
   const nome = cleanStr(row.nome, `Talento #${idx + 1}`);
+  const dataNascClean = cleanStr(row.data_nascimento, "01/01/1990");
+  const calcPerfil = calcularPerfilNumerologicoServidor(nome, dataNascClean);
   const pJsonRaw = row.perfil_json;
 
-  let kanNome: KanType = "Finalidade";
-  let kanNumero = 8;
-  let estrutural = 1;
-  let direcionamento = 7;
+  let kanNome: KanType = calcPerfil.kanNome;
+  let kanNumero: number = calcPerfil.kanNumero;
+  let estrutural: number = calcPerfil.estrutural;
+  let direcionamento: number = calcPerfil.direcionamento;
   let perfisLista: string[] = [];
   let categoriasLista: string[] = [];
   let qualidadesLista: string[] = [];
@@ -213,10 +221,6 @@ function mapSupabaseRowToTalento(
 
   // Hydrate from mapas_salvos_valores when available
   if (valoresRow) {
-    if (valoresRow.kan) {
-      kanNome = mapKanName(valoresRow.kan);
-      kanNumero = mapKanNumberFromName(kanNome, valoresRow.kan);
-    }
     if (!perfisLista.length && valoresRow.perfil) {
       perfisLista = cleanStr(valoresRow.perfil)
         .split(",")
@@ -235,15 +239,13 @@ function mapSupabaseRowToTalento(
         .map((s) => s.trim())
         .filter(Boolean);
     }
-    if (valoresRow.estrutural) {
-      const n = parseInt(cleanStr(valoresRow.estrutural), 10);
-      if (!isNaN(n)) estrutural = n;
-    }
-    if (valoresRow.direcionamento) {
-      const n = parseInt(cleanStr(valoresRow.direcionamento), 10);
-      if (!isNaN(n)) direcionamento = n;
-    }
   }
+
+  // O cálculo numerológico oficial a partir de nome + data_nascimento é sempre soberano para KAN, Estrutural, Direcionamento e Vértices
+  kanNome = calcPerfil.kanNome;
+  kanNumero = calcPerfil.kanNumero;
+  estrutural = calcPerfil.estrutural;
+  direcionamento = calcPerfil.direcionamento;
 
   if (!perfisLista.length) perfisLista = ["Lider", "Resultado", "Executor"];
   if (!categoriasLista.length) categoriasLista = ["Realizador", "Analítico"];
@@ -280,15 +282,8 @@ function mapSupabaseRowToTalento(
     );
   }
 
-  const vt1 = valoresRow ? parseInt(String(valoresRow.vertice_triangulo_1 || ""), 10) : NaN;
-  const vt2 = valoresRow ? parseInt(String(valoresRow.vertice_triangulo_2 || ""), 10) : NaN;
-  const vt3 = valoresRow ? parseInt(String(valoresRow.vertice_triangulo_3 || ""), 10) : NaN;
-  const distinct: [number, number, number] = [
-    !isNaN(vt1) && vt1 > 0 ? vt1 : kanNumero || 9,
-    !isNaN(vt2) && vt2 > 0 ? vt2 : estrutural || 1,
-    !isNaN(vt3) && vt3 > 0 ? vt3 : direcionamento || 7,
-  ];
-  const v1 = distinct[0];
+  const distinct: [number, number, number] = calcPerfil.vertices;
+  const v1 = calcPerfil.kanNumero;
 
   const allSevenProfiles = [
     "Líder",
@@ -334,27 +329,26 @@ function mapSupabaseRowToTalento(
   const deptoClean = cleanStr(row.departamento) || grupoClean;
   const empresaClean = cleanStr(row.empresa) || "Mundo Kan";
 
-  const dataNascClean = cleanStr(row.data_nascimento, "01/01/1990");
-  const estruturalFinal = estrutural || distinct[1];
-  const direcionamentoFinal = direcionamento || distinct[2];
+  const estruturalFinal = calcPerfil.estrutural;
+  const direcionamentoFinal = calcPerfil.direcionamento;
 
   const valoresMapa: Record<string, string> = {
-    motivacao: cleanStr(valoresRow?.motivacao || mapaDetalhado["Motivação"]),
-    impressao: cleanStr(valoresRow?.impressao || mapaDetalhado["Impressão"]),
-    expressao: cleanStr(valoresRow?.expressao || mapaDetalhado["Expressão"]),
-    destino: cleanStr(valoresRow?.destino || mapaDetalhado["Destino"]),
-    missao: cleanStr(valoresRow?.missao || mapaDetalhado["Missão"]),
-    numero_psiquico: cleanStr(valoresRow?.numero_psiquico || mapaDetalhado["Número Psíquico"]),
-    dia_natalicio: cleanStr(valoresRow?.dia_natalicio || mapaDetalhado["Dia Natalício"]),
-    triangulo: cleanStr(valoresRow?.triangulo || mapaDetalhado["Triângulo Harmônico"]),
-    estrutural: cleanStr(valoresRow?.estrutural || String(estruturalFinal)),
-    direcionamento: cleanStr(valoresRow?.direcionamento || String(direcionamentoFinal)),
+    motivacao: String(calcPerfil.motivacao),
+    impressao: String(calcPerfil.impressao),
+    expressao: String(calcPerfil.expressao),
+    destino: String(calcPerfil.destino),
+    missao: String(calcPerfil.missao),
+    numero_psiquico: String(calcPerfil.numPsiquico),
+    dia_natalicio: String(calcPerfil.diaNatalicio),
+    triangulo: String(calcPerfil.triangulo),
+    estrutural: String(estruturalFinal),
+    direcionamento: String(direcionamentoFinal),
     licoes_carmicas: cleanStr(valoresRow?.licoes_carmicas || mapaDetalhado["Lições Cármicas"]),
     dividas_carmicas: cleanStr(valoresRow?.dividas_carmicas || mapaDetalhado["Dívidas Cármicas"]),
     tendencias_ocultas: cleanStr(valoresRow?.tendencias_ocultas || mapaDetalhado["Tendências Ocultas"]),
     resposta_subconsciente: cleanStr(valoresRow?.resposta_subconsciente || mapaDetalhado["Resposta Subconsciente"]),
-    repeticao_1: cleanStr(valoresRow?.repeticao_1),
-    repeticao_2: cleanStr(valoresRow?.repeticao_2 || valoresRow?.repeticao_mapa || mapaDetalhado["Repetição Mapa"]),
+    repeticao_1: String(calcPerfil.rep1),
+    repeticao_2: String(calcPerfil.rep2),
   };
 
   const detalhamentoCalculado = calcularDetalhamentoAtributosServidor({
@@ -581,7 +575,20 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    const calcData = mamResponse.ok && mamResponse.data ? mamResponse.data : null;
+    const calcPerfilFallback = calcularPerfilNumerologicoServidor(
+      String(nome).trim(),
+      String(data_nascimento).trim()
+    );
+    const calcData =
+      mamResponse.ok && mamResponse.data
+        ? mamResponse.data
+        : {
+            kan_numero: calcPerfilFallback.kanNumero,
+            kan_nome: calcPerfilFallback.kanNome,
+            estrutural: calcPerfilFallback.estrutural,
+            direcionamento: calcPerfilFallback.direcionamento,
+            vertices_triangulo: calcPerfilFallback.vertices,
+          };
 
     const supabaseAdmin = getSupabaseAdmin();
     const perfilJsonStr = calcData?.perfil_json
@@ -628,13 +635,13 @@ export async function POST(req: NextRequest) {
     if (calcData) {
       const vertices = Array.isArray(calcData.vertices_triangulo)
         ? calcData.vertices_triangulo
-        : [8, 1, 7];
+        : calcPerfilFallback.vertices;
 
       await supabaseAdmin.from("mapas_salvos_valores").upsert(
         {
           nome: String(nome).trim(),
           data_nascimento: String(data_nascimento).trim(),
-          kan: String(calcData.kan_nome || calcData.kan_numero || "FINALIDADE").toUpperCase(),
+          kan: String(calcData.kan_nome || calcData.kan_numero || calcPerfilFallback.kanNome).toUpperCase(),
           perfil: Array.isArray(calcData.perfis_lista)
             ? calcData.perfis_lista.join(", ")
             : String(calcData.perfil || "Lider, Resultado"),
@@ -644,11 +651,11 @@ export async function POST(req: NextRequest) {
           qualidades: Array.isArray(calcData.qualidades_lista)
             ? calcData.qualidades_lista.join(", ")
             : String(calcData.qualidades || "Execução, Análise"),
-          estrutural: String(calcData.estrutural ?? 1),
-          direcionamento: String(calcData.direcionamento ?? 7),
-          vertice_triangulo_1: String(vertices[0] ?? 8),
-          vertice_triangulo_2: String(vertices[1] ?? 1),
-          vertice_triangulo_3: String(vertices[2] ?? 7),
+          estrutural: String(calcData.estrutural ?? calcPerfilFallback.estrutural),
+          direcionamento: String(calcData.direcionamento ?? calcPerfilFallback.direcionamento),
+          vertice_triangulo_1: String(vertices[0] ?? calcPerfilFallback.vertices[0]),
+          vertice_triangulo_2: String(vertices[1] ?? calcPerfilFallback.vertices[1]),
+          vertice_triangulo_3: String(vertices[2] ?? calcPerfilFallback.vertices[2]),
         },
         { onConflict: "nome" }
       );
@@ -717,7 +724,20 @@ export async function PUT(req: NextRequest) {
       }
     );
 
-    const calcData = mamResponse.ok && mamResponse.data ? mamResponse.data : null;
+    const calcPerfilFallback = calcularPerfilNumerologicoServidor(
+      String(nome).trim(),
+      String(data_nascimento).trim()
+    );
+    const calcData =
+      mamResponse.ok && mamResponse.data
+        ? mamResponse.data
+        : {
+            kan_numero: calcPerfilFallback.kanNumero,
+            kan_nome: calcPerfilFallback.kanNome,
+            estrutural: calcPerfilFallback.estrutural,
+            direcionamento: calcPerfilFallback.direcionamento,
+            vertices_triangulo: calcPerfilFallback.vertices,
+          };
     const supabaseAdmin = getSupabaseAdmin();
 
     const perfilJsonStr = calcData?.perfil_json
@@ -789,7 +809,7 @@ export async function PUT(req: NextRequest) {
     if (calcData) {
       const vertices = Array.isArray(calcData.vertices_triangulo)
         ? calcData.vertices_triangulo
-        : [8, 1, 7];
+        : calcPerfilFallback.vertices;
 
       // Clean old values if name changed
       if (originalNome && originalNome !== nome) {
@@ -800,7 +820,7 @@ export async function PUT(req: NextRequest) {
         {
           nome: String(nome).trim(),
           data_nascimento: String(data_nascimento).trim(),
-          kan: String(calcData.kan_nome || calcData.kan_numero || "FINALIDADE").toUpperCase(),
+          kan: String(calcData.kan_nome || calcData.kan_numero || calcPerfilFallback.kanNome).toUpperCase(),
           perfil: Array.isArray(calcData.perfis_lista)
             ? calcData.perfis_lista.join(", ")
             : String(calcData.perfil || "Lider, Resultado"),
@@ -810,11 +830,11 @@ export async function PUT(req: NextRequest) {
           qualidades: Array.isArray(calcData.qualidades_lista)
             ? calcData.qualidades_lista.join(", ")
             : String(calcData.qualidades || "Execução, Análise"),
-          estrutural: String(calcData.estrutural ?? 1),
-          direcionamento: String(calcData.direcionamento ?? 7),
-          vertice_triangulo_1: String(vertices[0] ?? 8),
-          vertice_triangulo_2: String(vertices[1] ?? 1),
-          vertice_triangulo_3: String(vertices[2] ?? 7),
+          estrutural: String(calcData.estrutural ?? calcPerfilFallback.estrutural),
+          direcionamento: String(calcData.direcionamento ?? calcPerfilFallback.direcionamento),
+          vertice_triangulo_1: String(vertices[0] ?? calcPerfilFallback.vertices[0]),
+          vertice_triangulo_2: String(vertices[1] ?? calcPerfilFallback.vertices[1]),
+          vertice_triangulo_3: String(vertices[2] ?? calcPerfilFallback.vertices[2]),
         },
         { onConflict: "nome" }
       );

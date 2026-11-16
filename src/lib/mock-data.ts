@@ -320,15 +320,15 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
     linkedin_url: "https://linkedin.com/in/marianavasconcelos",
     experiencias:
       "Liderança de squads ágeis, discovery de produto B2B SaaS e design organizacional centrado no usuário.",
-    kan_numero: 5,
+    kan_numero: 6,
     kan_nome: "Movimento",
     estrutural: 3,
-    direcionamento: 2,
+    direcionamento: 3,
     perfil_dominante: "Comunicador Criativo",
     perfis_lista: ["Criativo", "Comunicador", "Influenciador"],
     categorias_lista: ["Versátil", "Inovador", "Diplomático"],
     qualidades_lista: ["Comunicação", "Versatilidade", "Relacionamento", "Intuição"],
-    vertices_triangulo: [5, 3, 2],
+    vertices_triangulo: [6, 3, 2],
     aderencia_vaga: 92,
     indicadores_perfil: [
       {
@@ -381,15 +381,15 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
     linkedin_url: "https://linkedin.com/in/rafaelmendonca",
     experiencias:
       "Arquitetura de microsserviços, segurança em nuvem, sistemas distribuídos em Python e React/Next.js.",
-    kan_numero: 4,
+    kan_numero: 3,
     kan_nome: "Criação",
-    estrutural: 7,
+    estrutural: 6,
     direcionamento: 6,
     perfil_dominante: "Executor Analítico",
     perfis_lista: ["Executor", "Resultado", "Lider"],
     categorias_lista: ["Organizado", "Analítico", "Conhecimento"],
     qualidades_lista: ["Execução", "Organização", "Análise", "Praticidade e disciplina"],
-    vertices_triangulo: [4, 7, 6],
+    vertices_triangulo: [3, 6, 7],
     aderencia_vaga: 89,
     indicadores_perfil: [
       {
@@ -531,15 +531,15 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
     avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80",
     linkedin_url: "https://linkedin.com/in/beatriznogueira",
     experiencias: "Modelagem preditiva de turnover, dashboards executivos e estatística aplicada a RH.",
-    kan_numero: 7,
+    kan_numero: 3,
     kan_nome: "Criação",
-    estrutural: 4,
-    direcionamento: 1,
+    estrutural: 6,
+    direcionamento: 6,
     perfil_dominante: "Especialista Analítico",
     perfis_lista: ["Executor", "Resultado", "Criativo"],
     categorias_lista: ["Analítico", "Conhecimento", "Intuitivo"],
     qualidades_lista: ["Análise", "Organização", "Praticidade e disciplina", "Intuição"],
-    vertices_triangulo: [7, 4, 1],
+    vertices_triangulo: [3, 6, 4],
     aderencia_vaga: 88,
     indicadores_perfil: [
       {

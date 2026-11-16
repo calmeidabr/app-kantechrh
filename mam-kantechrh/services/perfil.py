@@ -44,7 +44,15 @@ def calcular_perfil_comportamental(
 
     estrutural = reduce_kan(motivacao + impressao + expressao + reduce_number(dia))
     direcionamento = reduce_kan(destino + missao + ciclo2_num + momento3_num)
-    kan = reduce_kan(estrutural + direcionamento)
+    kan_raw = estrutural + direcionamento
+    while kan_raw > 9:
+        kan_raw = sum(int(d) for d in str(kan_raw))
+    if kan_raw in (1, 2, 3):
+        kan = 3
+    elif kan_raw in (4, 5, 6):
+        kan = 6
+    else:
+        kan = 9
 
     num_dia_puro = dia
     num_dia_reduzido = reduce_number(dia)
@@ -57,6 +65,8 @@ def calcular_perfil_comportamental(
         num_dia_puro,
         triangulo_base,
         num_dia_reduzido,
+        estrutural,
+        direcionamento,
     ]
     counts = Counter(nums)
     reps = sorted(

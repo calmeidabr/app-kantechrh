@@ -405,11 +405,11 @@ export function TalentosView({
 
     setToastMsg("⏳ Calculando matriz comportamental e salvando cadastro...");
 
-    let calcKanNum = 8;
+    let calcKanNum = 9;
     let calcKanNome: "Criação" | "Movimento" | "Finalidade" = "Finalidade";
-    let calcEstrutural = 4;
-    let calcDirecionamento = 1;
-    let calcVertices: [number, number, number] = [8, 4, 1];
+    let calcEstrutural = 3;
+    let calcDirecionamento = 6;
+    let calcVertices: [number, number, number] = [9, 3, 6];
     let calcPerfis = ["Lider", "Resultado", "Executor"];
     let calcCats = ["Realizador", "Analítico"];
     let calcQuals = ["Execução", "Organização", "Análise"];
@@ -432,9 +432,9 @@ export function TalentosView({
         }),
       });
       const json = await res.json();
-      if (json?.calculation) {
-        const c = json.calculation;
-        calcKanNum = Number(c.kan_numero) || 8;
+      const c = json?.calculation || json?.calculated;
+      if (c) {
+        calcKanNum = Number(c.kan_numero) || 9;
         const kn = String(c.kan_nome || "").toLowerCase();
         calcKanNome = kn.includes("cria")
           ? "Criação"

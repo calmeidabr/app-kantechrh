@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { callMamEngine, getSupabaseAdmin } from "@/lib/supabase";
 import {
   calcularDetalhamentoAtributosServidor,
+  calcularPerfilNumerologicoServidor,
   calcularScorePerfisServidor,
   isDetalhamentoValido,
 } from "@/lib/detalhamento-server";
@@ -35,6 +36,10 @@ export async function POST(req: NextRequest) {
     let resultData: Record<string, unknown> | null = null;
 
     if (action === "detalhamento-atributos") {
+      const resumoCalculo = calcularPerfilNumerologicoServidor(
+        String(payload?.nome || ""),
+        String(payload?.data_nascimento || "")
+      );
       // 1. Tenta chamar o container Docker mam-kantechrh
       const res = await callMamEngine("/api/v1/detalhamento-atributos", payload || {});
       const mamItens = (res.data as Record<string, unknown>)
@@ -43,6 +48,7 @@ export async function POST(req: NextRequest) {
         const rawData = res.data as Record<string, unknown>;
         resultData = {
           ...rawData,
+          resumo_calculo: resumoCalculo,
           score_perfis:
             rawData.score_perfis || calcularScorePerfisServidor(mamItens!),
         };
@@ -53,6 +59,7 @@ export async function POST(req: NextRequest) {
         );
         resultData = {
           detalhamento_atributos: fallbackDetalhes,
+          resumo_calculo: resumoCalculo,
           score_perfis: calcularScorePerfisServidor(fallbackDetalhes),
         };
       }

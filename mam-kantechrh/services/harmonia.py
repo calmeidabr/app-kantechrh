@@ -70,7 +70,7 @@ def obter_vertices_triangulo(nome_comp: str, data_nasc_str: str):
             _,
         ) = res
 
-        estrutural, direcionamento, kan, rep1, _ = calcular_perfil_comportamental(
+        estrutural, direcionamento, kan, rep1, rep2 = calcular_perfil_comportamental(
             expressao,
             motivacao,
             impressao,
@@ -114,6 +114,7 @@ def obter_vertices_triangulo(nome_comp: str, data_nasc_str: str):
             {"campo": "ESTRUTURAL", "valor": clean_value(estrutural)},
             {"campo": "DIRECIONAMENTO", "valor": clean_value(direcionamento)},
             {"campo": "REPETIÇÃO 1", "valor": clean_value(rep1)},
+            {"campo": "REPETIÇÃO 2", "valor": clean_value(rep2)},
             {"campo": "REP. MAPA", "valor": r2_v if r2_v else None},
             {"campo": "REP. MAPA 2", "valor": r3_v if r3_v else None},
             {"campo": "REP. MAPA 3", "valor": r4_v if r4_v else None},

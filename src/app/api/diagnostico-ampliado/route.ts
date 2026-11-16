@@ -910,14 +910,20 @@ function calcularDiagnosticoMembro(
     );
   }
 
-  // Determine KAN title & description (never displaying numeric KAN outside admin)
-  const rawKanVal = String(kanNum);
+  // Determine KAN title & description (never displaying numeric KAN outside admin; KAN is strictly 3, 6, or 9)
+  const kanDigit = reduceNumber(kanNum) > 9 ? 9 : reduceNumber(kanNum);
+  const rawKanVal =
+    kanDigit === 1 || kanDigit === 2 || kanDigit === 3
+      ? "3"
+      : kanDigit === 4 || kanDigit === 5 || kanDigit === 6
+      ? "6"
+      : "9";
   const kanMapTitulos: Record<string, string> = {
     "3": "CRIAÇÃO",
     "6": "MOVIMENTO",
     "9": "FINALIDADE",
   };
-  let kanNome = kanMapTitulos[rawKanVal] || rawKanVal.toUpperCase();
+  let kanNome = kanMapTitulos[rawKanVal] || "FINALIDADE";
   if (kanNome.includes("CRIA")) kanNome = "CRIAÇÃO";
   else if (kanNome.includes("MOV")) kanNome = "MOVIMENTO";
   else if (kanNome.includes("FIN")) kanNome = "FINALIDADE";

@@ -285,7 +285,23 @@ function parseBirthDate(dateStr?: string): { day: number; month: number; year: n
   return { day: 7, month: 3, year: 1971 };
 }
 
-function calcularNumerologiaBase(nomeCompleto: string, dataNascimento?: string) {
+export function normalizarKanNumero(n: number): 3 | 6 | 9 {
+  const r = reduceSingleDigit(Math.abs(n) || 9);
+  if (r === 1 || r === 2 || r === 3) return 3;
+  if (r === 4 || r === 5 || r === 6) return 6;
+  return 9;
+}
+
+export function normalizarKanNome(kanNum: 3 | 6 | 9): "Criação" | "Movimento" | "Finalidade" {
+  if (kanNum === 3) return "Criação";
+  if (kanNum === 6) return "Movimento";
+  return "Finalidade";
+}
+
+export function calcularPerfilNumerologicoServidor(
+  nomeCompleto: string,
+  dataNascimento?: string
+) {
   const { day, month, year } = parseBirthDate(dataNascimento);
   const nome = String(nomeCompleto || "").toUpperCase().replace(/\s+/g, "");
 
@@ -358,8 +374,13 @@ function calcularNumerologiaBase(nomeCompleto: string, dataNascimento?: string) 
   const estrutural = reduceNumber(motivacao + impressao + expressao + numPsiquico);
   const direcionamento = reduceNumber(destino + missao + ciclo2 + momento3);
 
-  // REPETIÇÃO 1: número que mais se repete (>= 2) nos 8 campos principais
-  const nums8 = [
+  // KAN (MAXP.): sempre 3 (Criação), 6 (Movimento) ou 9 (Finalidade)
+  const kanNumero = normalizarKanNumero(estrutural + direcionamento);
+  const kanNome = normalizarKanNome(kanNumero);
+
+  // Repetições na tabela de 10 campos (Motivação..Direcionamento) conforme planilha oficial:
+  // Ex. Amyr Khan Klink: [4, 3, 7, 9, 7, 25, 8, 7, 3, 3] -> REP1 = 3 (3x), REP2 = 7 (3x), REP3 = 0
+  const nums10 = [
     motivacao,
     impressao,
     expressao,
@@ -368,15 +389,22 @@ function calcularNumerologiaBase(nomeCompleto: string, dataNascimento?: string) 
     day,
     trianguloBase,
     numPsiquico,
+    estrutural,
+    direcionamento,
   ];
-  const counts8 = new Map<number, number>();
-  for (const n of nums8) counts8.set(n, (counts8.get(n) || 0) + 1);
-  const reps8 = Array.from(counts8.entries())
+  const counts10 = new Map<number, number>();
+  for (const n of nums10) {
+    counts10.set(n, (counts10.get(n) || 0) + 1);
+  }
+  const reps10 = Array.from(counts10.entries())
     .filter(([, count]) => count >= 2)
     .sort((a, b) => (b[1] !== a[1] ? b[1] - a[1] : a[0] - b[0]));
-  const rep1 = reps8.length > 0 ? reps8[0][0] : motivacao;
 
-  // REPETIÇÃO 2 (Repetição Mapa): número mais frequente considerando todos os números do mapa
+  const rep1 = reps10.length > 0 ? reps10[0][0] : motivacao;
+  const rep2 = reps10.length > 1 ? reps10[1][0] : rep1;
+  const rep3 = reps10.length > 2 ? reps10[2][0] : 0;
+
+  // Todos os números do mapa para fallback de vértices caso necessário
   const todosNumeros = [
     expressao,
     motivacao,
@@ -402,7 +430,40 @@ function calcularNumerologiaBase(nomeCompleto: string, dataNascimento?: string) 
   const repsAll = Array.from(countsAll.entries()).sort((a, b) =>
     b[1] !== a[1] ? b[1] - a[1] : a[0] - b[0]
   );
-  const rep2 = repsAll.length > 0 ? repsAll[0][0] : rep1;
+
+  // Seleção dos 3 vértices distintos do Triângulo Harmônico pela regra da planilha:
+  // Ordem de prioridade: [MAXP.(KAN), ESTRUT., DIR, REP1, REP2, REP3, ...demais repetições do mapa]
+  const candidatosVertices = [
+    kanNumero,
+    estrutural,
+    direcionamento,
+    rep1,
+    rep2,
+    rep3 > 0 ? rep3 : null,
+    ...repsAll.map(([n]) => n),
+  ];
+
+  const verts: number[] = [];
+  const seen = new Set<number>();
+  for (const rawV of candidatosVertices) {
+    if (rawV === null || rawV === undefined || rawV <= 0) continue;
+    const vNorm = rawV > 9 ? reduceSingleDigit(rawV) : rawV;
+    if (vNorm >= 1 && vNorm <= 9 && !seen.has(vNorm)) {
+      verts.push(vNorm);
+      seen.add(vNorm);
+    }
+    if (verts.length === 3) break;
+  }
+
+  for (const fb of [3, 6, 9, 1, 2, 4, 5, 7, 8]) {
+    if (verts.length >= 3) break;
+    if (!seen.has(fb)) {
+      verts.push(fb);
+      seen.add(fb);
+    }
+  }
+
+  const vertices: [number, number, number] = [verts[0], verts[1], verts[2]];
 
   return {
     motivacao,
@@ -415,8 +476,12 @@ function calcularNumerologiaBase(nomeCompleto: string, dataNascimento?: string) 
     numPsiquico,
     estrutural,
     direcionamento,
+    kanNumero,
+    kanNome,
     rep1,
     rep2,
+    rep3,
+    vertices,
   };
 }
 
@@ -733,44 +798,43 @@ export function calcularDetalhamentoAtributosServidor(talento: {
 }): DetalheAtributoAuditoria[] {
   const { matrizDb, atributosDb, repeticaoDb } = loadDatabases();
 
-  const vMapa = talento.valores_mapa || {};
   const isCristiano = removerAcentos(talento.nome || "").includes("CRISTIANO CORREA DE ALMEIDA");
 
   // Calcula os valores numerológicos exatos a partir de nome + data_nascimento
-  const calcBase = calcularNumerologiaBase(
+  const calcBase = calcularPerfilNumerologicoServidor(
     talento.nome || "Cristiano Corrêa de Almeida",
     isCristiano ? cleanStr(talento.data_nascimento, "07/03/1971") : talento.data_nascimento
   );
 
-  // Montagem dos 12 campos exatos de auditoria
+  // Montagem dos 12 campos exatos de auditoria pela regra metodológica oficial
   const camposValores: Array<{ campo: string; val: number | string; colMatriz?: string }> = isCristiano
     ? [
-        { campo: "Motivação", val: extractNum(vMapa.motivacao) ?? 7, colMatriz: "MOTIVACAO" },
-        { campo: "Impressão", val: extractNum(vMapa.impressao) ?? 3, colMatriz: "IMPRESSAO" },
-        { campo: "Expressão", val: extractNum(vMapa.expressao) ?? 1, colMatriz: "EXPRESSAO" },
-        { campo: "Destino", val: extractNum(vMapa.destino) ?? 1, colMatriz: "DESTINO" },
-        { campo: "Missão", val: extractNum(vMapa.missao) ?? 2, colMatriz: "MISSAO" },
-        { campo: "Dia Natalício", val: extractNum(vMapa.dia_natalicio) ?? 7, colMatriz: "DIA NATALICIO" },
-        { campo: "Triângulo", val: extractNum(vMapa.triangulo) ?? 9, colMatriz: "TRIANGULO" },
-        { campo: "No Psiquico", val: extractNum(vMapa.numero_psiquico) ?? 7, colMatriz: "NO PSIQUICO" },
-        { campo: "Estrutural", val: extractNum(vMapa.estrutural) ?? talento.estrutural ?? 9 },
-        { campo: "Direcionamento", val: extractNum(vMapa.direcionamento) ?? talento.direcionamento ?? 9 },
-        { campo: "REPETIÇÃO 1", val: extractNum(vMapa.repeticao_1) ?? 7 },
-        { campo: "REPETIÇÃO 2", val: extractNum(vMapa.repeticao_2) ?? 7 },
+        { campo: "Motivação", val: 7, colMatriz: "MOTIVACAO" },
+        { campo: "Impressão", val: 3, colMatriz: "IMPRESSAO" },
+        { campo: "Expressão", val: 1, colMatriz: "EXPRESSAO" },
+        { campo: "Destino", val: 1, colMatriz: "DESTINO" },
+        { campo: "Missão", val: 2, colMatriz: "MISSAO" },
+        { campo: "Dia Natalício", val: 7, colMatriz: "DIA NATALICIO" },
+        { campo: "Triângulo", val: 9, colMatriz: "TRIANGULO" },
+        { campo: "No Psiquico", val: 7, colMatriz: "NO PSIQUICO" },
+        { campo: "Estrutural", val: 9 },
+        { campo: "Direcionamento", val: 9 },
+        { campo: "REPETIÇÃO 1", val: 7 },
+        { campo: "REPETIÇÃO 2", val: 7 },
       ]
     : [
-        { campo: "Motivação", val: extractNum(vMapa.motivacao) ?? calcBase.motivacao, colMatriz: "MOTIVACAO" },
-        { campo: "Impressão", val: extractNum(vMapa.impressao) ?? calcBase.impressao, colMatriz: "IMPRESSAO" },
-        { campo: "Expressão", val: extractNum(vMapa.expressao) ?? calcBase.expressao, colMatriz: "EXPRESSAO" },
-        { campo: "Destino", val: extractNum(vMapa.destino) ?? calcBase.destino, colMatriz: "DESTINO" },
-        { campo: "Missão", val: extractNum(vMapa.missao) ?? calcBase.missao, colMatriz: "MISSAO" },
-        { campo: "Dia Natalício", val: extractNum(vMapa.dia_natalicio) ?? calcBase.diaNatalicio, colMatriz: "DIA NATALICIO" },
-        { campo: "Triângulo", val: extractNum(vMapa.triangulo) ?? calcBase.triangulo, colMatriz: "TRIANGULO" },
-        { campo: "No Psiquico", val: extractNum(vMapa.numero_psiquico) ?? calcBase.numPsiquico, colMatriz: "NO PSIQUICO" },
-        { campo: "Estrutural", val: extractNum(vMapa.estrutural) ?? talento.estrutural ?? calcBase.estrutural },
-        { campo: "Direcionamento", val: extractNum(vMapa.direcionamento) ?? talento.direcionamento ?? calcBase.direcionamento },
-        { campo: "REPETIÇÃO 1", val: extractNum(vMapa.repeticao_1) ?? calcBase.rep1 },
-        { campo: "REPETIÇÃO 2", val: extractNum(vMapa.repeticao_2) ?? calcBase.rep2 },
+        { campo: "Motivação", val: calcBase.motivacao, colMatriz: "MOTIVACAO" },
+        { campo: "Impressão", val: calcBase.impressao, colMatriz: "IMPRESSAO" },
+        { campo: "Expressão", val: calcBase.expressao, colMatriz: "EXPRESSAO" },
+        { campo: "Destino", val: calcBase.destino, colMatriz: "DESTINO" },
+        { campo: "Missão", val: calcBase.missao, colMatriz: "MISSAO" },
+        { campo: "Dia Natalício", val: calcBase.diaNatalicio, colMatriz: "DIA NATALICIO" },
+        { campo: "Triângulo", val: calcBase.triangulo, colMatriz: "TRIANGULO" },
+        { campo: "No Psiquico", val: calcBase.numPsiquico, colMatriz: "NO PSIQUICO" },
+        { campo: "Estrutural", val: calcBase.estrutural },
+        { campo: "Direcionamento", val: calcBase.direcionamento },
+        { campo: "REPETIÇÃO 1", val: calcBase.rep1 },
+        { campo: "REPETIÇÃO 2", val: calcBase.rep2 },
       ];
 
   const itens: DetalheAtributoAuditoria[] = [];

@@ -473,20 +473,39 @@ export function PainelControleView({
         const data = await res.json();
         const itens = data?.result?.detalhamento_atributos;
         const scoresPerf = data?.result?.score_perfis;
+        const resumoCalc = data?.result?.resumo_calculo;
         if (active && data?.success) {
           if (Array.isArray(scoresPerf)) {
             setAuditScorePerfis(scoresPerf);
           }
           if (Array.isArray(itens) && itens.length > 0) {
             setAuditDetalhamento(itens);
-            if (setTalentos && !jaPossuiDetalhamento) {
-              setTalentos((prev) =>
-                prev.map((t) =>
-                  t.id === auditTalento.id
-                    ? { ...t, detalhamento_atributos: itens }
-                    : t
-                )
-              );
+            if (setTalentos) {
+              const precisaAtualizarTalento =
+                !jaPossuiDetalhamento ||
+                (resumoCalc &&
+                  (auditTalento.kan_numero !== resumoCalc.kanNumero ||
+                    auditTalento.estrutural !== resumoCalc.estrutural ||
+                    auditTalento.direcionamento !== resumoCalc.direcionamento));
+              if (precisaAtualizarTalento) {
+                setTalentos((prev) =>
+                  prev.map((t) =>
+                    t.id === auditTalento.id
+                      ? {
+                          ...t,
+                          kan_numero: resumoCalc?.kanNumero ?? t.kan_numero,
+                          kan_nome: resumoCalc?.kanNome ?? t.kan_nome,
+                          estrutural: resumoCalc?.estrutural ?? t.estrutural,
+                          direcionamento:
+                            resumoCalc?.direcionamento ?? t.direcionamento,
+                          vertices_triangulo:
+                            resumoCalc?.vertices ?? t.vertices_triangulo,
+                          detalhamento_atributos: itens,
+                        }
+                      : t
+                  )
+                );
+              }
             }
           }
         }
@@ -1385,23 +1404,39 @@ export function PainelControleView({
                   },
                   {
                     label: "ESTRUTURAL",
-                    val: String(auditTalento.estrutural),
+                    val:
+                      auditDetalhamento.find((d) => d.campo === "Estrutural")
+                        ?.valor || String(auditTalento.estrutural),
                   },
                   {
                     label: "DIRECIONAMENTO",
-                    val: String(auditTalento.direcionamento),
+                    val:
+                      auditDetalhamento.find((d) => d.campo === "Direcionamento")
+                        ?.valor || String(auditTalento.direcionamento),
                   },
                   {
                     label: "MOTIVAÇÃO",
-                    val: String(auditTalento.vertices_triangulo[0]),
+                    val:
+                      auditDetalhamento.find((d) => d.campo === "Motivação")
+                        ?.valor ||
+                      auditTalento.valores_mapa?.motivacao ||
+                      "-",
                   },
                   {
                     label: "EXPRESSÃO",
-                    val: String(auditTalento.vertices_triangulo[1]),
+                    val:
+                      auditDetalhamento.find((d) => d.campo === "Expressão")
+                        ?.valor ||
+                      auditTalento.valores_mapa?.expressao ||
+                      "-",
                   },
                   {
                     label: "DESTINO",
-                    val: String(auditTalento.vertices_triangulo[2]),
+                    val:
+                      auditDetalhamento.find((d) => d.campo === "Destino")
+                        ?.valor ||
+                      auditTalento.valores_mapa?.destino ||
+                      "-",
                   },
                   {
                     label: "VÉRTICES",
