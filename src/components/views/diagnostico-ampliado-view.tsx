@@ -511,6 +511,67 @@ export function DiagnosticoAmpliadoView({
       })
       .join("");
 
+    const softSkillsListaPdf =
+      diagInd.soft_skills_detalhadas ||
+      diagInd.sorted_skills.map(([nome, pontos]) => ({
+        nome,
+        pontos,
+        descricao:
+          "Competência comportamental mapeada no perfil, impulsionando a eficiência operacional e a sinergia em equipe.",
+      }));
+
+    const cardsSoftSkillsHtml = softSkillsListaPdf
+      .map((sk) => {
+        const isAlta = sk.pontos >= 300;
+        const isMedia = sk.pontos >= 100 && sk.pontos < 300;
+        const nivel = isAlta ? "ALTA" : isMedia ? "MÉDIA" : "BAIXA";
+        const badgeBg = isAlta
+          ? "#d1fae5"
+          : isMedia
+          ? "#fef3c7"
+          : "#f1f5f9";
+        const badgeText = isAlta
+          ? "#059669"
+          : isMedia
+          ? "#d97706"
+          : "#64748b";
+        const barColorD = isAlta
+          ? "#10b981"
+          : isMedia
+          ? "#f59e0b"
+          : "#64748b";
+        const barPctD =
+          sk.pontos > 0
+            ? Math.min(
+                100,
+                Math.max(8, Math.round((sk.pontos / (refMaxSk || 450)) * 100))
+              )
+            : 4;
+        return `
+          <div style="border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:14px;display:flex;flex-direction:column;justify-content:space-between;">
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px;">
+                <span style="font-size:13px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(sk.nome)}</span>
+                <span style="background:${badgeBg};color:${badgeText};border-radius:10px;padding:2px 8px;font-size:10px;font-weight:800;letter-spacing:0.5px;flex-shrink:0;">${nivel}</span>
+              </div>
+              <div style="font-size:11px;color:#475569;line-height:1.45;margin-bottom:10px;">
+                ${esc(sk.descricao)}
+              </div>
+            </div>
+            <div style="border-top:1px solid #e2e8f0;padding-top:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+                <span style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Pontuação:</span>
+                <span style="font-size:15px;font-weight:800;color:${barColorD};">${sk.pontos} <span style="font-size:11px;font-weight:500;color:#94a3b8;">pts</span></span>
+              </div>
+              <div style="height:7px;width:100%;background:#e2e8f0;border-radius:6px;overflow:hidden;">
+                <div style="height:100%;width:${barPctD}%;background:${barColorD};border-radius:6px;"></div>
+              </div>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
     const forcasRowsHtml = (diagInd.forcas_aplicadas || [])
       .map(
         (f, idx, arr) => `
@@ -695,6 +756,21 @@ export function DiagnosticoAmpliadoView({
     </div>
     <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;">
       ${cards9EixosHtml}
+    </div>
+  </div>
+
+  <!-- DETALHAMENTO DAS SOFT SKILLS PREDOMINANTES EM CARDS -->
+  <div class="avoid-break" style="border:1px solid #e2e8f0;border-radius:14px;padding:18px;background:#ffffff;margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:700;color:#0f172a;">
+        Detalhamento das Soft Skills Predominantes
+      </div>
+      <span style="font-size:11px;font-weight:600;color:#0284c7;background:#e0f2fe;border:1px solid rgba(2,132,199,0.3);border-radius:8px;padding:2px 8px;">
+        ${softSkillsListaPdf.length} Competências
+      </span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;">
+      ${cardsSoftSkillsHtml}
     </div>
   </div>
 
