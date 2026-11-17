@@ -4,11 +4,54 @@ import {
   calcularDetalhamentoAtributosServidor,
   calcularPerfilNumerologicoServidor,
   calcularScorePerfisServidor,
+  calcularScoreCategoriasServidor,
   isDetalhamentoValido,
 } from "@/lib/detalhamento-server";
 import type { DetalheAtributoAuditoria } from "@/lib/mock-data";
 
 export const dynamic = "force-dynamic";
+
+let cachedPesos: {
+  ts: number;
+  pesosPerfil: Record<string, number>;
+  pesosCat: Record<string, number>;
+} | null = null;
+
+async function getPesosServidor(): Promise<{
+  pesosPerfil: Record<string, number>;
+  pesosCat: Record<string, number>;
+}> {
+  if (cachedPesos && Date.now() - cachedPesos.ts < 60_000) {
+    return cachedPesos;
+  }
+  const pesosPerfil: Record<string, number> = {};
+  const pesosCat: Record<string, number> = {};
+  try {
+    const supabase = getSupabaseAdmin();
+    const [{ data: pData }, { data: pcData }] = await Promise.all([
+      supabase.from("peso").select("*").limit(50),
+      supabase.from("peso_categoria").select("*").limit(50),
+    ]);
+    if (Array.isArray(pData)) {
+      for (const r of pData) {
+        const k = String(r.campo || "").trim();
+        const v = Number(r.peso);
+        if (k && !isNaN(v)) pesosPerfil[k] = v;
+      }
+    }
+    if (Array.isArray(pcData)) {
+      for (const r of pcData) {
+        const k = String(r.campo || "").trim();
+        const v = Number(r.peso);
+        if (k && !isNaN(v)) pesosCat[k] = v;
+      }
+    }
+    cachedPesos = { ts: Date.now(), pesosPerfil, pesosCat };
+  } catch {
+    // fallback to built-in official weights
+  }
+  return { pesosPerfil, pesosCat };
+}
 
 /**
  * POST /api/calculos
@@ -40,6 +83,7 @@ export async function POST(req: NextRequest) {
         String(payload?.nome || ""),
         String(payload?.data_nascimento || "")
       );
+      const { pesosPerfil, pesosCat } = await getPesosServidor();
       // 1. Tenta chamar o container Docker mam-kantechrh
       const res = await callMamEngine("/api/v1/detalhamento-atributos", payload || {});
       const mamItens = (res.data as Record<string, unknown>)
@@ -49,8 +93,8 @@ export async function POST(req: NextRequest) {
         resultData = {
           ...rawData,
           resumo_calculo: resumoCalculo,
-          score_perfis:
-            rawData.score_perfis || calcularScorePerfisServidor(mamItens!),
+          score_perfis: calcularScorePerfisServidor(mamItens!, pesosPerfil),
+          score_categorias: calcularScoreCategoriasServidor(mamItens!, pesosCat),
         };
       } else {
         // Fallback no servidor (BFF): executa o cálculo seguro no servidor Next.js
@@ -60,7 +104,8 @@ export async function POST(req: NextRequest) {
         resultData = {
           detalhamento_atributos: fallbackDetalhes,
           resumo_calculo: resumoCalculo,
-          score_perfis: calcularScorePerfisServidor(fallbackDetalhes),
+          score_perfis: calcularScorePerfisServidor(fallbackDetalhes, pesosPerfil),
+          score_categorias: calcularScoreCategoriasServidor(fallbackDetalhes, pesosCat),
         };
       }
     } else {

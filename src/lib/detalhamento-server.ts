@@ -925,6 +925,26 @@ export interface ScorePerfilAuditoriaRow {
   psiquico: number;
   estrutural: number;
   direcionamento: number;
+  repeticao_1: number;
+  repeticao_2: number;
+  repeticao: number;
+  total: number;
+}
+
+export interface ScoreCategoriaAuditoriaRow {
+  categoria: string;
+  motivacao: number;
+  impressao: number;
+  expressao: number;
+  destino: number;
+  missao: number;
+  dia_natalicio: number;
+  triangulo: number;
+  psiquico: number;
+  estrutural: number;
+  direcionamento: number;
+  repeticao_1: number;
+  repeticao_2: number;
   repeticao: number;
   total: number;
 }
@@ -944,12 +964,29 @@ const PESOS_CAMPOS_OFICIAIS: Record<string, number> = {
   "REPETIÇÃO 2": 100,
 };
 
+const PESOS_CATEGORIA_OFICIAIS: Record<string, number> = {
+  Motivação: 100,
+  Impressão: 100,
+  Expressão: 100,
+  Destino: 100,
+  Missão: 100,
+  "Dia Natalício": 150,
+  Triângulo: 100,
+  "No Psiquico": 100,
+  Estrutural: 100,
+  Direcionamento: 100,
+  "REPETIÇÃO 1": 100,
+  "REPETIÇÃO 2": 100,
+};
+
 /**
  * Calcula a matriz de auditoria de Score por Perfil (score_df_calc) exclusivamente no servidor.
  */
 export function calcularScorePerfisServidor(
-  detalhamento: DetalheAtributoAuditoria[]
+  detalhamento: DetalheAtributoAuditoria[],
+  customPesos?: Record<string, number>
 ): ScorePerfilAuditoriaRow[] {
+  const pesos = { ...PESOS_CAMPOS_OFICIAIS, ...(customPesos || {}) };
   const perfisOrdem = [
     "Lider",
     "Resultado",
@@ -966,7 +1003,7 @@ export function calcularScorePerfisServidor(
       const item = detalhamento.find((d) => d.campo === campoNome);
       if (!item || !item.perfil) return 0;
       return removerAcentos(item.perfil) === pNorm
-        ? PESOS_CAMPOS_OFICIAIS[campoNome] ?? 0
+        ? pesos[campoNome] ?? 0
         : 0;
     };
 
@@ -980,7 +1017,9 @@ export function calcularScorePerfisServidor(
     const psiquico = getPts("No Psiquico");
     const estrutural = getPts("Estrutural");
     const direcionamento = getPts("Direcionamento");
-    const repeticao = getPts("REPETIÇÃO 1") + getPts("REPETIÇÃO 2");
+    const repeticao_1 = getPts("REPETIÇÃO 1");
+    const repeticao_2 = getPts("REPETIÇÃO 2");
+    const repeticao = repeticao_1 + repeticao_2;
     const total =
       motivacao +
       impressao +
@@ -992,7 +1031,8 @@ export function calcularScorePerfisServidor(
       psiquico +
       estrutural +
       direcionamento +
-      repeticao;
+      repeticao_1 +
+      repeticao_2;
 
     return {
       perfil: perf,
@@ -1006,6 +1046,90 @@ export function calcularScorePerfisServidor(
       psiquico,
       estrutural,
       direcionamento,
+      repeticao_1,
+      repeticao_2,
+      repeticao,
+      total,
+    };
+  });
+}
+
+/**
+ * Calcula a matriz de auditoria de Score por Categoria (score_cat_calc) exclusivamente no servidor.
+ */
+export function calcularScoreCategoriasServidor(
+  detalhamento: DetalheAtributoAuditoria[],
+  customPesos?: Record<string, number>
+): ScoreCategoriaAuditoriaRow[] {
+  const pesos = { ...PESOS_CATEGORIA_OFICIAIS, ...(customPesos || {}) };
+  const categoriasOrdem = [
+    "Justo",
+    "Inovador",
+    "Diplomático",
+    "Realizador",
+    "Versátil",
+    "Visionário",
+    "Magnético",
+    "Analítico",
+    "Organizado",
+    "Harmônico",
+    "Comunicativo",
+    "Intuitivo",
+    "Conhecimento",
+    "Empático",
+  ];
+
+  return categoriasOrdem.map((cat) => {
+    const cNorm = removerAcentos(cat);
+    const getPts = (campoNome: string) => {
+      const item = detalhamento.find((d) => d.campo === campoNome);
+      if (!item || !item.categoria) return 0;
+      return removerAcentos(item.categoria) === cNorm
+        ? pesos[campoNome] ?? 0
+        : 0;
+    };
+
+    const motivacao = getPts("Motivação");
+    const impressao = getPts("Impressão");
+    const expressao = getPts("Expressão");
+    const destino = getPts("Destino");
+    const missao = getPts("Missão");
+    const dia_natalicio = getPts("Dia Natalício");
+    const triangulo = getPts("Triângulo");
+    const psiquico = getPts("No Psiquico");
+    const estrutural = getPts("Estrutural");
+    const direcionamento = getPts("Direcionamento");
+    const repeticao_1 = getPts("REPETIÇÃO 1");
+    const repeticao_2 = getPts("REPETIÇÃO 2");
+    const repeticao = repeticao_1 + repeticao_2;
+    const total =
+      motivacao +
+      impressao +
+      expressao +
+      destino +
+      missao +
+      dia_natalicio +
+      triangulo +
+      psiquico +
+      estrutural +
+      direcionamento +
+      repeticao_1 +
+      repeticao_2;
+
+    return {
+      categoria: cat,
+      motivacao,
+      impressao,
+      expressao,
+      destino,
+      missao,
+      dia_natalicio,
+      triangulo,
+      psiquico,
+      estrutural,
+      direcionamento,
+      repeticao_1,
+      repeticao_2,
       repeticao,
       total,
     };

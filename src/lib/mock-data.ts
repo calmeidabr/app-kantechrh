@@ -147,6 +147,7 @@ export const CATEGORIAS_OPCOES = [
   "Comunicativo",
   "Intuitivo",
   "Conhecimento",
+  "Empático",
 ];
 
 export const QUALIDADES_OPCOES = [

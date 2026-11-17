@@ -39,6 +39,7 @@ import {
   EquipeData,
   KAN_OPCOES,
   PERFIS_OPCOES,
+  CATEGORIAS_OPCOES,
   DetalheAtributoAuditoria,
 } from "@/lib/mock-data";
 import { KanTrianglesSvg } from "@/components/kan-triangles-svg";
@@ -219,6 +220,27 @@ export function PainelControleView({
       psiquico?: number;
       estrutural: number;
       direcionamento: number;
+      repeticao_1?: number;
+      repeticao_2?: number;
+      repeticao: number;
+      total: number;
+    }>
+  >([]);
+  const [auditScoreCategorias, setAuditScoreCategorias] = useState<
+    Array<{
+      categoria: string;
+      motivacao: number;
+      impressao: number;
+      expressao: number;
+      destino: number;
+      missao: number;
+      dia_natalicio?: number;
+      triangulo?: number;
+      psiquico?: number;
+      estrutural: number;
+      direcionamento: number;
+      repeticao_1?: number;
+      repeticao_2?: number;
       repeticao: number;
       total: number;
     }>
@@ -473,10 +495,14 @@ export function PainelControleView({
         const data = await res.json();
         const itens = data?.result?.detalhamento_atributos;
         const scoresPerf = data?.result?.score_perfis;
+        const scoresCat = data?.result?.score_categorias;
         const resumoCalc = data?.result?.resumo_calculo;
         if (active && data?.success) {
           if (Array.isArray(scoresPerf)) {
             setAuditScorePerfis(scoresPerf);
+          }
+          if (Array.isArray(scoresCat)) {
+            setAuditScoreCategorias(scoresCat);
           }
           if (Array.isArray(itens) && itens.length > 0) {
             setAuditDetalhamento(itens);
@@ -548,8 +574,12 @@ export function PainelControleView({
       const data = await res.json();
       const itens = data?.result?.detalhamento_atributos;
       const scoresPerf = data?.result?.score_perfis;
+      const scoresCat = data?.result?.score_categorias;
       if (Array.isArray(scoresPerf)) {
         setAuditScorePerfis(scoresPerf);
+      }
+      if (Array.isArray(scoresCat)) {
+        setAuditScoreCategorias(scoresCat);
       }
       if (data?.success && Array.isArray(itens) && itens.length > 0) {
         setAuditDetalhamento(itens);
@@ -1625,28 +1655,37 @@ export function PainelControleView({
                 </div>
                 <div className="overflow-x-auto rounded-lg border">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-muted/60 text-[11px] uppercase text-muted-foreground">
+                    <thead className="bg-muted/60 text-[11px] uppercase text-muted-foreground whitespace-nowrap">
                       <tr>
                         <th className="px-3 py-2">Perfil</th>
-                        <th className="px-2 py-2 text-center">Motiv.</th>
-                        <th className="px-2 py-2 text-center">Impr.</th>
-                        <th className="px-2 py-2 text-center">Expr.</th>
-                        <th className="px-2 py-2 text-center">Dest.</th>
+                        <th className="px-2 py-2 text-center">Motivação</th>
+                        <th className="px-2 py-2 text-center">Impressão</th>
+                        <th className="px-2 py-2 text-center">Expressão</th>
+                        <th className="px-2 py-2 text-center">Destino</th>
                         <th className="px-2 py-2 text-center">Missão</th>
-                        <th className="px-2 py-2 text-center">Estrut.</th>
-                        <th className="px-2 py-2 text-center">Direc.</th>
-                        <th className="px-2 py-2 text-center">Rep 1/2</th>
+                        <th className="px-2 py-2 text-center">Dia Natalício</th>
+                        <th className="px-2 py-2 text-center">Triângulo</th>
+                        <th className="px-2 py-2 text-center">No Psiquico</th>
+                        <th className="px-2 py-2 text-center">Estrutural</th>
+                        <th className="px-2 py-2 text-center">Direcionamento</th>
+                        <th className="px-2 py-2 text-center">REPETIÇÃO 1</th>
+                        <th className="px-2 py-2 text-center">REPETIÇÃO 2</th>
                         <th className="px-3 py-2 text-right font-bold">
-                          Total Score
+                          Pontuação
                         </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
                       {PERFIS_OPCOES.map((perf) => {
-                        const isSelected =
-                          auditTalento.perfis_lista.includes(perf);
+                        const isSelected = auditTalento.perfis_lista.some(
+                          (p) =>
+                            p.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() ===
+                            perf.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+                        );
                         const rowBackend = auditScorePerfis.find(
-                          (r) => r.perfil.toLowerCase() === perf.toLowerCase()
+                          (r) =>
+                            r.perfil.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() ===
+                            perf.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
                         );
                         return (
                           <tr
@@ -1657,7 +1696,7 @@ export function PainelControleView({
                                 : "hover:bg-muted/30"
                             }
                           >
-                            <td className="flex items-center gap-1.5 px-3 py-2">
+                            <td className="flex items-center gap-1.5 px-3 py-2 whitespace-nowrap">
                               {isSelected && (
                                 <CheckCircle2 className="h-3.5 w-3.5 text-[#ea580c]" />
                               )}
@@ -1679,15 +1718,133 @@ export function PainelControleView({
                               {rowBackend?.missao ?? 0}
                             </td>
                             <td className="px-2 py-2 text-center">
+                              {rowBackend?.dia_natalicio ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.triangulo ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.psiquico ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
                               {rowBackend?.estrutural ?? 0}
                             </td>
                             <td className="px-2 py-2 text-center">
                               {rowBackend?.direcionamento ?? 0}
                             </td>
                             <td className="px-2 py-2 text-center">
-                              {rowBackend?.repeticao ?? 0}
+                              {rowBackend?.repeticao_1 ?? 0}
                             </td>
-                            <td className="px-3 py-2 text-right font-mono font-bold text-[#510851] dark:text-purple-300">
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.repeticao_2 ?? 0}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono font-bold text-[#510851] dark:text-purple-300 whitespace-nowrap">
+                              {rowBackend?.total ?? 0} pts
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* 3. Score Categoria Matrix Table */}
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#510851] dark:text-purple-300">
+                    3. Matriz de Auditoria — Score Categoria (`score_cat_calc`)
+                  </h4>
+                  <Badge className="bg-[#510851] text-white">
+                    Selecionado: {auditTalento.categorias_lista.join(", ")}
+                  </Badge>
+                </div>
+                <div className="overflow-x-auto rounded-lg border">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-muted/60 text-[11px] uppercase text-muted-foreground whitespace-nowrap">
+                      <tr>
+                        <th className="px-3 py-2">Categoria</th>
+                        <th className="px-2 py-2 text-center">Motivação</th>
+                        <th className="px-2 py-2 text-center">Impressão</th>
+                        <th className="px-2 py-2 text-center">Expressão</th>
+                        <th className="px-2 py-2 text-center">Destino</th>
+                        <th className="px-2 py-2 text-center">Missão</th>
+                        <th className="px-2 py-2 text-center">Dia Natalício</th>
+                        <th className="px-2 py-2 text-center">Triângulo</th>
+                        <th className="px-2 py-2 text-center">No Psiquico</th>
+                        <th className="px-2 py-2 text-center">Estrutural</th>
+                        <th className="px-2 py-2 text-center">Direcionamento</th>
+                        <th className="px-2 py-2 text-center">REPETIÇÃO 1</th>
+                        <th className="px-2 py-2 text-center">REPETIÇÃO 2</th>
+                        <th className="px-3 py-2 text-right font-bold">
+                          Pontuação
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {CATEGORIAS_OPCOES.map((cat) => {
+                        const isSelected = auditTalento.categorias_lista.some(
+                          (c) =>
+                            c.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() ===
+                            cat.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+                        );
+                        const rowBackend = auditScoreCategorias.find(
+                          (r) =>
+                            r.categoria.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() ===
+                            cat.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+                        );
+                        return (
+                          <tr
+                            key={cat}
+                            className={
+                              isSelected
+                                ? "bg-[#ea580c]/10 font-semibold"
+                                : "hover:bg-muted/30"
+                            }
+                          >
+                            <td className="flex items-center gap-1.5 px-3 py-2 whitespace-nowrap">
+                              {isSelected && (
+                                <CheckCircle2 className="h-3.5 w-3.5 text-[#ea580c]" />
+                              )}
+                              {cat}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.motivacao ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.impressao ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.expressao ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.destino ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.missao ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.dia_natalicio ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.triangulo ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.psiquico ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.estrutural ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.direcionamento ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.repeticao_1 ?? 0}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {rowBackend?.repeticao_2 ?? 0}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono font-bold text-[#510851] dark:text-purple-300 whitespace-nowrap">
                               {rowBackend?.total ?? 0} pts
                             </td>
                           </tr>
