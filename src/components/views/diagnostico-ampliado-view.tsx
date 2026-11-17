@@ -22,6 +22,7 @@ import {
   Award,
   FileText,
   Download,
+  Share2,
   User,
   Activity,
 } from "lucide-react";
@@ -211,6 +212,7 @@ export function DiagnosticoAmpliadoView({
   const [openOrigemRastreabilidade, setOpenOrigemRastreabilidade] =
     useState(false);
   const [openRankingSkillsEquipe, setOpenRankingSkillsEquipe] = useState(false);
+  const [toastShareMsg, setToastShareMsg] = useState<string | null>(null);
 
   // Fetch individual diagnosis when in individual mode
   useEffect(() => {
@@ -861,6 +863,75 @@ export function DiagnosticoAmpliadoView({
     printWin.document.close();
   };
 
+  const gerarTextoResumoCompartilhamento = () => {
+    if (!diagInd) return "";
+    const nome = diagInd.nome;
+    const perfil = diagInd.perfil_predominante;
+    const kan = diagInd.kan_nome;
+    const forcas = diagInd.forcas;
+    const topSkills = top8SoftSkills.slice(0, 5).map(([sk]) => sk).join(", ");
+
+    return (
+      `*Diagnóstico Comportamental KAN — ${nome}*\n\n` +
+      `🎯 *Perfil Predominante:* ${perfil}\n` +
+      `🔥 *Força Central KAN:* ${kan}\n` +
+      `⚡ *Forças Centrais:* ${forcas}\n` +
+      (topSkills ? `💡 *Soft Skills Destacadas:* ${topSkills}\n\n` : "\n") +
+      `Acesse a plataforma KAN Tech RH para visualizar o diagnóstico completo e a projeção geométrica dos triângulos harmônicos.`
+    );
+  };
+
+  const handleCompartilharDiagnostico = async () => {
+    if (!diagInd) return;
+    const textoResumo = gerarTextoResumoCompartilhamento();
+    const titulo = `Diagnóstico KAN - ${diagInd.nome}`;
+    const urlAtual = typeof window !== "undefined" ? window.location.href : "";
+
+    // 1. Tentar Web Share API nativa (WhatsApp, Email, Telegram, redes e apps no celular/desktop)
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: titulo,
+          text: textoResumo,
+          url: urlAtual,
+        });
+        return;
+      } catch (err: any) {
+        // Se o usuário cancelou o menu nativo, não faz nada
+        if (err?.name === "AbortError") return;
+      }
+    }
+
+    // 2. Fallback: Copiar para a área de transferência
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(`${textoResumo}\n${urlAtual}`);
+        setToastShareMsg("✅ Diagnóstico copiado para a área de transferência! Cole no WhatsApp ou E-mail.");
+      } else {
+        setToastShareMsg("⚠️ Compartilhamento não suportado neste navegador.");
+      }
+    } catch {
+      setToastShareMsg("⚠️ Não foi possível copiar para a área de transferência.");
+    }
+
+    setTimeout(() => setToastShareMsg(null), 4000);
+  };
+
+  const handleCompartilharWhatsApp = () => {
+    if (!diagInd) return;
+    const texto = gerarTextoResumoCompartilhamento();
+    const urlAtual = typeof window !== "undefined" ? window.location.href : "";
+    const msg = encodeURIComponent(`${texto}\n${urlAtual}`);
+    window.open(`https://api.whatsapp.com/send?text=${msg}`, "_blank");
+  };
+
+  const handleCompartilharEmail = () => {
+    if (!diagInd) return;
+    const assunto = encodeURIComponent(`Diagnóstico Comportamental KAN — ${diagInd.nome}`);
+    const corpo = encodeURIComponent(`${gerarTextoResumoCompartilhamento()}\n\nLink: ${typeof window !== "undefined" ? window.location.href : ""}`);
+    window.open(`mailto:?subject=${assunto}&body=${corpo}`, "_self");
+  };
+
   return (
     <div className="space-y-6">
       {/* Header idêntico ao app.mundokan */}
@@ -1495,8 +1566,8 @@ export function DiagnosticoAmpliadoView({
            MODO 2: DIAGNÓSTICO INDIVIDUAL DO TALENTO (IDÊNTICO AO APP.MUNDOKAN)
            ===================================================================== */
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3.5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3.5 min-w-0">
               {talentoIndividualObj?.avatar ? (
                 <img
                   src={talentoIndividualObj.avatar}
@@ -1508,15 +1579,15 @@ export function DiagnosticoAmpliadoView({
                   <User className="h-6 w-6" />
                 </div>
               )}
-              <div>
-                <h3 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white truncate">
                   Diagnóstico Individual:{" "}
                   <span className="text-[#ea580c]">
                     {diagInd?.nome || talentoSelNome}
                   </span>
                 </h3>
                 {talentoIndividualObj?.data_nascimento && (
-                  <div className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
                     <span>Nascimento:</span>
                     <strong className="text-slate-700 dark:text-slate-200">
                       {talentoIndividualObj.data_nascimento}
@@ -1524,33 +1595,61 @@ export function DiagnosticoAmpliadoView({
                     {talentoIndividualObj.cargo && (
                       <>
                         <span>•</span>
-                        <span>{talentoIndividualObj.cargo}</span>
+                        <span className="truncate">{talentoIndividualObj.cargo}</span>
                       </>
                     )}
                   </div>
                 )}
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               {loadingInd && (
-                <span className="text-xs text-slate-400 animate-pulse">
+                <span className="text-xs text-slate-400 animate-pulse w-full sm:w-auto">
                   Carregando diagnóstico ampliado...
                 </span>
               )}
               {diagInd && !loadingInd && (
-                <Button
-                  type="button"
-                  variant="orange"
-                  size="sm"
-                  onClick={handleBaixarDiagnosticoPdf}
-                  className="gap-2 font-bold shadow-xs"
-                >
-                  <Download className="h-4 w-4" />
-                  Baixar Diagnóstico Completo PDF
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    variant="orange"
+                    size="sm"
+                    onClick={handleBaixarDiagnosticoPdf}
+                    className="flex-1 sm:flex-none gap-2 font-bold shadow-xs text-xs h-9 justify-center"
+                  >
+                    <Download className="h-4 w-4 shrink-0" />
+                    <span>Baixar Diagnóstico Completo PDF</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCompartilharDiagnostico}
+                    className="gap-2 font-bold shadow-xs text-xs h-9 border-[#ea580c]/40 text-[#ea580c] hover:bg-[#ea580c]/10 justify-center"
+                    title="Compartilhar cópia do diagnóstico (WhatsApp, E-mail ou copiar)"
+                  >
+                    <Share2 className="h-4 w-4 shrink-0" />
+                    <span>Compartilhar</span>
+                  </Button>
+                </>
               )}
             </div>
           </div>
+
+          {toastShareMsg && (
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-center justify-between">
+              <span>{toastShareMsg}</span>
+              <button
+                type="button"
+                onClick={() => setToastShareMsg(null)}
+                className="text-emerald-500 hover:text-emerald-700 font-bold ml-2"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           {diagInd && (
             <>
