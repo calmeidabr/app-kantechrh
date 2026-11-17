@@ -967,14 +967,14 @@ export function DiagnosticoAmpliadoView({
                 );
                 if (match) setEquipeSelNome(match.nome);
               }}
-              placeholder="Buscar equipe pelo nome..."
-              className="h-9 w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 pr-8 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#ea580c]"
+              placeholder="Digite o nome da equipe para filtrar a lista abaixo..."
+              className="h-10 w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 pr-8 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#ea580c]"
             />
             {buscaEquipeDiag && (
               <button
                 type="button"
                 onClick={() => setBuscaEquipeDiag("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                 aria-label="Limpar busca de equipe"
               >
                 ✕
@@ -1001,6 +1001,14 @@ export function DiagnosticoAmpliadoView({
               </option>
             ))}
           </select>
+          {buscaEquipeDiag && (
+            <p className="text-[11px] text-[#ea580c] font-medium">
+              Filtrando equipes por &ldquo;{buscaEquipeDiag}&rdquo; ({equipes.filter((eq) => {
+                const terms = normText(buscaEquipeDiag).split(/\s+/).filter(Boolean);
+                return terms.every((t) => normText(eq.nome).includes(t));
+              }).length} encontrada(s))
+            </p>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -1025,14 +1033,14 @@ export function DiagnosticoAmpliadoView({
                   if (onSelectTalento) onSelectTalento(match);
                 }
               }}
-              placeholder="Buscar talento pelo nome..."
-              className="h-9 w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 pr-8 text-xs text-slate-800 dark:text-slate-100 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#ea580c]"
+              placeholder="Digite o nome do talento para filtrar a lista abaixo..."
+              className="h-10 w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 pr-8 text-xs text-slate-800 dark:text-slate-100 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#ea580c]"
             />
             {buscaTalentoDiag && (
               <button
                 type="button"
                 onClick={() => setBuscaTalentoDiag("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                 aria-label="Limpar busca de talento"
               >
                 ✕
@@ -1064,6 +1072,14 @@ export function DiagnosticoAmpliadoView({
               </option>
             ))}
           </select>
+          {buscaTalentoDiag && equipeSelNome === "Nenhuma equipe selecionada" && (
+            <p className="text-[11px] text-[#ea580c] font-medium">
+              Filtrando talentos por &ldquo;{buscaTalentoDiag}&rdquo; ({talentos.filter((t) => {
+                const terms = normText(buscaTalentoDiag).split(/\s+/).filter(Boolean);
+                return terms.every((term) => normText(t.nome).includes(term));
+              }).length} encontrado(s))
+            </p>
+          )}
         </div>
       </div>
 
