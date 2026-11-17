@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Search,
   Plus,
@@ -140,6 +140,41 @@ function normText(s?: string | null): string {
     .trim();
 }
 
+function processImageFile(file: File, maxDim = 400, quality = 0.85): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(String(e.target?.result || ""));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => reject(new Error("Falha ao abrir imagem"));
+      img.src = String(e.target?.result);
+    };
+    reader.onerror = () => reject(new Error("Falha ao ler arquivo"));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function EquipesView({
   equipes,
   setEquipes,
@@ -232,6 +267,10 @@ export function EquipesView({
 
   // New Team Wizard State
   const [novoNomeEq, setNovoNomeEq] = useState(`Equipe ${equipes.length + 1}`);
+  const [novaFotoPreview, setNovaFotoPreview] = useState<string | null>(null);
+  const [novaFotoBase64, setNovaFotoBase64] = useState<string | null>(null);
+  const [novaFotoNome, setNovaFotoNome] = useState<string>("");
+  const novaFotoInputRef = useRef<HTMLInputElement>(null);
   const [filtroEmpresa, setFiltroEmpresa] = useState("Todas");
   const [filtroDepto, setFiltroDepto] = useState("Todos");
   const [filtroNomeTalento, setFiltroNomeTalento] = useState("");
@@ -240,6 +279,39 @@ export function EquipesView({
   const [membrosSelecionadosNovo, setMembrosSelecionadosNovo] = useState<
     string[]
   >([]);
+
+  const handleNovaEquipeFotoSelect = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setToastMsg("⚠️ Selecione um arquivo de imagem válido (PNG, JPG, WEBP).");
+      return;
+    }
+
+    try {
+      const b64 = await processImageFile(file);
+      setNovaFotoPreview(b64);
+      setNovaFotoBase64(b64);
+      setNovaFotoNome(file.name);
+      setToastMsg(`✅ Imagem "${file.name}" carregada na equipe!`);
+      setTimeout(() => setToastMsg(null), 3500);
+    } catch {
+      setToastMsg("❌ Erro ao processar a imagem selecionada.");
+    } finally {
+      if (novaFotoInputRef.current) {
+        novaFotoInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleRemoverNovaFoto = () => {
+    setNovaFotoPreview(null);
+    setNovaFotoBase64(null);
+    setNovaFotoNome("");
+  };
 
   // Member to add inside existing team editor
   const [membroParaAdicionar, setMembroParaAdicionar] = useState<
@@ -288,43 +360,83 @@ export function EquipesView({
       return;
     }
 
+    let savedId = `eq-${Date.now()}`;
+    let dbErrorMsg: string | null = null;
+    const empresaEq =
+      filtroEmpresa === "Todas" ? EMPRESAS_TENANT[0].nome : filtroEmpresa;
+    const deptoEq =
+      filtroDepto === "Todos" ? "Multidisciplinar" : filtroDepto;
+    const membrosEq = membrosSelecionadosNovo.map((nome, i) => ({
+      nome,
+      lider: i === 0,
+    }));
+
+    try {
+      const res = await fetch("/api/equipes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: novoNomeEq.trim(),
+          empresa: empresaEq,
+          departamento: deptoEq,
+          membros: membrosEq,
+          foto_base64: novaFotoBase64 || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || json?.error) {
+        dbErrorMsg = json?.error || "Erro ao salvar equipe no Supabase";
+      } else if (json?.equipe?.id) {
+        savedId = String(json.equipe.id);
+      }
+    } catch (err: any) {
+      dbErrorMsg = err?.message || "Falha de conexão com o banco";
+    }
+
     const novaEq: EquipeData = {
-      id: `eq-${Date.now()}`,
+      id: savedId,
       nome: novoNomeEq.trim(),
-      empresa:
-        filtroEmpresa === "Todas" ? EMPRESAS_TENANT[0].nome : filtroEmpresa,
-      departamento:
-        filtroDepto === "Todos" ? "Multidisciplinar" : filtroDepto,
-      membros: membrosSelecionadosNovo.map((nome, i) => ({
-        nome,
-        lider: i === 0,
-      })),
+      empresa: empresaEq,
+      departamento: deptoEq,
+      foto_url: novaFotoPreview || undefined,
+      membros: membrosEq,
       harmonia: 89.2,
       triangulo_status: "Encaixe Muito Alto",
       distribuicao: { Lider: 30, Criativo: 25, Executor: 25, Resultado: 20 },
     };
 
+    setEquipes((prev) => [novaEq, ...prev]);
+    setAddMode(false);
+    setMembrosSelecionadosNovo([]);
+    setNovaFotoPreview(null);
+    setNovaFotoBase64(null);
+    setNovaFotoNome("");
+    setOpenTrianglesId(novaEq.id);
+    setToastMsg(
+      dbErrorMsg
+        ? `⚠️ Equipe criada localmente, mas houve aviso na base: ${dbErrorMsg}`
+        : `✅ Equipe "${novaEq.nome}" salva com sucesso no Supabase!`
+    );
+    setTimeout(() => setToastMsg(null), 4000);
+  };
+
+  const syncEquipeSupabase = async (eqAtualizada: EquipeData) => {
     try {
       await fetch("/api/equipes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          nome: novaEq.nome,
-          empresa: novaEq.empresa,
-          departamento: novaEq.departamento,
-          membros: novaEq.membros,
+          id: eqAtualizada.id,
+          nome: eqAtualizada.nome,
+          empresa: eqAtualizada.empresa,
+          departamento: eqAtualizada.departamento,
+          membros: eqAtualizada.membros,
+          foto_base64: eqAtualizada.foto_url,
         }),
       });
     } catch {
-      // Keep local state if offline
+      // ignore offline
     }
-
-    setEquipes((prev) => [novaEq, ...prev]);
-    setAddMode(false);
-    setMembrosSelecionadosNovo([]);
-    setOpenTrianglesId(novaEq.id);
-    setToastMsg(`✅ Equipe "${novaEq.nome}" salva com sucesso!`);
-    setTimeout(() => setToastMsg(null), 4000);
   };
 
   // Toggle Crown (Leader) inside existing team
@@ -334,13 +446,15 @@ export function EquipesView({
         if (eq.id !== eqId) return eq;
         const currentLider = eq.membros.find((m) => m.lider)?.nome;
         const nextLider = currentLider === memberName ? null : memberName;
-        return {
+        const updated = {
           ...eq,
           membros: eq.membros.map((m) => ({
             ...m,
             lider: m.nome === nextLider,
           })),
         };
+        syncEquipeSupabase(updated);
+        return updated;
       })
     );
     setToastMsg(`👑 Liderança atualizada para ${memberName}!`);
@@ -350,14 +464,15 @@ export function EquipesView({
   // Remove member from team
   const handleRemoverMembro = (eqId: string, memberName: string) => {
     setEquipes((prev) =>
-      prev.map((eq) =>
-        eq.id === eqId
-          ? {
-              ...eq,
-              membros: eq.membros.filter((m) => m.nome !== memberName),
-            }
-          : eq
-      )
+      prev.map((eq) => {
+        if (eq.id !== eqId) return eq;
+        const updated = {
+          ...eq,
+          membros: eq.membros.filter((m) => m.nome !== memberName),
+        };
+        syncEquipeSupabase(updated);
+        return updated;
+      })
     );
     setToastMsg(`Membro "${memberName}" removido da equipe.`);
     setTimeout(() => setToastMsg(null), 3000);
@@ -371,10 +486,12 @@ export function EquipesView({
       prev.map((eq) => {
         if (eq.id !== eqId) return eq;
         if (eq.membros.some((m) => m.nome === targetName)) return eq;
-        return {
+        const updated = {
           ...eq,
           membros: [...eq.membros, { nome: targetName, lider: false }],
         };
+        syncEquipeSupabase(updated);
+        return updated;
       })
     );
     setToastMsg(`✅ "${targetName}" adicionado à equipe!`);
@@ -446,6 +563,9 @@ export function EquipesView({
             <Button
               onClick={() => {
                 setNovoNomeEq(`Equipe ${equipes.length + 1}`);
+                setNovaFotoPreview(null);
+                setNovaFotoBase64(null);
+                setNovaFotoNome("");
                 setAddMode(true);
               }}
             >
@@ -494,11 +614,42 @@ export function EquipesView({
                 <label className="text-xs font-semibold">
                   Foto / Ícone da Equipe (Opcional)
                 </label>
-                <label className="flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-3 text-xs font-medium">
-                  <UploadCloud className="h-3.5 w-3.5 text-[#510851]" />
-                  <span>Enviar Imagem</span>
-                  <input type="file" className="hidden" />
-                </label>
+                <div className="flex items-center gap-2">
+                  {novaFotoPreview && (
+                    <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-[#510851]/30">
+                      <img
+                        src={novaFotoPreview}
+                        alt="Preview da Equipe"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  )}
+                  <label className="flex h-9 flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 px-3 text-xs font-medium transition-colors truncate">
+                    <UploadCloud className="h-3.5 w-3.5 text-[#510851] dark:text-[#a78bfa] shrink-0" />
+                    <span className="truncate">
+                      {novaFotoPreview
+                        ? novaFotoNome || "Alterar Imagem"
+                        : "Enviar Imagem"}
+                    </span>
+                    <input
+                      ref={novaFotoInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleNovaEquipeFotoSelect}
+                      className="hidden"
+                    />
+                  </label>
+                  {novaFotoPreview && (
+                    <button
+                      type="button"
+                      onClick={handleRemoverNovaFoto}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                      title="Remover imagem"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -876,11 +1027,42 @@ export function EquipesView({
                 ============================================================ */}
                 {isEditOpen && (
                   <div className="border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 p-6 space-y-5">
-                    {/* Add new member bar */}
+                    {/* Add new member bar + Team Photo update */}
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5">
-                      <div className="flex items-center gap-2 text-xs font-semibold">
-                        <UserPlus className="h-4 w-4 text-[#510851] dark:text-[#a78bfa]" />
-                        <span>Adicionar Talento à Equipe:</span>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center gap-2 text-xs font-semibold">
+                          <UserPlus className="h-4 w-4 text-[#510851] dark:text-[#a78bfa]" />
+                          <span>Adicionar Talento à Equipe:</span>
+                        </div>
+                        <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 px-2.5 text-[11px] font-medium text-[#510851] dark:text-[#a78bfa] transition-colors">
+                          <UploadCloud className="h-3.5 w-3.5" />
+                          <span>Alterar Imagem da Equipe</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file || !file.type.startsWith("image/")) return;
+                              try {
+                                const b64 = await processImageFile(file);
+                                const updated = { ...eq, foto_url: b64 };
+                                setEquipes((prev) =>
+                                  prev.map((item) =>
+                                    item.id === eq.id ? updated : item
+                                  )
+                                );
+                                await syncEquipeSupabase(updated);
+                                setToastMsg(`✅ Imagem da equipe "${eq.nome}" salva no Supabase!`);
+                                setTimeout(() => setToastMsg(null), 3500);
+                              } catch {
+                                setToastMsg("❌ Erro ao processar imagem da equipe.");
+                              } finally {
+                                e.target.value = "";
+                              }
+                            }}
+                          />
+                        </label>
                       </div>
                       <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 flex-1 max-w-xl">
                         <Input

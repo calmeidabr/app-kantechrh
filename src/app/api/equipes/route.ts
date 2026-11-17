@@ -127,36 +127,82 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, nome, empresa, departamento, membros, tenant_id } = body;
+    const {
+      id,
+      nome,
+      empresa,
+      departamento,
+      membros,
+      tenant_id,
+      foto_base64,
+      foto_url,
+    } = body;
 
-    if (!nome) {
+    if (!nome || !String(nome).trim()) {
       return NextResponse.json(
         { error: "O nome da equipe é obrigatório." },
         { status: 400 }
       );
     }
 
+    const nomeTrim = String(nome).trim();
     const supabaseAdmin = getSupabaseAdmin();
     const payload: Record<string, unknown> = {
-      nome,
+      nome: nomeTrim,
       empresa: empresa || "Mundo Kan",
       departamento: departamento || "Geral",
       membros: Array.isArray(membros) ? membros : [],
+      tenant_id: tenant_id || "00000000-0000-0000-0000-000000000000",
       updated_at: new Date().toISOString(),
     };
 
-    if (tenant_id) {
-      payload.tenant_id = tenant_id;
-    }
-    if (id && !isNaN(Number(id))) {
-      payload.id = Number(id);
+    if (foto_base64 !== undefined) {
+      payload.foto_base64 = foto_base64 ? String(foto_base64).trim() : null;
+    } else if (foto_url !== undefined) {
+      payload.foto_base64 = foto_url ? String(foto_url).trim() : null;
     }
 
-    const { data, error } = await supabaseAdmin
-      .from("equipes")
-      .upsert(payload, { onConflict: "nome" })
-      .select()
-      .single();
+    let existingId: number | null = null;
+    if (id && !String(id).startsWith("eq-") && !isNaN(Number(id))) {
+      const { data: byId } = await supabaseAdmin
+        .from("equipes")
+        .select("id")
+        .eq("id", Number(id))
+        .maybeSingle();
+      if (byId?.id) existingId = Number(byId.id);
+    }
+
+    if (!existingId) {
+      const { data: byName } = await supabaseAdmin
+        .from("equipes")
+        .select("id")
+        .ilike("nome", nomeTrim)
+        .limit(1)
+        .maybeSingle();
+      if (byName?.id) existingId = Number(byName.id);
+    }
+
+    let data = null;
+    let error = null;
+
+    if (existingId) {
+      const res = await supabaseAdmin
+        .from("equipes")
+        .update(payload)
+        .eq("id", existingId)
+        .select()
+        .single();
+      data = res.data;
+      error = res.error;
+    } else {
+      const res = await supabaseAdmin
+        .from("equipes")
+        .insert(payload)
+        .select()
+        .single();
+      data = res.data;
+      error = res.error;
+    }
 
     if (error) {
       return NextResponse.json(
