@@ -95,72 +95,87 @@ export async function POST(req: NextRequest) {
         const { data: mapaAtual } = await supabaseAdmin
           .from("mapas_salvos")
           .select("id, perfil_json")
-          .eq("nome", nomeStr)
+          .ilike("nome", nomeStr)
+          .limit(1)
           .maybeSingle();
 
-        if (mapaAtual) {
-          let perfilList: Array<Record<string, unknown>> = [];
-          if (
-            typeof mapaAtual.perfil_json === "string" &&
-            mapaAtual.perfil_json.trim().startsWith("[")
-          ) {
-            try {
-              perfilList = JSON.parse(mapaAtual.perfil_json);
-            } catch {
-              perfilList = [];
-            }
+        let perfilList: Array<Record<string, unknown>> = [];
+        if (
+          mapaAtual &&
+          typeof mapaAtual.perfil_json === "string" &&
+          mapaAtual.perfil_json.trim().startsWith("[")
+        ) {
+          try {
+            perfilList = JSON.parse(mapaAtual.perfil_json);
+          } catch {
+            perfilList = [];
           }
+        }
 
-          // Remove registros antigos de detalhamento para evitar duplicatas
-          perfilList = perfilList.filter((it) => {
-            const c = String(it.Campo || "");
-            return (
-              !c.startsWith("Detalhamento:") &&
-              c !== "DetalhamentoAtributosJSON"
-            );
-          });
+        // Remove registros antigos de detalhamento para evitar duplicatas
+        perfilList = perfilList.filter((it) => {
+          const c = String(it.Campo || "");
+          return (
+            !c.startsWith("Detalhamento:") &&
+            c !== "DetalhamentoAtributosJSON"
+          );
+        });
 
-          const detalhes = resultData?.detalhamento_atributos as
-            | Array<Record<string, unknown>>
-            | undefined;
+        const detalhes = resultData?.detalhamento_atributos as
+          | Array<Record<string, unknown>>
+          | undefined;
 
-          if (Array.isArray(detalhes)) {
-            for (const d of detalhes) {
-              const cNome = String(d.campo || d.Campo || "");
-              const aNome = String(d.atributo || d.Atributo || d.Matriz || "");
-              const pNome = String(d.perfil || d.Perfil || "");
-              const catNome = String(d.categoria || d.Categoria || "");
-              const qNome = String(d.qualidade || d.Qualidade || "");
-              const sNome = String(d.soft_skills || d["Soft Skills"] || "");
-              const vVal = String(d.valor || d.Valor || "");
-
-              perfilList.push({
-                Campo: `Detalhamento: ${cNome}`,
-                Valor: vVal,
-                Atributo: aNome,
-                Perfil: pNome,
-                Categoria: catNome,
-                Qualidade: qNome,
-                SoftSkills: sNome,
-                Resultado: aNome,
-                Descricao: `Atributo: ${aNome} | Perfil: ${pNome} | Categoria: ${catNome} | Qualidade: ${qNome} | Soft Skills: ${sNome}`,
-              });
-            }
+        if (Array.isArray(detalhes)) {
+          for (const d of detalhes) {
+            const cNome = String(d.campo || d.Campo || "");
+            const aNome = String(d.atributo || d.Atributo || d.Matriz || "");
+            const pNome = String(d.perfil || d.Perfil || "");
+            const catNome = String(d.categoria || d.Categoria || "");
+            const qNome = String(d.qualidade || d.Qualidade || "");
+            const sNome = String(d.soft_skills || d["Soft Skills"] || "");
+            const vVal = String(d.valor || d.Valor || "");
 
             perfilList.push({
-              Campo: "DetalhamentoAtributosJSON",
-              Valor: JSON.stringify(detalhes),
-              Descricao:
-                "Detalhamento completo dos atributos e soft skills para auditoria",
-              Resultado: "OK",
+              Campo: `Detalhamento: ${cNome}`,
+              Valor: vVal,
+              Atributo: aNome,
+              Perfil: pNome,
+              Categoria: catNome,
+              Qualidade: qNome,
+              SoftSkills: sNome,
+              Resultado: aNome,
+              Descricao: `Atributo: ${aNome} | Perfil: ${pNome} | Categoria: ${catNome} | Qualidade: ${qNome} | Soft Skills: ${sNome}`,
             });
           }
 
+          perfilList.push({
+            Campo: "DetalhamentoAtributosJSON",
+            Valor: JSON.stringify(detalhes),
+            Descricao:
+              "Detalhamento completo dos atributos e soft skills para auditoria",
+            Resultado: "OK",
+          });
+        }
+
+        if (mapaAtual?.id) {
           await supabaseAdmin
             .from("mapas_salvos")
             .update({ perfil_json: JSON.stringify(perfilList) })
             .eq("id", mapaAtual.id);
-
+          salvoSupabase = true;
+        } else {
+          await supabaseAdmin.from("mapas_salvos").insert({
+            nome: nomeStr,
+            data_nascimento: String(payload.data_nascimento || "").trim(),
+            profissao: "Especialista Corporativo",
+            cargo: "Analista Sênior",
+            grupo: "Geral",
+            departamento: "Diretoria Executiva",
+            empresa: "Mundo Kan",
+            lider: false,
+            tenant_id: "00000000-0000-0000-0000-000000000000",
+            perfil_json: JSON.stringify(perfilList),
+          });
           salvoSupabase = true;
         }
       } catch (saveErr) {

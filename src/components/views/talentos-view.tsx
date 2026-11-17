@@ -413,6 +413,8 @@ export function TalentosView({
     let calcPerfis = ["Lider", "Resultado", "Executor"];
     let calcCats = ["Realizador", "Analítico"];
     let calcQuals = ["Execução", "Organização", "Análise"];
+    let savedRecordId = String(Date.now());
+    let dbErrorMsg: string | null = null;
 
     try {
       const res = await fetch("/api/talentos", {
@@ -432,6 +434,12 @@ export function TalentosView({
         }),
       });
       const json = await res.json();
+      if (!res.ok || json?.dbError) {
+        dbErrorMsg = json?.dbError || json?.error || "Erro ao gravar na base de dados";
+      }
+      if (json?.savedRecord?.id) {
+        savedRecordId = String(json.savedRecord.id);
+      }
       const c = json?.calculation || json?.calculated;
       if (c) {
         calcKanNum = Number(c.kan_numero) || 9;
@@ -461,8 +469,8 @@ export function TalentosView({
           calcQuals = String(vr.qualidades).split(",").map((s: string) => s.trim()).filter(Boolean);
         }
       }
-    } catch {
-      // Fallback local calculation if offline
+    } catch (err: any) {
+      dbErrorMsg = err?.message || "Falha de conexão ao salvar";
     }
 
     const exists = talentos.find(
@@ -475,6 +483,7 @@ export function TalentosView({
           item.id === exists.id
             ? {
                 ...item,
+                id: savedRecordId || item.id,
                 nome: cadNome.trim(),
                 data_nascimento: cadData,
                 profissao: cadProfissao || item.profissao,
@@ -496,11 +505,13 @@ export function TalentosView({
         )
       );
       setToastMsg(
-        `✅ Cadastro de "${cadNome.trim()}" recalculado (KAN: ${calcKanNome}) e salvo com sucesso!`
+        dbErrorMsg
+          ? `⚠️ Calculado localmente, mas houve aviso na base: ${dbErrorMsg}`
+          : `✅ Cadastro de "${cadNome.trim()}" recalculado (KAN: ${calcKanNome}) e salvo na base!`
       );
     } else {
       const novo: TalentoProfile = {
-        id: String(Date.now()),
+        id: savedRecordId,
         codigo: String(Math.floor(10000000 + Math.random() * 90000000)),
         nome: cadNome.trim(),
         email: `${cadNome.trim().split(" ")[0].toLowerCase()}@kantechrh.com.br`,
@@ -535,7 +546,9 @@ export function TalentosView({
       setTalentos((prev) => [novo, ...prev]);
       setUltimosConsultados((prev) => [novo.nome, ...prev].slice(0, 6));
       setToastMsg(
-        `✅ Talento "${novo.nome}" calculado (KAN: ${calcKanNome}) e salvo com sucesso!`
+        dbErrorMsg
+          ? `⚠️ Calculado localmente, mas houve aviso na base: ${dbErrorMsg}`
+          : `✅ Talento "${novo.nome}" calculado (KAN: ${calcKanNome}) e salvo na base!`
       );
     }
     setTimeout(() => setToastMsg(null), 4500);

@@ -575,11 +575,99 @@ export async function POST(req: NextRequest) {
       }
     );
 
+    const nomeTrim = String(nome).trim();
+    const dataNascTrim = String(data_nascimento).trim();
+
     const calcPerfilFallback = calcularPerfilNumerologicoServidor(
-      String(nome).trim(),
-      String(data_nascimento).trim()
+      nomeTrim,
+      dataNascTrim
     );
-    const calcData =
+    const detalhesFallback = calcularDetalhamentoAtributosServidor({
+      nome: nomeTrim,
+      data_nascimento: dataNascTrim,
+    });
+
+    // Extrai perfis, categorias e qualidades predominantes do detalhamento oficial
+    const perfisDerivados = Array.from(
+      new Set(
+        detalhesFallback
+          .map((d) => normalizeProfileLabel(d.perfil || ""))
+          .filter(Boolean)
+      )
+    );
+    const catsDerivadas = Array.from(
+      new Set(
+        detalhesFallback
+          .map((d) => (d.categoria || "").trim())
+          .filter(Boolean)
+      )
+    );
+    const qualsDerivadas = Array.from(
+      new Set(
+        detalhesFallback
+          .map((d) => (d.qualidade || "").trim())
+          .filter(Boolean)
+      )
+    );
+
+    const fallbackPerfilJsonList = [
+      {
+        Campo: "KAN",
+        Valor: calcPerfilFallback.kanNome.toUpperCase(),
+        Descricao: "",
+        Resultado: calcPerfilFallback.kanNome.toUpperCase(),
+      },
+      {
+        Campo: "Perfil",
+        Valor: (perfisDerivados.length ? perfisDerivados : ["Lider", "Resultado"]).join(", "),
+        Descricao: "",
+        Resultado: (perfisDerivados.length ? perfisDerivados : ["Lider", "Resultado"]).join(", "),
+      },
+      {
+        Campo: "Categoria",
+        Valor: (catsDerivadas.length ? catsDerivadas : ["Realizador", "Analítico"]).join(", "),
+        Descricao: "",
+        Resultado: (catsDerivadas.length ? catsDerivadas : ["Realizador", "Analítico"]).join(", "),
+      },
+      {
+        Campo: "Qualidades",
+        Valor: (qualsDerivadas.length ? qualsDerivadas : ["Execução", "Análise"]).join(", "),
+        Descricao: "",
+        Resultado: (qualsDerivadas.length ? qualsDerivadas : ["Execução", "Análise"]).join(", "),
+      },
+      {
+        Campo: "Estrutural",
+        Valor: String(calcPerfilFallback.estrutural),
+        Descricao: "",
+        Resultado: String(calcPerfilFallback.estrutural),
+      },
+      {
+        Campo: "Direcionamento",
+        Valor: String(calcPerfilFallback.direcionamento),
+        Descricao: "",
+        Resultado: String(calcPerfilFallback.direcionamento),
+      },
+      {
+        Campo: "REPETIÇÃO 1",
+        Valor: String(calcPerfilFallback.rep1),
+        Descricao: "",
+        Resultado: String(calcPerfilFallback.rep1),
+      },
+      {
+        Campo: "REPETIÇÃO 2",
+        Valor: String(calcPerfilFallback.rep2),
+        Descricao: "",
+        Resultado: String(calcPerfilFallback.rep2),
+      },
+      {
+        Campo: "DetalhamentoAtributosJSON",
+        Valor: JSON.stringify(detalhesFallback),
+        Descricao: "Detalhamento completo dos atributos e soft skills para auditoria",
+        Resultado: "OK",
+      },
+    ];
+
+    const calcData: Record<string, unknown> =
       mamResponse.ok && mamResponse.data
         ? mamResponse.data
         : {
@@ -588,6 +676,16 @@ export async function POST(req: NextRequest) {
             estrutural: calcPerfilFallback.estrutural,
             direcionamento: calcPerfilFallback.direcionamento,
             vertices_triangulo: calcPerfilFallback.vertices,
+            perfis_lista: perfisDerivados.length ? perfisDerivados : ["Lider", "Resultado"],
+            categorias_lista: catsDerivadas.length ? catsDerivadas : ["Realizador", "Analítico"],
+            qualidades_lista: qualsDerivadas.length ? qualsDerivadas : ["Execução", "Análise"],
+            perfil_json: JSON.stringify(fallbackPerfilJsonList),
+            valores_resumo: {
+              kan: calcPerfilFallback.kanNome.toUpperCase(),
+              perfil: (perfisDerivados.length ? perfisDerivados : ["Lider", "Resultado"]).join(", "),
+              categoria: (catsDerivadas.length ? catsDerivadas : ["Realizador", "Analítico"]).join(", "),
+              qualidades: (qualsDerivadas.length ? qualsDerivadas : ["Execução", "Análise"]).join(", "),
+            },
           };
 
     const supabaseAdmin = getSupabaseAdmin();
@@ -595,11 +693,11 @@ export async function POST(req: NextRequest) {
       ? typeof calcData.perfil_json === "string"
         ? calcData.perfil_json
         : JSON.stringify(calcData.perfil_json)
-      : null;
+      : JSON.stringify(fallbackPerfilJsonList);
 
     const upsertMapaPayload: Record<string, unknown> = {
-      nome: String(nome).trim(),
-      data_nascimento: String(data_nascimento).trim(),
+      nome: nomeTrim,
+      data_nascimento: dataNascTrim,
       profissao: profissao || cargo || "Especialista Corporativo",
       cargo: cargo || profissao || "Analista Sênior",
       grupo: grupo || departamento || "Geral",
@@ -608,28 +706,46 @@ export async function POST(req: NextRequest) {
       linkedin_url: linkedin_url || "",
       experiencias: experiencias || "",
       lider: Boolean(lider),
+      perfil_json: perfilJsonStr,
+      tenant_id: tenant_id || "00000000-0000-0000-0000-000000000000",
     };
-
-    if (tenant_id) {
-      upsertMapaPayload.tenant_id = tenant_id;
-    }
 
     if (foto_base64) {
       upsertMapaPayload.foto_base64 = String(foto_base64).trim();
     }
 
-    if (perfilJsonStr) {
-      upsertMapaPayload.perfil_json = perfilJsonStr;
+    // Verifica se o talento já existe em mapas_salvos (como 'nome' não tem UNIQUE constraint no banco, fazemos select + update/insert)
+    const { data: existingMapa } = await supabaseAdmin
+      .from("mapas_salvos")
+      .select("id")
+      .ilike("nome", nomeTrim)
+      .limit(1)
+      .maybeSingle();
+
+    let savedMapa = null;
+    let saveError = null;
+
+    if (existingMapa?.id) {
+      const res = await supabaseAdmin
+        .from("mapas_salvos")
+        .update(upsertMapaPayload)
+        .eq("id", existingMapa.id)
+        .select()
+        .single();
+      savedMapa = res.data;
+      saveError = res.error;
+    } else {
+      const res = await supabaseAdmin
+        .from("mapas_salvos")
+        .insert(upsertMapaPayload)
+        .select()
+        .single();
+      savedMapa = res.data;
+      saveError = res.error;
     }
 
-    const { data: savedMapa, error: saveError } = await supabaseAdmin
-      .from("mapas_salvos")
-      .upsert(upsertMapaPayload, { onConflict: "nome" })
-      .select()
-      .single();
-
     if (savedMapa && foto_base64) {
-      setFotoCache(savedMapa.id, String(foto_base64).trim(), nome);
+      setFotoCache(savedMapa.id, String(foto_base64).trim(), nomeTrim);
     }
 
     if (calcData) {
@@ -637,28 +753,57 @@ export async function POST(req: NextRequest) {
         ? calcData.vertices_triangulo
         : calcPerfilFallback.vertices;
 
-      await supabaseAdmin.from("mapas_salvos_valores").upsert(
-        {
-          nome: String(nome).trim(),
-          data_nascimento: String(data_nascimento).trim(),
-          kan: String(calcData.kan_nome || calcData.kan_numero || calcPerfilFallback.kanNome).toUpperCase(),
-          perfil: Array.isArray(calcData.perfis_lista)
-            ? calcData.perfis_lista.join(", ")
-            : String(calcData.perfil || "Lider, Resultado"),
-          categoria: Array.isArray(calcData.categorias_lista)
-            ? calcData.categorias_lista.join(", ")
-            : String(calcData.categoria || "Realizador"),
-          qualidades: Array.isArray(calcData.qualidades_lista)
-            ? calcData.qualidades_lista.join(", ")
-            : String(calcData.qualidades || "Execução, Análise"),
-          estrutural: String(calcData.estrutural ?? calcPerfilFallback.estrutural),
-          direcionamento: String(calcData.direcionamento ?? calcPerfilFallback.direcionamento),
-          vertice_triangulo_1: String(vertices[0] ?? calcPerfilFallback.vertices[0]),
-          vertice_triangulo_2: String(vertices[1] ?? calcPerfilFallback.vertices[1]),
-          vertice_triangulo_3: String(vertices[2] ?? calcPerfilFallback.vertices[2]),
-        },
-        { onConflict: "nome" }
-      );
+      const valoresPayload = {
+        nome: nomeTrim,
+        data_nascimento: dataNascTrim,
+        kan: String(calcData.kan_nome || calcData.kan_numero || calcPerfilFallback.kanNome).toUpperCase(),
+        perfil: Array.isArray(calcData.perfis_lista)
+          ? calcData.perfis_lista.join(", ")
+          : String(calcData.perfil || (perfisDerivados.length ? perfisDerivados.join(", ") : "Lider, Resultado")),
+        categoria: Array.isArray(calcData.categorias_lista)
+          ? calcData.categorias_lista.join(", ")
+          : String(calcData.categoria || (catsDerivadas.length ? catsDerivadas.join(", ") : "Realizador")),
+        qualidades: Array.isArray(calcData.qualidades_lista)
+          ? calcData.qualidades_lista.join(", ")
+          : String(calcData.qualidades || (qualsDerivadas.length ? qualsDerivadas.join(", ") : "Execução, Análise")),
+        motivacao: String(calcPerfilFallback.motivacao),
+        impressao: String(calcPerfilFallback.impressao),
+        expressao: String(calcPerfilFallback.expressao),
+        dia_natalicio: String(calcPerfilFallback.diaNatalicio),
+        numero_psiquico: String(calcPerfilFallback.numPsiquico),
+        destino: String(calcPerfilFallback.destino),
+        missao: String(calcPerfilFallback.missao),
+        estrutural: String(calcData.estrutural ?? calcPerfilFallback.estrutural),
+        direcionamento: String(calcData.direcionamento ?? calcPerfilFallback.direcionamento),
+        repeticao_1: String(calcPerfilFallback.rep1),
+        repeticao_2: String(calcPerfilFallback.rep2),
+        repeticao_mapa: String(calcPerfilFallback.rep2),
+        vertice_triangulo_1: String(vertices[0] ?? calcPerfilFallback.vertices[0]),
+        vertice_triangulo_2: String(vertices[1] ?? calcPerfilFallback.vertices[1]),
+        vertice_triangulo_3: String(vertices[2] ?? calcPerfilFallback.vertices[2]),
+      };
+
+      const { data: existingVal } = await supabaseAdmin
+        .from("mapas_salvos_valores")
+        .select("id")
+        .ilike("nome", nomeTrim)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingVal?.id) {
+        await supabaseAdmin
+          .from("mapas_salvos_valores")
+          .update(valoresPayload)
+          .eq("id", existingVal.id);
+      } else {
+        await supabaseAdmin.from("mapas_salvos_valores").insert(valoresPayload);
+      }
+    }
+
+    try {
+      invalidateDiagnosticoCache();
+    } catch {
+      // ignore
     }
 
     return NextResponse.json({
@@ -667,6 +812,7 @@ export async function POST(req: NextRequest) {
       mamEngineUrl: mamResponse.engineUrl,
       mamError: mamResponse.error,
       dbError: saveError?.message,
+      calculation: calcData,
       calculated: calcData,
       savedRecord: savedMapa,
     });
@@ -746,9 +892,12 @@ export async function PUT(req: NextRequest) {
         : JSON.stringify(calcData.perfil_json)
       : null;
 
+    const nomeTrim = String(nome).trim();
+    const dataNascTrim = String(data_nascimento).trim();
+
     const updatePayload: Record<string, unknown> = {
-      nome: String(nome).trim(),
-      data_nascimento: String(data_nascimento).trim(),
+      nome: nomeTrim,
+      data_nascimento: dataNascTrim,
       profissao: profissao || cargo || "Especialista Corporativo",
       cargo: cargo || profissao || "Analista Sênior",
       grupo: grupo || departamento || "Geral",
@@ -757,7 +906,6 @@ export async function PUT(req: NextRequest) {
       linkedin_url: linkedin_url || "",
       experiencias: experiencias || "",
       lider: Boolean(lider),
-      updated_at: new Date().toISOString(),
     };
 
     if (tenant_id) updatePayload.tenant_id = tenant_id;
@@ -783,22 +931,35 @@ export async function PUT(req: NextRequest) {
 
     // Fallback: update by originalNome or nome
     if (!savedMapa) {
-      const searchName = originalNome || nome;
-      const res = await supabaseAdmin
+      const searchName = String(originalNome || nomeTrim).trim();
+      const { data: existingByName } = await supabaseAdmin
         .from("mapas_salvos")
-        .update(updatePayload)
-        .eq("nome", searchName)
-        .select()
+        .select("id")
+        .ilike("nome", searchName)
+        .limit(1)
         .maybeSingle();
-      savedMapa = res.data;
-      saveError = res.error;
+
+      if (existingByName?.id) {
+        const res = await supabaseAdmin
+          .from("mapas_salvos")
+          .update(updatePayload)
+          .eq("id", existingByName.id)
+          .select()
+          .maybeSingle();
+        savedMapa = res.data;
+        saveError = res.error;
+      }
     }
 
-    // If still not found, upsert
+    // If still not found, insert new record (ensuring tenant_id is populated)
     if (!savedMapa && !saveError) {
+      const insertPayload = {
+        ...updatePayload,
+        tenant_id: tenant_id || "00000000-0000-0000-0000-000000000000",
+      };
       const res = await supabaseAdmin
         .from("mapas_salvos")
-        .upsert(updatePayload, { onConflict: "nome" })
+        .insert(insertPayload)
         .select()
         .single();
       savedMapa = res.data;
@@ -812,32 +973,55 @@ export async function PUT(req: NextRequest) {
         : calcPerfilFallback.vertices;
 
       // Clean old values if name changed
-      if (originalNome && originalNome !== nome) {
+      if (originalNome && originalNome !== nomeTrim) {
         await supabaseAdmin.from("mapas_salvos_valores").delete().eq("nome", originalNome);
       }
 
-      await supabaseAdmin.from("mapas_salvos_valores").upsert(
-        {
-          nome: String(nome).trim(),
-          data_nascimento: String(data_nascimento).trim(),
-          kan: String(calcData.kan_nome || calcData.kan_numero || calcPerfilFallback.kanNome).toUpperCase(),
-          perfil: Array.isArray(calcData.perfis_lista)
-            ? calcData.perfis_lista.join(", ")
-            : String(calcData.perfil || "Lider, Resultado"),
-          categoria: Array.isArray(calcData.categorias_lista)
-            ? calcData.categorias_lista.join(", ")
-            : String(calcData.categoria || "Realizador"),
-          qualidades: Array.isArray(calcData.qualidades_lista)
-            ? calcData.qualidades_lista.join(", ")
-            : String(calcData.qualidades || "Execução, Análise"),
-          estrutural: String(calcData.estrutural ?? calcPerfilFallback.estrutural),
-          direcionamento: String(calcData.direcionamento ?? calcPerfilFallback.direcionamento),
-          vertice_triangulo_1: String(vertices[0] ?? calcPerfilFallback.vertices[0]),
-          vertice_triangulo_2: String(vertices[1] ?? calcPerfilFallback.vertices[1]),
-          vertice_triangulo_3: String(vertices[2] ?? calcPerfilFallback.vertices[2]),
-        },
-        { onConflict: "nome" }
-      );
+      const valoresUpdatePayload = {
+        nome: nomeTrim,
+        data_nascimento: dataNascTrim,
+        kan: String(calcData.kan_nome || calcData.kan_numero || calcPerfilFallback.kanNome).toUpperCase(),
+        perfil: Array.isArray(calcData.perfis_lista)
+          ? calcData.perfis_lista.join(", ")
+          : String(calcData.perfil || "Lider, Resultado"),
+        categoria: Array.isArray(calcData.categorias_lista)
+          ? calcData.categorias_lista.join(", ")
+          : String(calcData.categoria || "Realizador"),
+        qualidades: Array.isArray(calcData.qualidades_lista)
+          ? calcData.qualidades_lista.join(", ")
+          : String(calcData.qualidades || "Execução, Análise"),
+        motivacao: String(calcPerfilFallback.motivacao),
+        impressao: String(calcPerfilFallback.impressao),
+        expressao: String(calcPerfilFallback.expressao),
+        dia_natalicio: String(calcPerfilFallback.diaNatalicio),
+        numero_psiquico: String(calcPerfilFallback.numPsiquico),
+        destino: String(calcPerfilFallback.destino),
+        missao: String(calcPerfilFallback.missao),
+        estrutural: String(calcData.estrutural ?? calcPerfilFallback.estrutural),
+        direcionamento: String(calcData.direcionamento ?? calcPerfilFallback.direcionamento),
+        repeticao_1: String(calcPerfilFallback.rep1),
+        repeticao_2: String(calcPerfilFallback.rep2),
+        repeticao_mapa: String(calcPerfilFallback.rep2),
+        vertice_triangulo_1: String(vertices[0] ?? calcPerfilFallback.vertices[0]),
+        vertice_triangulo_2: String(vertices[1] ?? calcPerfilFallback.vertices[1]),
+        vertice_triangulo_3: String(vertices[2] ?? calcPerfilFallback.vertices[2]),
+      };
+
+      const { data: existingVal } = await supabaseAdmin
+        .from("mapas_salvos_valores")
+        .select("id")
+        .ilike("nome", nomeTrim)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingVal?.id) {
+        await supabaseAdmin
+          .from("mapas_salvos_valores")
+          .update(valoresUpdatePayload)
+          .eq("id", existingVal.id);
+      } else {
+        await supabaseAdmin.from("mapas_salvos_valores").insert(valoresUpdatePayload);
+      }
     }
 
     // Invalidate Diagnóstico Ampliado cache so new values appear immediately
