@@ -50,6 +50,11 @@ export interface DiagnosticoAmpliadoResponse {
     desc: string;
   }>;
   sorted_skills: Array<[string, number]>;
+  soft_skills_detalhadas?: Array<{
+    nome: string;
+    pontos: number;
+    descricao: string;
+  }>;
   perfil_top: string;
   cat_top: string;
   eixo_perfil_top: string;
@@ -201,6 +206,7 @@ export function DiagnosticoAmpliadoView({
   // Expanders state
   const [openDescCompleta, setOpenDescCompleta] = useState(false);
   const [openDetalhamento9Eixos, setOpenDetalhamento9Eixos] = useState(false);
+  const [openDetalhamentoSoftSkills, setOpenDetalhamentoSoftSkills] = useState(false);
   const [openTodasSoftSkills, setOpenTodasSoftSkills] = useState(false);
   const [openOrigemRastreabilidade, setOpenOrigemRastreabilidade] =
     useState(false);
@@ -1825,6 +1831,128 @@ export function DiagnosticoAmpliadoView({
                                   backgroundColor: barColorD,
                                 }}
                               />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 5. EXPANDER: Ver Detalhamento das Soft Skills Predominantes */}
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0d111d]">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOpenDetalhamentoSoftSkills(!openDetalhamentoSoftSkills)
+                  }
+                  className="flex w-full items-center justify-between px-4 py-3 text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    {openDetalhamentoSoftSkills ? (
+                      <ChevronDown className="h-4 w-4 text-[#38bdf8]" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-[#38bdf8]" />
+                    )}
+                    Ver Detalhamento das Soft Skills Predominantes
+                  </span>
+                  <Badge variant="outline" className="text-[10px] border-[#38bdf8]/40 text-[#0284c7] dark:text-[#38bdf8]">
+                    {diagInd.soft_skills_detalhadas?.length || diagInd.sorted_skills.length} Competências
+                  </Badge>
+                </button>
+
+                {openDetalhamentoSoftSkills && (
+                  <div className="border-t border-slate-200 dark:border-slate-800 p-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {(
+                        diagInd.soft_skills_detalhadas ||
+                        diagInd.sorted_skills.map(([nome, pontos]) => ({
+                          nome,
+                          pontos,
+                          descricao:
+                            "Competência comportamental mapeada no perfil, impulsionando a eficiência operacional e a sinergia em equipe.",
+                        }))
+                      ).map((sk) => {
+                        const isAlta = sk.pontos >= 300;
+                        const isMedia = sk.pontos >= 100 && sk.pontos < 300;
+                        const nivel = isAlta
+                          ? "Alta"
+                          : isMedia
+                          ? "Média"
+                          : "Baixa";
+                        const badgeBg = isAlta
+                          ? "rgba(16, 185, 129, 0.2)"
+                          : isMedia
+                          ? "rgba(245, 158, 11, 0.2)"
+                          : "rgba(148, 163, 184, 0.15)";
+                        const badgeText = isAlta
+                          ? "#10b981"
+                          : isMedia
+                          ? "#f59e0b"
+                          : "#64748b";
+                        const barColorD = isAlta
+                          ? "#10b981"
+                          : isMedia
+                          ? "#f59e0b"
+                          : "#64748b";
+                        const barPctD =
+                          sk.pontos > 0
+                            ? Math.min(
+                                100,
+                                Math.max(8, Math.round((sk.pontos / (refMaxSk || 450)) * 100))
+                              )
+                            : 4;
+
+                        return (
+                          <div
+                            key={sk.nome}
+                            className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/50 p-4 flex flex-col justify-between"
+                          >
+                            <div>
+                              <div className="mb-2 flex items-center justify-between gap-2">
+                                <span className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate" title={sk.nome}>
+                                  {sk.nome}
+                                </span>
+                                <span
+                                  style={{
+                                    backgroundColor: badgeBg,
+                                    color: badgeText,
+                                  }}
+                                  className="rounded-xl px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider shrink-0"
+                                >
+                                  {nivel}
+                                </span>
+                              </div>
+                              <div className="mb-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                                {sk.descricao}
+                              </div>
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/80">
+                              <div className="mb-1.5 flex items-baseline justify-between">
+                                <span className="text-[11px] font-medium text-slate-400">
+                                  Pontuação atingida:
+                                </span>
+                                <span
+                                  className="text-base font-extrabold"
+                                  style={{ color: barColorD }}
+                                >
+                                  {sk.pontos}{" "}
+                                  <span className="text-xs font-medium text-slate-400">
+                                    pts
+                                  </span>
+                                </span>
+                              </div>
+                              <div className="h-2 w-full overflow-hidden rounded-md bg-slate-200 dark:bg-slate-800">
+                                <div
+                                  className="h-full rounded-md transition-all duration-300"
+                                  style={{
+                                    width: `${barPctD}%`,
+                                    backgroundColor: barColorD,
+                                  }}
+                                />
+                              </div>
                             </div>
                           </div>
                         );

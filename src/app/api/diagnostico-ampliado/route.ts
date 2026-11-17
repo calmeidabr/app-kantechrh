@@ -208,6 +208,7 @@ interface CachedDbTables {
   pesoCategoriaDb: Record<string, number>;
   kansDb: Record<string, { kan: string; descricao: string }>;
   repeticaoDb: Record<string, { perfil: string; categoria: string }>;
+  softSkillsDescricoes: Record<string, string>;
   mapasSalvos: Map<string, Record<string, unknown>>;
   mapasValores: Map<string, Record<string, unknown>>;
 }
@@ -237,6 +238,8 @@ async function getReferenceTables(): Promise<CachedDbTables> {
     { data: repData },
     { data: mapasData },
     { data: valoresData },
+    { data: skAmpData },
+    { data: skBaseData },
   ] = await Promise.all([
     supabase.from("atributos_ampliado").select("*").limit(500),
     supabase.from("perfil_categoria_ampliado").select("*").limit(300),
@@ -256,6 +259,8 @@ async function getReferenceTables(): Promise<CachedDbTables> {
       )
       .limit(1000),
     supabase.from("mapas_salvos_valores").select("*").limit(1000),
+    supabase.from("soft_skills_ampliado").select("soft_skill_nova, soft_skill_base, descricao").limit(1000),
+    supabase.from("soft_skills").select("nome, explicacao").limit(100),
   ]);
 
   const mapPerfilEixo: Record<string, string> = { ...DEFAULT_MAP_PERFIL_EIXO };
@@ -385,6 +390,33 @@ async function getReferenceTables(): Promise<CachedDbTables> {
     }
   }
 
+  const softSkillsDescricoes: Record<string, string> = {};
+  if (skBaseData) {
+    for (const r of skBaseData) {
+      const nm = cleanStr(r.nome);
+      const exp = cleanStr(r.explicacao);
+      if (nm && exp) {
+        softSkillsDescricoes[nm] = exp;
+        softSkillsDescricoes[normalizarTermo(nm)] = exp;
+      }
+    }
+  }
+  if (skAmpData) {
+    for (const r of skAmpData) {
+      const nova = cleanStr(r.soft_skill_nova);
+      const base = cleanStr(r.soft_skill_base);
+      const desc = cleanStr(r.descricao);
+      if (nova && desc) {
+        softSkillsDescricoes[nova] = desc;
+        softSkillsDescricoes[normalizarTermo(nova)] = desc;
+      }
+      if (base && desc && !softSkillsDescricoes[base]) {
+        softSkillsDescricoes[base] = desc;
+        softSkillsDescricoes[normalizarTermo(base)] = desc;
+      }
+    }
+  }
+
   cachedTables = {
     timestamp: Date.now(),
     atributosAmpliado: (attrData || []) as Record<string, unknown>[],
@@ -398,6 +430,7 @@ async function getReferenceTables(): Promise<CachedDbTables> {
     pesoCategoriaDb,
     kansDb,
     repeticaoDb,
+    softSkillsDescricoes,
     mapasSalvos,
     mapasValores,
   };
@@ -1058,6 +1091,31 @@ function calcularDiagnosticoMembro(
     scoreSoftSkills
   ).sort((a, b) => b[1] - a[1]);
 
+  const softSkillsDetalhadas = sortedSkills.map(([skNome, skPts]) => {
+    let desc =
+      tables.softSkillsDescricoes[skNome] ||
+      tables.softSkillsDescricoes[normalizarTermo(skNome)] ||
+      "";
+
+    if (!desc) {
+      const skNorm = normalizarTermo(skNome);
+      for (const [k, v] of Object.entries(tables.softSkillsDescricoes)) {
+        if (k.includes(skNorm) || skNorm.includes(k)) {
+          desc = v;
+          break;
+        }
+      }
+    }
+
+    return {
+      nome: skNome,
+      pontos: skPts,
+      descricao:
+        desc ||
+        "Competência comportamental mapeada no perfil, impulsionando a eficiência operacional e a sinergia em equipe.",
+    };
+  });
+
   // Origens e Rastreabilidade Completa dos Eixos (for Admin Painel de Controle)
   const origensEixosList: Array<{
     Eixo: string;
@@ -1328,6 +1386,7 @@ function calcularDiagnosticoMembro(
     score_eixos: scoreEixos,
     eixos_config: EIXOS_CONFIG,
     sorted_skills: sortedSkills,
+    soft_skills_detalhadas: softSkillsDetalhadas,
     perfil_top: perfilTop,
     cat_top: catTop,
     eixo_perfil_top: eixoPerfilTop,
