@@ -147,12 +147,26 @@ export async function POST(req: NextRequest) {
 
     const nomeTrim = String(nome).trim();
     const supabaseAdmin = getSupabaseAdmin();
+
+    // 1. Valida e garante tenant_id existente no banco (evita erro de chave estrangeira)
+    let validTenantId = "00000000-0000-0000-0000-000000000000";
+    if (tenant_id && typeof tenant_id === "string" && tenant_id.trim()) {
+      const { data: tenantRow } = await supabaseAdmin
+        .from("tenants")
+        .select("id")
+        .eq("id", tenant_id.trim())
+        .maybeSingle();
+      if (tenantRow?.id) {
+        validTenantId = tenantRow.id;
+      }
+    }
+
     const payload: Record<string, unknown> = {
       nome: nomeTrim,
       empresa: empresa || "Mundo Kan",
       departamento: departamento || "Geral",
       membros: Array.isArray(membros) ? membros : [],
-      tenant_id: tenant_id || "00000000-0000-0000-0000-000000000000",
+      tenant_id: validTenantId,
       updated_at: new Date().toISOString(),
     };
 
@@ -190,21 +204,20 @@ export async function POST(req: NextRequest) {
         .from("equipes")
         .update(payload)
         .eq("id", existingId)
-        .select()
-        .single();
-      data = res.data;
+        .select();
+      data = res.data?.[0] || null;
       error = res.error;
     } else {
       const res = await supabaseAdmin
         .from("equipes")
         .insert(payload)
-        .select()
-        .single();
-      data = res.data;
+        .select();
+      data = res.data?.[0] || null;
       error = res.error;
     }
 
     if (error) {
+      console.error("[POST /api/equipes] Erro Supabase:", error);
       return NextResponse.json(
         { success: false, error: error.message },
         { status: 400 }

@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   UploadCloud,
   Filter,
+  Loader2,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -279,6 +280,7 @@ export function EquipesView({
   const [membrosSelecionadosNovo, setMembrosSelecionadosNovo] = useState<
     string[]
   >([]);
+  const [isSalvandoNovaEquipe, setIsSalvandoNovaEquipe] = useState(false);
 
   const handleNovaEquipeFotoSelect = async (
     e: React.ChangeEvent<HTMLInputElement>
@@ -360,8 +362,9 @@ export function EquipesView({
       return;
     }
 
-    let savedId = `eq-${Date.now()}`;
-    let dbErrorMsg: string | null = null;
+    setIsSalvandoNovaEquipe(true);
+    setToastMsg("⏳ Gravando nova equipe na base de dados...");
+
     const empresaEq =
       filtroEmpresa === "Todas" ? EMPRESAS_TENANT[0].nome : filtroEmpresa;
     const deptoEq =
@@ -383,41 +386,56 @@ export function EquipesView({
           foto_base64: novaFotoBase64 || undefined,
         }),
       });
+
       const json = await res.json();
-      if (!res.ok || json?.error) {
-        dbErrorMsg = json?.error || "Erro ao salvar equipe no Supabase";
-      } else if (json?.equipe?.id) {
-        savedId = String(json.equipe.id);
+      if (!res.ok || json?.error || !json?.success) {
+        const errorMsg =
+          json?.error || `Erro HTTP ${res.status}: ${res.statusText}`;
+        console.error("Erro ao salvar equipe no Supabase:", errorMsg);
+        setToastMsg(`❌ Não foi possível salvar na base: ${errorMsg}`);
+        setIsSalvandoNovaEquipe(false);
+        return;
       }
+
+      const savedDbEquipe = json?.equipe;
+      const savedId = String(savedDbEquipe?.id || `eq-${Date.now()}`);
+      const fotoUrlSalva =
+        novaFotoPreview ||
+        (savedDbEquipe?.foto_base64
+          ? String(savedDbEquipe.foto_base64).trim().startsWith("data:")
+            ? String(savedDbEquipe.foto_base64).trim()
+            : `data:image/jpeg;base64,${String(savedDbEquipe.foto_base64).trim()}`
+          : undefined);
+
+      const novaEq: EquipeData = {
+        id: savedId,
+        nome: novoNomeEq.trim(),
+        empresa: empresaEq,
+        departamento: deptoEq,
+        foto_url: fotoUrlSalva,
+        membros: membrosEq,
+        harmonia: 89.2,
+        triangulo_status: "Encaixe Muito Alto",
+        distribuicao: { Lider: 30, Criativo: 25, Executor: 25, Resultado: 20 },
+      };
+
+      setEquipes((prev) => [novaEq, ...prev]);
+      setAddMode(false);
+      setMembrosSelecionadosNovo([]);
+      setNovaFotoPreview(null);
+      setNovaFotoBase64(null);
+      setNovaFotoNome("");
+      setOpenTrianglesId(novaEq.id);
+      setToastMsg(`✅ Equipe "${novaEq.nome}" gravada com sucesso na base! (ID: ${savedId})`);
+      setTimeout(() => setToastMsg(null), 4000);
     } catch (err: any) {
-      dbErrorMsg = err?.message || "Falha de conexão com o banco";
+      console.error("Falha de rede ao salvar equipe:", err);
+      setToastMsg(
+        `❌ Falha de conexão ao salvar equipe: ${err?.message || "Erro desconhecido"}`
+      );
+    } finally {
+      setIsSalvandoNovaEquipe(false);
     }
-
-    const novaEq: EquipeData = {
-      id: savedId,
-      nome: novoNomeEq.trim(),
-      empresa: empresaEq,
-      departamento: deptoEq,
-      foto_url: novaFotoPreview || undefined,
-      membros: membrosEq,
-      harmonia: 89.2,
-      triangulo_status: "Encaixe Muito Alto",
-      distribuicao: { Lider: 30, Criativo: 25, Executor: 25, Resultado: 20 },
-    };
-
-    setEquipes((prev) => [novaEq, ...prev]);
-    setAddMode(false);
-    setMembrosSelecionadosNovo([]);
-    setNovaFotoPreview(null);
-    setNovaFotoBase64(null);
-    setNovaFotoNome("");
-    setOpenTrianglesId(novaEq.id);
-    setToastMsg(
-      dbErrorMsg
-        ? `⚠️ Equipe criada localmente, mas houve aviso na base: ${dbErrorMsg}`
-        : `✅ Equipe "${novaEq.nome}" salva com sucesso no Supabase!`
-    );
-    setTimeout(() => setToastMsg(null), 4000);
   };
 
   const syncEquipeSupabase = async (eqAtualizada: EquipeData) => {
@@ -809,10 +827,27 @@ export function EquipesView({
             </div>
 
             <div className="flex items-center gap-3 border-t border-slate-200/80 dark:border-slate-800 pt-4">
-              <Button onClick={handleSalvarNovaEquipe}>
-                Salvar Equipe ({membrosSelecionadosNovo.length} integrantes)
+              <Button
+                onClick={handleSalvarNovaEquipe}
+                disabled={isSalvandoNovaEquipe}
+                className="gap-2 font-bold"
+              >
+                {isSalvandoNovaEquipe ? (
+                  <>
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                    <span>Gravando na base...</span>
+                  </>
+                ) : (
+                  <span>
+                    Salvar Equipe ({membrosSelecionadosNovo.length} integrantes)
+                  </span>
+                )}
               </Button>
-              <Button variant="outline" onClick={() => setAddMode(false)}>
+              <Button
+                variant="outline"
+                disabled={isSalvandoNovaEquipe}
+                onClick={() => setAddMode(false)}
+              >
                 Cancelar
               </Button>
             </div>

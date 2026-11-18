@@ -23,6 +23,7 @@ import {
   FileText,
   Download,
   Share2,
+  Loader2,
   User,
   Activity,
 } from "lucide-react";
@@ -213,6 +214,7 @@ export function DiagnosticoAmpliadoView({
     useState(false);
   const [openRankingSkillsEquipe, setOpenRankingSkillsEquipe] = useState(false);
   const [toastShareMsg, setToastShareMsg] = useState<string | null>(null);
+  const [isSharingPdf, setIsSharingPdf] = useState(false);
 
   // Fetch individual diagnosis when in individual mode
   useEffect(() => {
@@ -397,10 +399,8 @@ export function DiagnosticoAmpliadoView({
     );
   }, [talentos, diagInd, talentoSelNome, selectedTalento]);
 
-  const handleBaixarDiagnosticoPdf = () => {
-    if (!diagInd) return;
-    const printWin = window.open("", "_blank", "width=1024,height=900");
-    if (!printWin) return;
+  const buildDiagnosticoBodyHtml = () => {
+    if (!diagInd) return "";
 
     const esc = (s?: string | number | null) =>
       String(s ?? "")
@@ -412,7 +412,7 @@ export function DiagnosticoAmpliadoView({
     const avatarUrl = talentoIndividualObj?.avatar
       ? talentoIndividualObj.avatar.startsWith("http")
         ? talentoIndividualObj.avatar
-        : `${window.location.origin}${talentoIndividualObj.avatar}`
+        : `${typeof window !== "undefined" ? window.location.origin : ""}${talentoIndividualObj.avatar}`
       : "";
 
     const dataNasc = talentoIndividualObj?.data_nascimento || "";
@@ -638,38 +638,7 @@ export function DiagnosticoAmpliadoView({
       )
       .join("");
 
-    const htmlDoc = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <title>Diagnóstico Individual - ${esc(diagInd.nome)}</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
-    * {
-      box-sizing: border-box;
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-    body {
-      margin: 0;
-      padding: 24px 32px;
-      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      color: #0f172a;
-      background: #ffffff;
-    }
-    @page {
-      size: A4;
-      margin: 14mm 14mm;
-    }
-    .page-break {
-      page-break-before: always;
-    }
-    .avoid-break {
-      page-break-inside: avoid;
-    }
-  </style>
-</head>
-<body>
+    return `
   <!-- HEADER -->
   <div style="display:flex;align-items:center;gap:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px 20px;margin-bottom:22px;">
     ${
@@ -749,9 +718,7 @@ export function DiagnosticoAmpliadoView({
     Resultado consolidado dos eixos predominantes (Perfil <strong>${esc(diagInd.perfil_top)}</strong> ➔ Eixo <strong>${esc(diagInd.eixo_perfil_top)}</strong> | Categoria <strong>${esc(diagInd.cat_top)}</strong> ➔ Eixo <strong>${esc(diagInd.eixo_cat_top)}</strong>). Classificação: <strong>Alta (Laranja)</strong>, <strong>Média (Amarelo)</strong> e <strong>Baixa (Vermelho)</strong>.
   </p>
 
-  <!-- PÁGINA 2: DETALHAMENTO DOS 9 EIXOS + KAN E MOTIVADORES + FORÇAS APLICADAS -->
-  <div class="page-break"></div>
-
+  <!-- DETALHAMENTO DOS 9 EIXOS EM CARDS -->
   <div class="avoid-break" style="border:1px solid #e2e8f0;border-radius:14px;padding:18px;background:#ffffff;margin-bottom:24px;">
     <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:14px;">
       Detalhamento dos 9 Eixos em Cards e Níveis
@@ -805,7 +772,7 @@ export function DiagnosticoAmpliadoView({
     </div>
   </div>
 
-  <!-- FORÇAS APLICADAS (FORMATADA COMO A TABELA RESUMO) -->
+  <!-- FORÇAS APLICADAS -->
   <div class="avoid-break" style="margin-bottom:24px;">
     <h3 style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#0f172a;margin:0 0 10px 0;">
       Forças Aplicadas
@@ -827,7 +794,7 @@ export function DiagnosticoAmpliadoView({
     </div>
   </div>
 
-  <!-- RISCO COMPORTAMENTAL (FORMATADO COMO A TABELA RESUMO) -->
+  <!-- RISCO COMPORTAMENTAL -->
   <div class="avoid-break" style="margin-bottom:16px;">
     <h3 style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#0f172a;margin:0 0 10px 0;">
       Risco Comportamental
@@ -846,7 +813,49 @@ export function DiagnosticoAmpliadoView({
       </table>
     </div>
   </div>
+    `;
+  };
 
+  const handleBaixarDiagnosticoPdf = () => {
+    if (!diagInd) return;
+    const printWin = window.open("", "_blank", "width=1024,height=900");
+    if (!printWin) return;
+
+    const bodyHtml = buildDiagnosticoBodyHtml();
+
+    const htmlDoc = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Diagnóstico Individual - ${diagInd.nome}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      margin: 0;
+      padding: 24px 32px;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #0f172a;
+      background: #ffffff;
+    }
+    @page {
+      size: A4;
+      margin: 14mm 14mm;
+    }
+    .page-break {
+      page-break-before: always;
+    }
+    .avoid-break {
+      page-break-inside: avoid;
+    }
+  </style>
+</head>
+<body>
+  ${bodyHtml}
   <script>
     window.addEventListener('load', function() {
       setTimeout(function() {
@@ -877,59 +886,138 @@ export function DiagnosticoAmpliadoView({
       `🔥 *Força Central KAN:* ${kan}\n` +
       `⚡ *Forças Centrais:* ${forcas}\n` +
       (topSkills ? `💡 *Soft Skills Destacadas:* ${topSkills}\n\n` : "\n") +
-      `Acesse a plataforma KAN Tech RH para visualizar o diagnóstico completo e a projeção geométrica dos triângulos harmônicos.`
+      `Segue em anexo o relatório em PDF com a análise comportamental completa.`
     );
   };
 
   const handleCompartilharDiagnostico = async () => {
-    if (!diagInd) return;
-    const textoResumo = gerarTextoResumoCompartilhamento();
-    const titulo = `Diagnóstico KAN - ${diagInd.nome}`;
-    const urlAtual = typeof window !== "undefined" ? window.location.href : "";
+    if (!diagInd || isSharingPdf) return;
+    setIsSharingPdf(true);
+    setToastShareMsg("⏳ Gerando arquivo PDF do diagnóstico...");
 
-    // 1. Tentar Web Share API nativa (WhatsApp, Email, Telegram, redes e apps no celular/desktop)
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share({
-          title: titulo,
-          text: textoResumo,
-          url: urlAtual,
-        });
-        return;
-      } catch (err: any) {
-        // Se o usuário cancelou o menu nativo, não faz nada
-        if (err?.name === "AbortError") return;
-      }
-    }
+    let tempContainer: HTMLDivElement | null = null;
 
-    // 2. Fallback: Copiar para a área de transferência
     try {
-      if (typeof navigator !== "undefined" && navigator.clipboard) {
-        await navigator.clipboard.writeText(`${textoResumo}\n${urlAtual}`);
-        setToastShareMsg("✅ Diagnóstico copiado para a área de transferência! Cole no WhatsApp ou E-mail.");
-      } else {
-        setToastShareMsg("⚠️ Compartilhamento não suportado neste navegador.");
+      // Import dinâmico do html2pdf.js para execução no cliente
+      // @ts-ignore
+      const html2pdfModule = await import("html2pdf.js");
+      const html2pdf = html2pdfModule.default || html2pdfModule;
+
+      const bodyHtml = buildDiagnosticoBodyHtml();
+      const cleanName = diagInd.nome
+        .trim()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9_-]+/g, "_");
+      const filename = `Diagnostico_KAN_${cleanName}.pdf`;
+
+      // Cria contêiner temporário posicionado para captura uniforme em A4
+      tempContainer = document.createElement("div");
+      tempContainer.style.position = "fixed";
+      tempContainer.style.left = "0";
+      tempContainer.style.top = "0";
+      tempContainer.style.zIndex = "-9999";
+      tempContainer.style.width = "794px"; // 210mm a 96 DPI
+      tempContainer.style.background = "#ffffff";
+      tempContainer.innerHTML = `
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+          * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .pdf-render-root {
+            padding: 16px 20px;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #0f172a;
+            background: #ffffff;
+          }
+          .page-break {
+            page-break-before: always;
+          }
+          .avoid-break {
+            page-break-inside: avoid;
+          }
+        </style>
+        <div class="pdf-render-root">
+          ${bodyHtml}
+        </div>
+      `;
+      document.body.appendChild(tempContainer);
+
+      const opt = {
+        margin: [10, 10, 10, 10] as [number, number, number, number],
+        filename: filename,
+        image: { type: "jpeg" as const, quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: "mm" as const, format: "a4", orientation: "portrait" as const },
+        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+      };
+
+      const pdfBlob = (await html2pdf()
+        .set(opt)
+        .from(tempContainer)
+        .outputPdf("blob")) as Blob;
+
+      const pdfFile = new File([pdfBlob], filename, {
+        type: "application/pdf",
+      });
+
+      const textoResumo = gerarTextoResumoCompartilhamento();
+      let shared = false;
+
+      // 1. Compartilhamento nativo de arquivo (WhatsApp, E-mail, Telegram, Drive no celular/desktop)
+      if (
+        typeof navigator !== "undefined" &&
+        typeof navigator.canShare === "function" &&
+        navigator.canShare({ files: [pdfFile] }) &&
+        typeof navigator.share === "function"
+      ) {
+        try {
+          await navigator.share({
+            title: `Diagnóstico KAN - ${diagInd.nome}`,
+            text: textoResumo,
+            files: [pdfFile],
+          });
+          shared = true;
+          setToastShareMsg("✅ Arquivo PDF compartilhado com sucesso!");
+        } catch (err: any) {
+          if (err?.name === "AbortError") {
+            // Cancelado pelo usuário no menu nativo
+            return;
+          }
+          console.warn("Falha ao invocar navigator.share com arquivo:", err);
+        }
       }
-    } catch {
-      setToastShareMsg("⚠️ Não foi possível copiar para a área de transferência.");
+
+      // 2. Fallback: Baixa automaticamente a cópia do arquivo PDF no dispositivo
+      if (!shared) {
+        const downloadUrl = URL.createObjectURL(pdfBlob);
+        const a = document.createElement("a");
+        a.href = downloadUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(downloadUrl), 2000);
+
+        setToastShareMsg(
+          "✅ Cópia do PDF gerada e salva com sucesso! Você pode anexá-la diretamente no WhatsApp ou E-mail."
+        );
+      }
+    } catch (err) {
+      console.error("Erro ao gerar PDF para compartilhamento:", err);
+      setToastShareMsg(
+        "⚠️ Ocorreu um erro ao gerar o arquivo PDF. Tente novamente."
+      );
+    } finally {
+      if (tempContainer && tempContainer.parentNode) {
+        tempContainer.parentNode.removeChild(tempContainer);
+      }
+      setIsSharingPdf(false);
+      setTimeout(() => setToastShareMsg(null), 5000);
     }
-
-    setTimeout(() => setToastShareMsg(null), 4000);
-  };
-
-  const handleCompartilharWhatsApp = () => {
-    if (!diagInd) return;
-    const texto = gerarTextoResumoCompartilhamento();
-    const urlAtual = typeof window !== "undefined" ? window.location.href : "";
-    const msg = encodeURIComponent(`${texto}\n${urlAtual}`);
-    window.open(`https://api.whatsapp.com/send?text=${msg}`, "_blank");
-  };
-
-  const handleCompartilharEmail = () => {
-    if (!diagInd) return;
-    const assunto = encodeURIComponent(`Diagnóstico Comportamental KAN — ${diagInd.nome}`);
-    const corpo = encodeURIComponent(`${gerarTextoResumoCompartilhamento()}\n\nLink: ${typeof window !== "undefined" ? window.location.href : ""}`);
-    window.open(`mailto:?subject=${assunto}&body=${corpo}`, "_self");
   };
 
   return (
@@ -1643,11 +1731,21 @@ export function DiagnosticoAmpliadoView({
                     variant="outline"
                     size="sm"
                     onClick={handleCompartilharDiagnostico}
-                    className="gap-2 font-bold shadow-xs text-xs h-9 border-[#ea580c]/40 text-[#ea580c] hover:bg-[#ea580c]/10 justify-center"
-                    title="Compartilhar cópia do diagnóstico (WhatsApp, E-mail ou copiar)"
+                    disabled={isSharingPdf}
+                    className="flex-1 sm:flex-none gap-2 font-bold shadow-xs text-xs h-9 border-[#ea580c]/40 text-[#ea580c] hover:bg-[#ea580c]/10 justify-center disabled:opacity-60"
+                    title="Compartilhar arquivo PDF do diagnóstico (WhatsApp, E-mail, etc.)"
                   >
-                    <Share2 className="h-4 w-4 shrink-0" />
-                    <span>Compartilhar</span>
+                    {isSharingPdf ? (
+                      <>
+                        <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                        <span>Gerando PDF...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Share2 className="h-4 w-4 shrink-0" />
+                        <span>Compartilhar PDF</span>
+                      </>
+                    )}
                   </Button>
                 </>
               )}
