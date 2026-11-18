@@ -885,7 +885,7 @@ export default function KantechApp() {
             <nav className="space-y-0.5">
               <SidebarItem
                 icon={<Users className="h-4 w-4" />}
-                label="Talentos & OCR"
+                label="Talentos"
                 active={activeRoute === "Talentos"}
                 collapsed={isCollapsed}
                 hasChevron
@@ -893,7 +893,7 @@ export default function KantechApp() {
               />
               <SidebarItem
                 icon={<UsersRound className="h-4 w-4" />}
-                label="Equipes & Harmonia"
+                label="Equipes"
                 active={activeRoute === "Equipes"}
                 collapsed={isCollapsed}
                 hasChevron
