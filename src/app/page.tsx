@@ -90,6 +90,7 @@ import { PainelControleView } from "@/components/views/admin-view";
 import { OrganogramaView } from "@/components/views/organograma-view";
 import { PeopleAnalyticsView } from "@/components/views/analytics-view";
 import { DiagnosticoAmpliadoView } from "@/components/views/diagnostico-ampliado-view";
+import { TalentProcessosButton } from "@/components/talent-processos-button";
 
 type RouteKey =
   | "Home"
@@ -1585,6 +1586,26 @@ export default function KantechApp() {
                                   {t.perfil_dominante.split(" ")[0]}
                                 </Badge>
                               </div>
+
+                              <div
+                                className="mt-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-2 gap-2"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleInspectTalento(t)}
+                                  className="h-8 text-xs gap-1"
+                                >
+                                  <Eye className="h-3.5 w-3.5 shrink-0" />
+                                  <span>Diagnóstico</span>
+                                </Button>
+                                <TalentProcessosButton
+                                  talentoNome={t.nome}
+                                  vagas={vagas}
+                                  onSelectProcesso={handleAnalisarProcesso}
+                                  className="w-full [&_button]:h-8"
+                                />
+                              </div>
                             </Card>
                           ))}
                         </div>
@@ -1906,8 +1927,10 @@ export default function KantechApp() {
                 talentos={talentos}
                 setTalentos={setTalentos}
                 equipes={equipes}
+                vagas={vagas}
                 onInspectTalento={handleInspectTalento}
                 onNavigateEquipe={handleNavigateEquipe}
+                onAnalisarProcesso={handleAnalisarProcesso}
               />
             )}
 
@@ -1917,8 +1940,10 @@ export default function KantechApp() {
                 equipes={equipes}
                 setEquipes={setEquipes}
                 talentos={talentos}
+                vagas={vagas}
                 initialOpenEquipe={initialOpenEquipe}
                 onInspectTalento={handleInspectTalento}
+                onAnalisarProcesso={handleAnalisarProcesso}
               />
             )}
 
@@ -1990,7 +2015,9 @@ export default function KantechApp() {
                 setTalentos={setTalentos}
                 equipes={equipes}
                 setEquipes={setEquipes}
+                vagas={vagas}
                 onInspectTalento={handleInspectTalento}
+                onAnalisarProcesso={handleAnalisarProcesso}
               />
             )}
 

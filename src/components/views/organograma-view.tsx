@@ -44,8 +44,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { TalentoProfile, EquipeData } from "@/lib/mock-data";
+import { TalentoProfile, EquipeData, VagaData } from "@/lib/mock-data";
 import { KanTrianglesSvg } from "@/components/kan-triangles-svg";
+import { TalentProcessosButton } from "@/components/talent-processos-button";
 
 const EIXOS_COMPORTAMENTAIS = [
   "Liderança",
@@ -200,7 +201,9 @@ interface OrganogramaViewProps {
   setTalentos: React.Dispatch<React.SetStateAction<TalentoProfile[]>>;
   equipes: EquipeData[];
   setEquipes: React.Dispatch<React.SetStateAction<EquipeData[]>>;
+  vagas?: VagaData[];
   onInspectTalento?: (talento: TalentoProfile) => void;
+  onAnalisarProcesso?: (vagaId: number) => void;
 }
 
 export interface DepartamentoNode {
@@ -306,7 +309,9 @@ export function OrganogramaView({
   talentos,
   setTalentos,
   equipes,
+  vagas = [],
   onInspectTalento,
+  onAnalisarProcesso,
 }: OrganogramaViewProps) {
   const [empresas, setEmpresas] = useState<EmpresaRecord[]>(INITIAL_EMPRESAS);
   const [selectedEmpresa, setSelectedEmpresa] = useState<string>(
@@ -1530,17 +1535,25 @@ export function OrganogramaView({
             {isLider ? "Líder" : "Tornar Líder"}
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             {onInspectTalento && (
               <button
                 type="button"
                 onClick={() => onInspectTalento(t)}
-                className="flex items-center gap-1 text-[10px] font-semibold text-[#510851] hover:underline dark:text-purple-300"
+                className="inline-flex items-center gap-1 rounded-md border border-[#510851]/30 bg-[#510851]/5 px-2 py-1 text-[10px] font-semibold text-[#510851] hover:bg-[#510851]/15 dark:text-purple-300 transition-colors"
+                title="Abrir Diagnóstico Comportamental"
               >
                 <Eye className="h-3 w-3" />
-                Ficha
+                Diagnóstico
               </button>
             )}
+
+            <TalentProcessosButton
+              talentoNome={t.nome}
+              vagas={vagas}
+              onSelectProcesso={onAnalisarProcesso}
+              compact
+            />
 
             <button
               type="button"

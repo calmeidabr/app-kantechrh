@@ -31,11 +31,13 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { TalentProcessosButton } from "@/components/talent-processos-button";
 import {
   EMPRESAS_TENANT,
   DEPARTAMENTOS_OPCOES,
   type TalentoProfile,
   type EquipeData,
+  type VagaData,
 } from "@/lib/mock-data";
 
 function processImageFile(file: File, maxDim = 400, quality = 0.85): Promise<string> {
@@ -77,14 +79,18 @@ export function TalentosView({
   talentos,
   setTalentos,
   equipes,
+  vagas = [],
   onInspectTalento,
   onNavigateEquipe,
+  onAnalisarProcesso,
 }: {
   talentos: TalentoProfile[];
   setTalentos: React.Dispatch<React.SetStateAction<TalentoProfile[]>>;
   equipes: EquipeData[];
+  vagas?: VagaData[];
   onInspectTalento: (t: TalentoProfile) => void;
   onNavigateEquipe: (equipeNome: string) => void;
+  onAnalisarProcesso?: (vagaId: number) => void;
 }) {
   // Form state matching PROG/menus/talentos_menu.py
   const [cadNome, setCadNome] = useState("");
@@ -1082,6 +1088,11 @@ export function TalentosView({
                         )}
                       </Button>
                     )}
+                    <TalentProcessosButton
+                      talentoNome={t.nome}
+                      vagas={vagas}
+                      onSelectProcesso={onAnalisarProcesso}
+                    />
                     <Button
                       variant="outline"
                       size="sm"

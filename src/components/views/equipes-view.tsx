@@ -18,6 +18,7 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,11 +31,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { KanTrianglesSvg } from "@/components/kan-triangles-svg";
+import { TalentProcessosButton } from "@/components/talent-processos-button";
 import {
   EMPRESAS_TENANT,
   DEPARTAMENTOS_OPCOES,
   type EquipeData,
   type TalentoProfile,
+  type VagaData,
 } from "@/lib/mock-data";
 
 const EIXOS_COMPORTAMENTAIS = [
@@ -180,14 +183,18 @@ export function EquipesView({
   equipes,
   setEquipes,
   talentos,
+  vagas = [],
   initialOpenEquipe,
   onInspectTalento,
+  onAnalisarProcesso,
 }: {
   equipes: EquipeData[];
   setEquipes: React.Dispatch<React.SetStateAction<EquipeData[]>>;
   talentos: TalentoProfile[];
+  vagas?: VagaData[];
   initialOpenEquipe?: string | null;
   onInspectTalento: (t: TalentoProfile) => void;
+  onAnalisarProcesso?: (vagaId: number) => void;
 }) {
   const [addMode, setAddMode] = useState(false);
   const [buscaEquipe, setBuscaEquipe] = useState(() => initialOpenEquipe || "");
@@ -1190,27 +1197,48 @@ export function EquipesView({
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2 pt-1">
-                              <Button
-                                size="sm"
-                                variant={m.lider ? "orange" : "outline"}
-                                onClick={() => handleToggleLider(eq.id, m.nome)}
-                                className="h-8 text-xs"
-                              >
-                                <Crown className="h-3.5 w-3.5" />
-                                {m.lider ? "Líder Ativo" : "Tornar Líder"}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  handleRemoverMembro(eq.id, m.nome)
-                                }
-                                className="h-8 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                Remover
-                              </Button>
+                            <div className="space-y-2 pt-1">
+                              <div className="grid grid-cols-2 gap-2">
+                                <Button
+                                  size="sm"
+                                  disabled={!info}
+                                  onClick={() => info && onInspectTalento(info)}
+                                  className="h-8 text-xs gap-1"
+                                  title="Abrir Diagnóstico Comportamental do talento"
+                                >
+                                  <Eye className="h-3.5 w-3.5 shrink-0" />
+                                  <span>Diagnóstico</span>
+                                </Button>
+                                <TalentProcessosButton
+                                  talentoNome={m.nome}
+                                  vagas={vagas}
+                                  onSelectProcesso={onAnalisarProcesso}
+                                  className="w-full [&_button]:h-8"
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2">
+                                <Button
+                                  size="sm"
+                                  variant={m.lider ? "orange" : "outline"}
+                                  onClick={() => handleToggleLider(eq.id, m.nome)}
+                                  className="h-8 text-xs"
+                                >
+                                  <Crown className="h-3.5 w-3.5" />
+                                  {m.lider ? "Líder Ativo" : "Tornar Líder"}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    handleRemoverMembro(eq.id, m.nome)
+                                  }
+                                  className="h-8 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Remover
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         );

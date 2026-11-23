@@ -27,6 +27,7 @@ import {
   Loader2,
   Clock,
   History,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +40,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { KanTrianglesSvg } from "@/components/kan-triangles-svg";
+import { TalentProcessosButton } from "@/components/talent-processos-button";
 import {
   EMPRESAS_TENANT,
   DEPARTAMENTOS_OPCOES,
@@ -2294,6 +2296,25 @@ export function ProcessoSeletivoView({
                         </span>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Ações do Card do Talento: Diagnóstico + Processos Seletivos */}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      onClick={() => onInspectTalento(c)}
+                      className="h-8 text-xs gap-1"
+                      title="Abrir Diagnóstico Comportamental do talento"
+                    >
+                      <Eye className="h-3.5 w-3.5 shrink-0" />
+                      <span>Diagnóstico</span>
+                    </Button>
+                    <TalentProcessosButton
+                      talentoNome={c.nome}
+                      vagas={vagas}
+                      onSelectProcesso={(vId) => setSelectedVagaId(vId)}
+                      className="w-full [&_button]:h-8"
+                    />
                   </div>
                 </Card>
               );
