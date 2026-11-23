@@ -1165,14 +1165,26 @@ export function EquipesView({
                             }`}
                           >
                             <div className="flex items-center gap-3">
-                              <img
-                                src={
-                                  info?.avatar ||
-                                  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
+                              <button
+                                type="button"
+                                disabled={!info}
+                                onClick={() => info && onInspectTalento(info)}
+                                title={
+                                  info
+                                    ? `Abrir diagnóstico de ${m.nome}`
+                                    : m.nome
                                 }
-                                alt={m.nome}
-                                className="h-11 w-11 rounded-full object-cover ring-2 ring-[#ea580c]/40"
-                              />
+                                className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-[#ea580c] disabled:cursor-default cursor-pointer group"
+                              >
+                                <img
+                                  src={
+                                    info?.avatar ||
+                                    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
+                                  }
+                                  alt={m.nome}
+                                  className="h-11 w-11 rounded-full object-cover ring-2 ring-[#ea580c]/40 group-hover:ring-[#ea580c] group-hover:scale-105 transition-all"
+                                />
+                              </button>
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-1.5">
                                   <button
@@ -1309,11 +1321,16 @@ export function EquipesView({
                                     <div>
                                       <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
                                         <div className="flex items-center gap-2.5 min-w-0">
-                                          <div className="relative h-12 w-12 shrink-0">
+                                          <button
+                                            type="button"
+                                            onClick={() => onInspectTalento(m)}
+                                            title={`Abrir diagnóstico de ${m.nome}`}
+                                            className="relative h-12 w-12 shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-[#ea580c] cursor-pointer group"
+                                          >
                                             <img
                                               src={m.avatar}
                                               alt={m.nome}
-                                              className="h-12 w-12 rounded-full border-2 border-[#fb923c]/70 object-cover shadow-2xs"
+                                              className="h-12 w-12 rounded-full border-2 border-[#fb923c]/70 group-hover:border-[#ea580c] group-hover:scale-105 object-cover shadow-2xs transition-all"
                                             />
                                             {isLider && (
                                               <span
@@ -1323,7 +1340,7 @@ export function EquipesView({
                                                 👑
                                               </span>
                                             )}
-                                          </div>
+                                          </button>
                                           <div className="min-w-0">
                                             <div className="flex items-center gap-1.5">
                                               <span className="text-sm font-bold text-slate-900 dark:text-white truncate">
@@ -1440,11 +1457,16 @@ export function EquipesView({
                                         }`}
                                       >
                                         <div className="flex flex-col items-center">
-                                          <div className="relative mb-2.5 h-14 w-14">
+                                          <button
+                                            type="button"
+                                            onClick={() => onInspectTalento(m)}
+                                            title={`Abrir diagnóstico de ${m.nome}`}
+                                            className="relative mb-2.5 h-14 w-14 rounded-full focus:outline-none focus:ring-2 focus:ring-[#ea580c] cursor-pointer group"
+                                          >
                                             <img
                                               src={m.avatar}
                                               alt={m.nome}
-                                              className="h-14 w-14 rounded-full border-2 border-[#fb923c]/60 object-cover shadow-2xs"
+                                              className="h-14 w-14 rounded-full border-2 border-[#fb923c]/60 group-hover:border-[#ea580c] group-hover:scale-105 object-cover shadow-2xs transition-all"
                                             />
                                             {isLider && (
                                               <span
@@ -1454,7 +1476,7 @@ export function EquipesView({
                                                 👑
                                               </span>
                                             )}
-                                          </div>
+                                          </button>
                                           <div className="text-sm font-bold tracking-tight text-slate-900 dark:text-white">
                                             {m.nome}
                                           </div>
@@ -1642,19 +1664,21 @@ export function EquipesView({
                                       key={m.id}
                                       className="text-center align-bottom pb-1 px-0.5"
                                     >
-                                      <div
-                                        className="flex flex-col items-center justify-end"
-                                        title={`${m.nome} (${m.cargo})`}
+                                      <button
+                                        type="button"
+                                        onClick={() => onInspectTalento(m)}
+                                        className="flex flex-col items-center justify-end w-full cursor-pointer group focus:outline-none"
+                                        title={`Abrir diagnóstico de ${m.nome} (${m.cargo})`}
                                       >
                                         <img
                                           src={m.avatar}
                                           alt={m.nome}
-                                          className="h-5 w-5 sm:h-6 sm:w-6 rounded-full object-cover ring-1 ring-[#fb923c]/40 mb-1"
+                                          className="h-5 w-5 sm:h-6 sm:w-6 rounded-full object-cover ring-1 ring-[#fb923c]/40 group-hover:ring-2 group-hover:ring-[#ea580c] group-hover:scale-105 transition-all mb-1"
                                         />
-                                        <span className="block w-full truncate text-[8px] sm:text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                                        <span className="block w-full truncate text-[8px] sm:text-[10px] font-bold text-slate-700 dark:text-slate-300 group-hover:text-[#ea580c] transition-colors">
                                           {m.nome.split(" ")[0]}
                                         </span>
-                                      </div>
+                                      </button>
                                     </th>
                                   ))}
                                   <th className="text-center align-bottom pb-1 px-0.5">
