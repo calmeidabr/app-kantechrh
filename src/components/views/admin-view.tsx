@@ -2628,6 +2628,10 @@ export function PainelControleView({
                           if (!newUserUsuario.trim() && !newUserEmail.trim()) {
                             return;
                           }
+                          if (newUserSenha.trim().length < 8) {
+                            alert("Informe uma senha com no mínimo 8 caracteres.");
+                            return;
+                          }
                           try {
                             const res = await fetch("/api/usuarios", {
                               method: "POST",
@@ -2639,7 +2643,7 @@ export function PainelControleView({
                                 nome_completo:
                                   newUserNome.trim() || newUserUsuario.trim(),
                                 email: newUserEmail.trim(),
-                                password: newUserSenha.trim() || "kan2026",
+                                senha: newUserSenha.trim(),
                                 direitos: newUserDireito,
                                 empresa: newUserEmpresa.trim() || "Mundo Kan",
                               }),

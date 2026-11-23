@@ -1,74 +1,99 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase, getSupabaseAdmin } from "@/lib/supabase";
+import {
+  SESSION_COOKIE_NAME,
+  attachSessionCookie,
+  clearSessionCookie,
+  verifySessionToken,
+  verifyPassword,
+  checkLoginRateLimit,
+  recordFailedLoginAttempt,
+  clearFailedLoginAttempts,
+  type AuthUserSession,
+} from "@/lib/auth-security";
+
+export const dynamic = "force-dynamic";
+export type { AuthUserSession };
+
+function getClientIp(req: NextRequest): string {
+  const fwd = req.headers.get("x-forwarded-for");
+  if (fwd) return fwd.split(",")[0].trim();
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp) return realIp.trim();
+  return "unknown";
+}
 
 /**
- * Credenciais mestras/legadas compatíveis com `PROG/services/auth.py`
+ * GET /api/auth
+ * Valida a sessão atual via cookie HttpOnly assinado + timeout de inatividade (5 min).
+ * Se `?touch=1`, renova o timestamp de atividade (`lastActive`) no cookie de sessão.
  */
-const LEGACY_USERS: Record<
-  string,
-  { password: string; email: string; direitos: string; empresa: string; nome: string }
-> = {
-  adminkan: {
-    password: "K@nAdmin#2026*",
-    email: "adminkan@mundokan.com.br",
-    direitos: "admin master",
-    empresa: "Mundo Kan",
-    nome: "Admin Master KAN",
-  },
-  admin: {
-    password: "admin123",
-    email: "admin@mundokan.com.br",
-    direitos: "Editor",
-    empresa: "Mundo Kan",
-    nome: "Administrador",
-  },
-  cristiano: {
-    password: "kan2026",
-    email: "cristiano@mundokan.com.br",
-    direitos: "Editor",
-    empresa: "Mundo Kan",
-    nome: "Cristiano Corrêa",
-  },
-  maria: {
-    password: "maria2026",
-    email: "maria@mundokan.com.br",
-    direitos: "Analista",
-    empresa: "Mundo Kan",
-    nome: "Maria",
-  },
-};
+export async function GET(req: NextRequest) {
+  const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const check = verifySessionToken(token);
 
-export interface AuthUserSession {
-  id: string;
-  usuario: string;
-  nome_completo: string;
-  email: string;
-  celular?: string;
-  data_nascimento?: string;
-  empresa: string;
-  cargo?: string;
-  departamento?: string;
-  direitos: string;
-  status: string;
-  foto?: string;
-  grupo: string;
-  tenant_id: string;
-  tenant_name: string;
-  tenant_tier: string;
-  is_main_user: boolean;
+  if (!check.valid || !check.payload) {
+    const res = NextResponse.json(
+      {
+        authenticated: false,
+        expired: Boolean(check.expired),
+      },
+      {
+        status: 200,
+        headers: { "Cache-Control": "no-store" },
+      }
+    );
+    if (token) {
+      clearSessionCookie(res);
+    }
+    return res;
+  }
+
+  const touch = new URL(req.url).searchParams.get("touch") === "1";
+  const res = NextResponse.json(
+    {
+      authenticated: true,
+      user: check.payload.user,
+      lastActive: check.payload.lastActive,
+    },
+    {
+      status: 200,
+      headers: { "Cache-Control": "no-store" },
+    }
+  );
+
+  if (touch) {
+    attachSessionCookie(res, check.payload.user, check.payload.iat);
+  }
+
+  return res;
+}
+
+/**
+ * DELETE /api/auth
+ * Encerra a sessão removendo o cookie HttpOnly.
+ */
+export async function DELETE() {
+  const res = NextResponse.json(
+    { success: true },
+    { headers: { "Cache-Control": "no-store" } }
+  );
+  clearSessionCookie(res);
+  return res;
 }
 
 /**
  * POST /api/auth
- * Autentica o usuário consultando:
- * 1) A tabela `public.usuarios` no Supabase (por `usuario` ou `email`, além de eventual coluna `senha`)
- * 2) O Supabase Auth (`auth.users` via `signInWithPassword`)
- * 3) As credenciais mestras/legadas do ecossistema KAN (`USUARIOS` em `services/auth.py`) com auto-onboarding
+ * Autentica exclusivamente contra o Supabase Auth (senhas criptografadas com bcrypt em `auth.users`)
+ * ou hash criptográfico `scrypt$` em `public.usuarios`.
+ * Zero credenciais em texto puro ou hardcoded no repositório.
  */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const rawIdentifier = String(body.usernameOrEmail || body.usuario || "").trim();
+    const rawIdentifier = String(
+      body.usernameOrEmail || body.usuario || ""
+    ).trim();
     const password = String(body.password || body.senha || "");
 
     if (!rawIdentifier || !password) {
@@ -81,13 +106,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabaseAdmin = getSupabaseAdmin();
     const lowerId = rawIdentifier.toLowerCase();
+    const rateKey = `${getClientIp(req)}::${lowerId}`;
+    const rateCheck = checkLoginRateLimit(rateKey);
+    if (!rateCheck.allowed) {
+      const mins = Math.ceil((rateCheck.retryAfterSeconds || 60) / 60);
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Muitas tentativas de login. Aguarde ${mins} minuto(s) e tente novamente.`,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateCheck.retryAfterSeconds || 60),
+          },
+        }
+      );
+    }
 
-    // 1. Buscar registro na tabela public.usuarios
+    const supabaseAdmin = getSupabaseAdmin();
+
+    // 1. Localizar usuário em public.usuarios (por usuario ou email)
     const { data: usuariosRows } = await supabaseAdmin
       .from("usuarios")
-      .select("*");
+      .select(
+        "id, usuario, nome_completo, email, celular, data_nascimento, empresa, cargo, departamento, direitos, status, foto, grupo, tenant_id, is_main_user"
+      );
 
     const matchedDbUser = (usuariosRows || []).find(
       (u: Record<string, unknown>) =>
@@ -95,18 +140,22 @@ export async function POST(req: NextRequest) {
         String(u.email || "").toLowerCase() === lowerId
     );
 
-    if (matchedDbUser && String(matchedDbUser.status || "Ativo") === "Inativo") {
+    if (
+      matchedDbUser &&
+      String(matchedDbUser.status || "Ativo") === "Inativo"
+    ) {
       return NextResponse.json(
         {
           success: false,
-          error: "Este usuário encontra-se inativo no sistema. Contate o administrador.",
+          error:
+            "Este usuário encontra-se inativo no sistema. Contate o administrador.",
         },
         { status: 403 }
       );
     }
 
-    let resolvedEmail = matchedDbUser?.email
-      ? String(matchedDbUser.email)
+    const resolvedEmail = matchedDbUser?.email
+      ? String(matchedDbUser.email).trim()
       : rawIdentifier.includes("@")
       ? rawIdentifier
       : `${lowerId}@mundokan.com.br`;
@@ -117,66 +166,43 @@ export async function POST(req: NextRequest) {
 
     let authenticated = false;
     let authUserId = matchedDbUser?.id ? String(matchedDbUser.id) : "";
-    let sessionToken = "";
 
-    // 2. Verificar se há coluna `senha` direta na tabela public.usuarios
-    if (
-      matchedDbUser &&
-      matchedDbUser.senha &&
-      String(matchedDbUser.senha) === password
-    ) {
+    // 2. Autenticar exclusivamente via Supabase Auth (bcrypt criptografado em auth.users)
+    const { data: authData, error: authError } =
+      await supabase.auth.signInWithPassword({
+        email: resolvedEmail,
+        password,
+      });
+
+    if (!authError && authData?.user) {
       authenticated = true;
+      authUserId = authData.user.id;
     }
 
-    // 3. Verificar credenciais legadas/mestras (`USUARIOS` de services/auth.py)
-    const legacyKey = resolvedUsername.toLowerCase();
-    if (!authenticated && LEGACY_USERS[legacyKey] && LEGACY_USERS[legacyKey].password === password) {
-      authenticated = true;
-      resolvedEmail = matchedDbUser?.email
-        ? String(matchedDbUser.email)
-        : LEGACY_USERS[legacyKey].email;
+    // 3. Suporte secundário apenas a hash criptográfico scrypt$ (nunca texto puro)
+    if (!authenticated && matchedDbUser?.id) {
+      const { data: hashRow } = await supabaseAdmin
+        .from("usuarios")
+        .select("*")
+        .eq("id", matchedDbUser.id)
+        .maybeSingle();
 
-      // Garantir sincronização no Supabase Auth (auto-onboarding igual ao PROG/services/auth.py)
-      try {
-        const signRes = await supabase.auth.signInWithPassword({
-          email: resolvedEmail,
-          password,
-        });
-        if (signRes.data?.session) {
-          sessionToken = signRes.data.session.access_token;
-          authUserId = signRes.data.user.id;
-        } else {
-          const created = await supabaseAdmin.auth.admin.createUser({
-            email: resolvedEmail,
-            password,
-            email_confirm: true,
-            user_metadata: { full_name: LEGACY_USERS[legacyKey].nome },
-          });
-          if (created.data?.user) {
-            authUserId = created.data.user.id;
-          }
-        }
-      } catch {
-        // Continua autenticado via credencial KAN
-      }
-    }
+      const storedHash =
+        hashRow && typeof hashRow === "object"
+          ? String(
+              (hashRow as Record<string, unknown>).senha_hash ||
+                (hashRow as Record<string, unknown>).senha ||
+                ""
+            )
+          : "";
 
-    // 4. Autenticar via Supabase Auth (auth.users)
-    if (!authenticated) {
-      const { data: authData, error: authError } =
-        await supabase.auth.signInWithPassword({
-          email: resolvedEmail,
-          password,
-        });
-
-      if (!authError && authData?.user) {
+      if (storedHash.startsWith("scrypt$") && verifyPassword(password, storedHash)) {
         authenticated = true;
-        authUserId = authData.user.id;
-        sessionToken = authData.session?.access_token || "";
       }
     }
 
     if (!authenticated) {
+      recordFailedLoginAttempt(rateKey);
       return NextResponse.json(
         {
           success: false,
@@ -186,7 +212,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 5. Hidratar dados completos do usuário e do Tenant no Supabase
+    clearFailedLoginAttempts(rateKey);
+
+    // 4. Hidratar dados completos do usuário e do Tenant no Supabase
     const finalDbUser =
       matchedDbUser ||
       (usuariosRows || []).find(
@@ -195,77 +223,70 @@ export async function POST(req: NextRequest) {
 
     const tenantId = finalDbUser?.tenant_id
       ? String(finalDbUser.tenant_id)
-      : resolvedEmail.endsWith("@mundokan.com.br")
-      ? "00000000-0000-0000-0000-000000000000"
       : "00000000-0000-0000-0000-000000000000";
 
-    let tenantName = finalDbUser?.empresa ? String(finalDbUser.empresa) : "Mundo Kan";
-    let tenantTier = "alta_performance";
-
-    try {
-      const { data: tenantData } = await supabaseAdmin
-        .from("tenants")
-        .select("id, name, tier")
-        .eq("id", tenantId)
-        .maybeSingle();
-
-      if (tenantData) {
-        tenantTier = String(tenantData.tier || "free");
-        if (!finalDbUser?.empresa && tenantData.name) {
-          tenantName = String(tenantData.name);
-        }
-      }
-    } catch {
-      // Fallback
-    }
-
-    const legacyInfo = LEGACY_USERS[legacyKey];
-    const direitos = finalDbUser?.direitos
-      ? String(finalDbUser.direitos)
-      : legacyInfo?.direitos || (legacyKey === "adminkan" ? "admin master" : "Comum");
+    const { data: tenantData } = await supabaseAdmin
+      .from("tenants")
+      .select("id, name, tier")
+      .eq("id", tenantId)
+      .maybeSingle();
 
     const userSession: AuthUserSession = {
-      id: authUserId || String(finalDbUser?.id || `usr-${legacyKey}`),
-      usuario: String(finalDbUser?.usuario || resolvedUsername),
-      nome_completo: String(
-        finalDbUser?.nome_completo ||
-          legacyInfo?.nome ||
-          resolvedUsername.charAt(0).toUpperCase() + resolvedUsername.slice(1)
-      ),
-      email: resolvedEmail,
-      celular: finalDbUser?.celular ? String(finalDbUser.celular) : "",
+      id: authUserId || String(finalDbUser?.id || resolvedUsername),
+      usuario: finalDbUser?.usuario
+        ? String(finalDbUser.usuario)
+        : resolvedUsername,
+      nome_completo: finalDbUser?.nome_completo
+        ? String(finalDbUser.nome_completo)
+        : resolvedUsername,
+      email: finalDbUser?.email ? String(finalDbUser.email) : resolvedEmail,
+      celular: finalDbUser?.celular ? String(finalDbUser.celular) : undefined,
       data_nascimento: finalDbUser?.data_nascimento
         ? String(finalDbUser.data_nascimento)
-        : "",
-      empresa: tenantName || "Mundo Kan",
+        : undefined,
+      empresa: finalDbUser?.empresa
+        ? String(finalDbUser.empresa)
+        : tenantData?.name || "Mundo Kan",
       cargo: finalDbUser?.cargo
         ? String(finalDbUser.cargo)
-        : direitos === "admin master"
+        : String(finalDbUser?.direitos || "").toLowerCase() === "admin master"
         ? "Admin Master"
         : "Gestor de RH",
       departamento: finalDbUser?.departamento
         ? String(finalDbUser.departamento)
         : "Diretoria Executiva",
-      direitos,
-      status: String(finalDbUser?.status || "Ativo"),
-      foto: finalDbUser?.foto ? String(finalDbUser.foto) : "☖",
-      grupo: String(finalDbUser?.grupo || "Geral"),
+      direitos: finalDbUser?.direitos ? String(finalDbUser.direitos) : "Comum",
+      status: finalDbUser?.status ? String(finalDbUser.status) : "Ativo",
+      foto: finalDbUser?.foto ? String(finalDbUser.foto) : undefined,
+      grupo: finalDbUser?.grupo ? String(finalDbUser.grupo) : "Geral",
       tenant_id: tenantId,
-      tenant_name: tenantName,
-      tenant_tier: tenantTier,
+      tenant_name: tenantData?.name ? String(tenantData.name) : "Mundo Kan",
+      tenant_tier: tenantData?.tier
+        ? String(tenantData.tier)
+        : "alta_performance",
       is_main_user: Boolean(finalDbUser?.is_main_user ?? true),
     };
 
-    return NextResponse.json({
-      success: true,
-      user: userSession,
-      token: sessionToken || `kan-session-${userSession.id}-${Date.now()}`,
-    });
+    const res = NextResponse.json(
+      {
+        success: true,
+        user: userSession,
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+
+    // Anexa cookie HttpOnly de sessão (sem Max-Age -> expira ao reiniciar o navegador)
+    attachSessionCookie(res, userSession);
+
+    return res;
   } catch (err) {
     return NextResponse.json(
       {
         success: false,
-        error: "Erro interno ao autenticar. Tente novamente.",
+        error:
+          err instanceof Error
+            ? err.message
+            : "Erro interno ao autenticar usuário.",
       },
       { status: 500 }
     );

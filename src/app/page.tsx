@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTheme } from "next-themes";
 import {
   Search,
@@ -157,28 +157,58 @@ export default function KantechApp() {
   const [selectedTenant, setSelectedTenant] = useState(EMPRESAS_TENANT[0]);
   const [tenantMenuOpen, setTenantMenuOpen] = useState(false);
 
-  // Authentication state (Supabase public.usuarios + auth.users)
+  // Authentication state (Sessão via Cookie HttpOnly sem Max-Age + timeout de 5 min de inatividade)
+  const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
   const [authUser, setAuthUser] = useState<AuthUserSession | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [loginInput, setLoginInput] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
+  const lastActivityRef = useRef<number>(Date.now());
+  const lastServerTouchRef = useRef<number>(Date.now());
 
+  // 1. Verifica sessão segura no servidor (Cookie HttpOnly de sessão: destruído ao reiniciar o navegador)
   useEffect(() => {
+    let active = true;
     try {
-      const saved = localStorage.getItem("kan_auth_user");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.usuario) {
-          setAuthUser(parsed);
-        }
-      }
+      // Remove qualquer vestígio legado de localStorage para impedir persistência após reiniciar navegador
+      localStorage.removeItem("kan_auth_user");
     } catch {
-      // ignore storage errors
-    } finally {
-      setAuthChecked(true);
+      // ignore
     }
+
+    fetch("/api/auth", {
+      method: "GET",
+      cache: "no-store",
+      credentials: "include",
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (!active) return;
+        if (json?.authenticated && json?.user) {
+          setAuthUser(json.user);
+          lastActivityRef.current = Date.now();
+          lastServerTouchRef.current = Date.now();
+        } else {
+          setAuthUser(null);
+          if (json?.expired) {
+            setLoginError(
+              "Sua sessão expirou após 5 minutos de inatividade. Informe sua senha para continuar."
+            );
+          }
+        }
+      })
+      .catch(() => {
+        if (active) setAuthUser(null);
+      })
+      .finally(() => {
+        if (active) setAuthChecked(true);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const handleLoginSubmit = async (
@@ -199,22 +229,19 @@ export default function KantechApp() {
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ usernameOrEmail: u, password: p }),
       });
       const json = await res.json();
       if (!res.ok || !json?.success || !json?.user) {
-        setLoginError(
-          json?.error || "Usuário ou senha inválidos."
-        );
+        setLoginError(json?.error || "Usuário ou senha inválidos.");
         setLoginLoading(false);
         return;
       }
       setAuthUser(json.user);
-      try {
-        localStorage.setItem("kan_auth_user", JSON.stringify(json.user));
-      } catch {
-        // ignore
-      }
+      setLoginPassword("");
+      lastActivityRef.current = Date.now();
+      lastServerTouchRef.current = Date.now();
       setLoginLoading(false);
     } catch {
       setLoginError("Falha de conexão com o servidor de autenticação.");
@@ -298,22 +325,109 @@ export default function KantechApp() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = useCallback((reason?: string | React.MouseEvent) => {
     setAuthUser(null);
     setLoginPassword("");
-    navigateTo("Home", { replace: true });
+    if (typeof reason === "string" && reason) {
+      setLoginError(reason);
+    } else {
+      setLoginError(null);
+    }
+    fetch("/api/auth", {
+      method: "DELETE",
+      credentials: "include",
+      cache: "no-store",
+    }).catch(() => {});
     try {
       localStorage.removeItem("kan_auth_user");
     } catch {
       // ignore
     }
-  };
+    navigateTo("Home", { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const isAdminMaster =
-    !authUser ||
-    String(authUser.direitos || "").toLowerCase() === "admin master" ||
-    authUser.usuario === "adminkan" ||
-    authUser.usuario === "admin";
+  // 2. Monitor de inatividade de 5 minutos (client + sliding cookie no servidor)
+  useEffect(() => {
+    if (!authUser) return;
+
+    lastActivityRef.current = Date.now();
+    lastServerTouchRef.current = Date.now();
+
+    const registerActivity = () => {
+      const now = Date.now();
+      // Se já passou de 5 minutos antes do novo evento (ex.: computador acordou do sleep), encerra imediatamente
+      if (now - lastActivityRef.current >= IDLE_TIMEOUT_MS) {
+        handleLogout(
+          "Sua sessão foi encerrada após 5 minutos sem movimentação. Informe sua senha para continuar."
+        );
+        return;
+      }
+      lastActivityRef.current = now;
+
+      // Atualiza o cookie HttpOnly no servidor no máximo 1x a cada 60s enquanto houver atividade
+      if (now - lastServerTouchRef.current >= 60_000) {
+        lastServerTouchRef.current = now;
+        fetch("/api/auth?touch=1", {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+        })
+          .then((r) => r.json())
+          .then((json) => {
+            if (!json?.authenticated) {
+              handleLogout(
+                "Sua sessão expirou após 5 minutos de inatividade. Informe sua senha para continuar."
+              );
+            }
+          })
+          .catch(() => {});
+      }
+    };
+
+    const checkIdle = () => {
+      if (Date.now() - lastActivityRef.current >= IDLE_TIMEOUT_MS) {
+        handleLogout(
+          "Sua sessão foi encerrada após 5 minutos sem movimentação. Informe sua senha para continuar."
+        );
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        checkIdle();
+      }
+    };
+
+    const events: (keyof WindowEventMap)[] = [
+      "mousemove",
+      "mousedown",
+      "keydown",
+      "scroll",
+      "touchstart",
+      "click",
+      "pointerdown",
+    ];
+    events.forEach((evt) =>
+      window.addEventListener(evt, registerActivity, { passive: true })
+    );
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    const intervalId = window.setInterval(checkIdle, 10_000);
+
+    return () => {
+      events.forEach((evt) =>
+        window.removeEventListener(evt, registerActivity)
+      );
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.clearInterval(intervalId);
+    };
+  }, [authUser, handleLogout, IDLE_TIMEOUT_MS]);
+
+  const isAdminMaster = Boolean(
+    authUser &&
+      (String(authUser.direitos || "").toLowerCase() === "admin master" ||
+        authUser.usuario === "adminkan")
+  );
 
   // Stateful collections so changes in Talentos / Equipes / Vagas / Processos reflect everywhere
   const [talentos, setTalentos] = useState<TalentoProfile[]>(TALENTOS_MOCK);

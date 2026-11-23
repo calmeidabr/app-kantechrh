@@ -128,14 +128,14 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const supabaseAdmin = getSupabaseAdmin();
 
-    // Ação 1: Alterar senha de um usuário existente no Supabase Auth
+    // Ação 1: Alterar senha de um usuário existente no Supabase Auth (criptografada com bcrypt)
     if (body.action === "update-password") {
       const { userId, usuario, newPassword } = body;
-      if (!newPassword || String(newPassword).trim().length < 6) {
+      if (!newPassword || String(newPassword).trim().length < 8) {
         return NextResponse.json(
           {
             success: false,
-            error: "A nova senha deve ter no mínimo 6 caracteres.",
+            error: "A nova senha deve ter no mínimo 8 caracteres.",
           },
           { status: 400 }
         );
@@ -200,6 +200,7 @@ export async function POST(req: NextRequest) {
       nome_completo,
       email,
       senha,
+      password: passwordField,
       celular,
       data_nascimento,
       empresa,
@@ -211,6 +212,8 @@ export async function POST(req: NextRequest) {
       tenant_id,
       tenant_tier,
     } = body;
+
+    const rawSenha = String(senha || passwordField || "").trim();
 
     if (!usuario) {
       return NextResponse.json(
@@ -227,18 +230,28 @@ export async function POST(req: NextRequest) {
     // Verificar se usuário já existe em public.usuarios
     const { data: existingUser } = await supabaseAdmin
       .from("usuarios")
-      .select("*")
+      .select("id, usuario, email, tenant_id, is_main_user")
       .eq("usuario", cleanUser)
       .maybeSingle();
 
     let authId = existingUser?.id || id;
 
-    // Se enviou senha e não tem usuário no Auth ainda, cria no Supabase Auth
-    if (!existingUser && senha && String(senha).trim().length >= 6) {
+    if (!existingUser && rawSenha.length < 8) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Informe uma senha segura com no mínimo 8 caracteres para o novo usuário.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Se enviou senha e não tem usuário no Auth ainda, cria no Supabase Auth (senha criptografada via bcrypt)
+    if (!existingUser && rawSenha.length >= 8) {
       const { data: createdAuth, error: createAuthErr } =
         await supabaseAdmin.auth.admin.createUser({
           email: cleanEmail,
-          password: String(senha).trim(),
+          password: rawSenha,
           email_confirm: true,
           user_metadata: {
             full_name: nome_completo || cleanUser,
@@ -256,9 +269,9 @@ export async function POST(req: NextRequest) {
       if (createdAuth?.user?.id) {
         authId = createdAuth.user.id;
       }
-    } else if (existingUser?.id && senha && String(senha).trim().length >= 6) {
+    } else if (existingUser?.id && rawSenha.length >= 8) {
       await supabaseAdmin.auth.admin.updateUserById(String(existingUser.id), {
-        password: String(senha).trim(),
+        password: rawSenha,
       });
     }
 
