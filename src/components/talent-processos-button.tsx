@@ -19,6 +19,8 @@ export interface TalentProcessosButtonProps {
   vagas?: VagaData[];
   onSelectProcesso?: (vagaId: number) => void;
   compact?: boolean;
+  showZeroCount?: boolean;
+  directIfSingle?: boolean;
   className?: string;
 }
 
@@ -27,6 +29,8 @@ export function TalentProcessosButton({
   vagas = [],
   onSelectProcesso,
   compact = false,
+  showZeroCount = false,
+  directIfSingle = false,
   className = "",
 }: TalentProcessosButtonProps) {
   const [open, setOpen] = useState(false);
@@ -103,6 +107,14 @@ export function TalentProcessosButton({
   }, [open, updatePosition]);
 
   const count = processosDoTalento.length;
+
+  const handleTriggerClick = () => {
+    if (directIfSingle && count === 1 && onSelectProcesso) {
+      onSelectProcesso(processosDoTalento[0].id);
+      return;
+    }
+    setOpen((prev) => !prev);
+  };
 
   const popoverContent =
     open && coords && typeof document !== "undefined"
@@ -206,20 +218,28 @@ export function TalentProcessosButton({
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => setOpen((prev) => !prev)}
+          onClick={handleTriggerClick}
           className={`gap-1.5 text-xs font-semibold border-[#ea580c]/40 text-[#ea580c] hover:bg-[#ea580c]/10 dark:text-orange-300 ${
             className.includes("w-full") ? "w-full justify-center" : ""
           }`}
           title={
-            count > 0
+            directIfSingle && count === 1
+              ? `Ir para o processo seletivo "${processosDoTalento[0].nome_vaga}"`
+              : count > 0
               ? `Participando de ${count} processo(s) seletivo(s)`
               : "Ver processos seletivos deste talento"
           }
         >
           <Briefcase className="h-3.5 w-3.5 shrink-0 text-[#ea580c]" />
           <span className="truncate">Processos Seletivos</span>
-          {count > 0 && (
-            <span className="rounded-full bg-[#ea580c]/15 dark:bg-orange-900/60 text-[#ea580c] dark:text-orange-200 px-1.5 py-0.2 text-[10px] font-bold shrink-0">
+          {(count > 0 || showZeroCount) && (
+            <span
+              className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold shrink-0 ${
+                count > 0
+                  ? "bg-[#ea580c]/15 dark:bg-orange-900/60 text-[#ea580c] dark:text-orange-200"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+              }`}
+            >
               {count}
             </span>
           )}

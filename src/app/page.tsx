@@ -2089,6 +2089,7 @@ export default function KantechApp() {
               <DiagnosticoAmpliadoView
                 talentos={talentos}
                 equipes={equipes}
+                vagas={vagas}
                 selectedTalento={selectedTalento}
                 onSelectTalento={(t) => {
                   setSelectedTalento(t);
@@ -2097,6 +2098,8 @@ export default function KantechApp() {
                     replace: true,
                   });
                 }}
+                onNavigateEquipe={handleNavigateEquipe}
+                onAnalisarProcesso={handleAnalisarProcesso}
                 showAdminSections={false}
               />
             )}

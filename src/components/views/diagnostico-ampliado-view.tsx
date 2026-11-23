@@ -27,11 +27,13 @@ import {
   User,
   Activity,
 } from "lucide-react";
-import { TalentoProfile, EquipeData } from "@/lib/mock-data";
+import { TalentoProfile, EquipeData, VagaData } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { KanTrianglesSvg } from "@/components/kan-triangles-svg";
+import { TalentEquipesButton } from "@/components/talent-equipes-button";
+import { TalentProcessosButton } from "@/components/talent-processos-button";
 
 export interface DiagnosticoAmpliadoResponse {
   nome: string;
@@ -112,8 +114,11 @@ export interface DiagnosticoAmpliadoResponse {
 interface DiagnosticoAmpliadoViewProps {
   talentos: TalentoProfile[];
   equipes: EquipeData[];
+  vagas?: VagaData[];
   selectedTalento?: TalentoProfile;
   onSelectTalento?: (talento: TalentoProfile) => void;
+  onNavigateEquipe?: (equipeNome: string) => void;
+  onAnalisarProcesso?: (vagaId: number) => void;
   /**
    * Quando `true` (exclusivo do Painel de Controle Admin), exibe também:
    * - Ver Todas as Soft Skills Mapeadas e Pontuações
@@ -164,8 +169,11 @@ function renderEixoIcon(iconClass: string, color: string) {
 export function DiagnosticoAmpliadoView({
   talentos,
   equipes,
+  vagas = [],
   selectedTalento,
   onSelectTalento,
+  onNavigateEquipe,
+  onAnalisarProcesso,
   showAdminSections = false,
 }: DiagnosticoAmpliadoViewProps) {
   const [equipeSelNome, setEquipeSelNome] = useState<string>(
@@ -1708,6 +1716,25 @@ export function DiagnosticoAmpliadoView({
             </div>
 
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              {(diagInd?.nome || talentoSelNome) && (
+                <>
+                  <TalentEquipesButton
+                    talentoNome={diagInd?.nome || talentoSelNome}
+                    equipes={equipes}
+                    onSelectEquipe={onNavigateEquipe}
+                    showZeroCount
+                    className="flex-1 sm:flex-none [&_button]:w-full sm:[&_button]:w-auto"
+                  />
+                  <TalentProcessosButton
+                    talentoNome={diagInd?.nome || talentoSelNome}
+                    vagas={vagas}
+                    onSelectProcesso={onAnalisarProcesso}
+                    showZeroCount
+                    directIfSingle
+                    className="flex-1 sm:flex-none [&_button]:h-9 [&_button]:font-bold [&_button]:shadow-xs [&_button]:w-full sm:[&_button]:w-auto"
+                  />
+                </>
+              )}
               {loadingInd && (
                 <span className="text-xs text-slate-400 animate-pulse w-full sm:w-auto">
                   Carregando diagnóstico ampliado...
