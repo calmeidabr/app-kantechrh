@@ -196,7 +196,25 @@ const TABELAS_LISTA: TabelaOption[] = [
     primaryKey: "id",
     descricao: "Equipes, departamentos associados, líderes e integrantes.",
   },
+  {
+    key: "planos",
+    nome: "Planos SaaS (Limites Mensais)",
+    grupo: "Cadastros Principais (CRUD Admin)",
+    primaryKey: "id",
+    descricao:
+      "Configuração dos planos (Free, Start, Intermediário, Business, Pro, Alta Performance) com quantidade de talentos, equipes, processos seletivos por mês, usuários e custo mensal.",
+  },
 ];
+
+const PLANOS_COL_LABELS: Record<string, string> = {
+  id: "Código do Plano",
+  nome: "Nome do Plano",
+  max_usuarios: "Usuários",
+  max_talentos: "Talentos / Mês",
+  max_equipes: "Equipes / Mês",
+  max_processos_ano: "Processos Seletivos / Mês",
+  custo_mensal: "Custo Mensal (R$)",
+};
 
 export function AdminTabelasEditor() {
   const [selectedGrupo, setSelectedGrupo] = useState<string>("Diagnóstico Ampliado");
@@ -667,17 +685,23 @@ export function AdminTabelasEditor() {
                     <thead className="bg-muted/70 text-[11px] uppercase text-muted-foreground">
                       <tr>
                         <th className="w-24 px-3 py-2.5 text-center font-bold">Ações</th>
-                        {columns.map((col) => (
-                          <th key={col} className="px-3 py-2.5 font-bold whitespace-nowrap">
-                            {col === primaryKey ? (
-                              <span className="text-[#ea580c] font-bold underline decoration-dotted">
-                                {col} (PK)
-                              </span>
-                            ) : (
-                              col
-                            )}
-                          </th>
-                        ))}
+                        {columns.map((col) => {
+                          const colLabel =
+                            selectedTableKey === "planos"
+                              ? PLANOS_COL_LABELS[col] || col
+                              : col;
+                          return (
+                            <th key={col} className="px-3 py-2.5 font-bold whitespace-nowrap">
+                              {col === primaryKey ? (
+                                <span className="text-[#ea580c] font-bold underline decoration-dotted">
+                                  {colLabel} (PK)
+                                </span>
+                              ) : (
+                                colLabel
+                              )}
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/60">
@@ -854,7 +878,11 @@ export function AdminTabelasEditor() {
                       className={isLong ? "sm:col-span-2 space-y-1.5" : "space-y-1.5"}
                     >
                       <label className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        <span>{col}</span>
+                        <span>
+                          {selectedTableKey === "planos"
+                            ? PLANOS_COL_LABELS[col] || col
+                            : col}
+                        </span>
                         {isPk && (
                           <span className="rounded bg-orange-500/10 px-1.5 py-0.2 text-[10px] font-bold text-[#ea580c]">
                             Chave Primária (Fixa)
@@ -965,7 +993,11 @@ export function AdminTabelasEditor() {
                       className={isLong ? "sm:col-span-2 space-y-1.5" : "space-y-1.5"}
                     >
                       <label className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        <span>{col}</span>
+                        <span>
+                          {selectedTableKey === "planos"
+                            ? PLANOS_COL_LABELS[col] || col
+                            : col}
+                        </span>
                         {isPk && (
                           <span className="rounded bg-orange-500/10 px-1.5 py-0.2 text-[10px] font-bold text-[#ea580c]">
                             Obrigatório (PK)

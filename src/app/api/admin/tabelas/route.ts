@@ -183,6 +183,14 @@ const TABELAS_METADATA: Record<
     descricao: "Equipes, departamentos associados, líderes e integrantes.",
     orderColumn: "nome",
   },
+  planos: {
+    nomeAmigavel: "Planos SaaS (Limites Mensais)",
+    grupo: "Cadastros Principais (CRUD Admin)",
+    primaryKey: "id",
+    descricao:
+      "Configuração dos planos (Free, Start, Intermediário, Business, Pro, Alta Performance) com limites de talentos, equipes, processos seletivos, usuários e custo mensal.",
+    orderColumn: "custo_mensal",
+  },
 };
 
 /**
@@ -299,9 +307,25 @@ export async function PUT(req: NextRequest) {
     }
 
     // Clean updates: avoid updating primaryKey itself if not needed or created_at
-    const cleanUpdates = { ...updates };
+    const cleanUpdates: Record<string, unknown> = { ...updates };
     delete cleanUpdates.created_at;
     delete cleanUpdates[meta.primaryKey];
+
+    if (tabela === "planos") {
+      for (const numCol of [
+        "max_usuarios",
+        "max_talentos",
+        "max_equipes",
+        "max_processos_ano",
+        "custo_mensal",
+      ]) {
+        if (cleanUpdates[numCol] !== undefined && cleanUpdates[numCol] !== "") {
+          const parsed = Number(cleanUpdates[numCol]);
+          if (!isNaN(parsed)) cleanUpdates[numCol] = parsed;
+        }
+      }
+      cleanUpdates.updated_at = new Date().toISOString();
+    }
 
     const supabase = getSupabaseAdmin();
 
@@ -373,10 +397,34 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = getSupabaseAdmin();
+    const cleanRecord: Record<string, unknown> = { ...record };
+    if (tabela === "planos") {
+      for (const numCol of [
+        "max_usuarios",
+        "max_talentos",
+        "max_equipes",
+        "max_processos_ano",
+        "custo_mensal",
+      ]) {
+        if (cleanRecord[numCol] !== undefined && cleanRecord[numCol] !== "") {
+          const parsed = Number(cleanRecord[numCol]);
+          if (!isNaN(parsed)) cleanRecord[numCol] = parsed;
+        }
+      }
+      if (!cleanRecord.id && cleanRecord.nome) {
+        cleanRecord.id = String(cleanRecord.nome)
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "_")
+          .replace(/^_|_$/g, "");
+      }
+      cleanRecord.updated_at = new Date().toISOString();
+    }
 
     const { data, error } = await supabase
       .from(tabela)
-      .insert(record)
+      .insert(cleanRecord)
       .select();
 
     if (error) {
