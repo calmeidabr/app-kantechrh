@@ -19,6 +19,10 @@ from services.calculos_app import (
     calcular_sinergia_departamento,
     sugerir_requisitos_vaga,
 )
+from services.diagnostico_ampliado import (
+    calcular_diagnostico_ampliado_membro,
+    calcular_score_perfis_e_categorias,
+)
 
 INTERNAL_SECRET = os.getenv(
     "MAM_INTERNAL_SECRET", "kantech-mam-secret-key-2026-isolated"
@@ -189,6 +193,22 @@ def _build_full_calculation(
         "resposta_subconsciente": mapa_lookup.get("respostasubconsciente", ""),
     }
 
+    perfis_lista = [
+        p.strip()
+        for p in str(valores_resumo.get("perfil") or "").split(",")
+        if p.strip()
+    ]
+    categorias_lista = [
+        c.strip()
+        for c in str(valores_resumo.get("categoria") or "").split(",")
+        if c.strip()
+    ]
+    qualidades_lista = [
+        q.strip()
+        for q in str(valores_resumo.get("qualidades") or "").split(",")
+        if q.strip()
+    ]
+
     return {
         "nome": nome,
         "data_nascimento": data_nascimento,
@@ -197,6 +217,9 @@ def _build_full_calculation(
         "estrutural": estrutural,
         "direcionamento": direcionamento,
         "vertices_triangulo": verts,
+        "perfis_lista": perfis_lista,
+        "categorias_lista": categorias_lista,
+        "qualidades_lista": qualidades_lista,
         "dados_mapa_cabalistico": dados,
         "dados_perfil": dados_perfil,
         "perfil_json": json.dumps(dados_para_salvar, ensure_ascii=False),
@@ -323,11 +346,13 @@ async def api_enriquecer_talentos_lote(request: Request):
 
 
 async def api_detalhamento_atributos(request: Request):
-    """Calcula e retorna a tabela Detalhamento dos Atributos e Score Perfil rastreando toda a metodologia KAN."""
+    """Calcula e retorna a tabela Detalhamento dos Atributos, Score Perfil e Score Categoria (12 colunas) no container isolado."""
     try:
         body = await request.json()
         nome = str(body.get("nome") or "").strip()
         data_nascimento = str(body.get("data_nascimento") or "").strip()
+        pesos_perfil = body.get("pesos_perfil") or {}
+        pesos_cat = body.get("pesos_cat") or {}
         if not nome or not data_nascimento:
             return JSONResponse(
                 {"error": "Campos nome e data_nascimento são obrigatórios."},
@@ -335,45 +360,79 @@ async def api_detalhamento_atributos(request: Request):
             )
         calc = _build_full_calculation(nome, data_nascimento)
         detalhes = calc.get("detalhamento_atributos") or []
-        score_df = calc.get("score_df_calc") or {}
-        perfis_ordem = [
-            "Lider",
-            "Resultado",
-            "Executor",
-            "Criativo",
-            "Comunicador",
-            "Influenciador",
-            "Vendedor",
-        ]
-        score_perfis = []
-        for p in perfis_ordem:
-            row_s = score_df.get(p) or {}
-            rep_sum = int(row_s.get("REPETIÇÃO 1", 0) or 0) + int(
-                row_s.get("REPETIÇÃO 2", 0) or 0
-            )
-            score_perfis.append(
-                {
-                    "perfil": p,
-                    "motivacao": int(row_s.get("Motivação", 0) or 0),
-                    "impressao": int(row_s.get("Impressão", 0) or 0),
-                    "expressao": int(row_s.get("Expressão", 0) or 0),
-                    "destino": int(row_s.get("Destino", 0) or 0),
-                    "missao": int(row_s.get("Missão", 0) or 0),
-                    "dia_natalicio": int(row_s.get("Dia Natalício", 0) or 0),
-                    "triangulo": int(row_s.get("Triângulo", 0) or 0),
-                    "psiquico": int(row_s.get("No Psiquico", 0) or 0),
-                    "estrutural": int(row_s.get("Estrutural", 0) or 0),
-                    "direcionamento": int(row_s.get("Direcionamento", 0) or 0),
-                    "repeticao": rep_sum,
-                    "total": int(row_s.get("TOTAL", 0) or 0),
-                }
-            )
+        vr = calc.get("valores_resumo") or {}
+
+        score_perfis, score_categorias = calcular_score_perfis_e_categorias(
+            detalhes, pesos_perfil, pesos_cat
+        )
+
+        resumo_calculo = {
+            "motivacao": int(vr.get("motivacao") or 0) if str(vr.get("motivacao") or "").isdigit() else 0,
+            "impressao": int(vr.get("impressao") or 0) if str(vr.get("impressao") or "").isdigit() else 0,
+            "expressao": int(vr.get("expressao") or 0) if str(vr.get("expressao") or "").isdigit() else 0,
+            "destino": int(vr.get("destino") or 0) if str(vr.get("destino") or "").isdigit() else 0,
+            "missao": int(vr.get("missao") or 0) if str(vr.get("missao") or "").isdigit() else 0,
+            "diaNatalicio": int(vr.get("dia_natalicio") or 1) if str(vr.get("dia_natalicio") or "").isdigit() else 1,
+            "numPsiquico": int(vr.get("numero_psiquico") or 1) if str(vr.get("numero_psiquico") or "").isdigit() else 1,
+            "estrutural": calc.get("estrutural"),
+            "direcionamento": calc.get("direcionamento"),
+            "rep1": vr.get("repeticao_1") or "",
+            "rep2": vr.get("repeticao_2") or "",
+            "kanNumero": calc.get("kan_numero"),
+            "kanNome": calc.get("kan_nome"),
+            "vertices": calc.get("vertices_triangulo"),
+        }
+
         return JSONResponse(
             {
                 "detalhamento_atributos": detalhes,
+                "resumo_calculo": resumo_calculo,
                 "score_perfis": score_perfis,
+                "score_categorias": score_categorias,
             }
         )
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def api_diagnostico_ampliado(request: Request):
+    """Calcula o Diagnóstico Ampliado individual exclusivamente no container isolado mam-kantechrh."""
+    try:
+        body = await request.json()
+        nome = str(body.get("nome") or "").strip()
+        data_nascimento = str(body.get("data_nascimento") or "01/01/1990").strip()
+        tables = body.get("tables") or {}
+        val_row = body.get("val_row") or {}
+        if not nome:
+            return JSONResponse(
+                {"error": "Campo nome é obrigatório."},
+                status_code=400,
+            )
+        diag = calcular_diagnostico_ampliado_membro(
+            nome, data_nascimento, tables, val_row
+        )
+        return JSONResponse({"diagnostico": diag})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def api_diagnostico_ampliado_lote(request: Request):
+    """Calcula o Diagnóstico Ampliado em lote (equipe) exclusivamente no container isolado mam-kantechrh."""
+    try:
+        body = await request.json()
+        membros = body.get("membros") or []
+        tables = body.get("tables") or {}
+        results = {}
+        for m in membros:
+            nome = str(m.get("nome") or "").strip()
+            if not nome:
+                continue
+            dt = str(m.get("data_nascimento") or "01/01/1990").strip()
+            val_row = m.get("val_row") or {}
+            results[nome] = calcular_diagnostico_ampliado_membro(
+                nome, dt, tables, val_row
+            )
+        return JSONResponse({"count": len(results), "diagnosticos": results})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
@@ -459,6 +518,16 @@ app = Starlette(
         Route(
             "/api/v1/sugerir-requisitos-vaga",
             api_sugerir_requisitos_vaga,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/v1/diagnostico-ampliado",
+            api_diagnostico_ampliado,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/v1/diagnostico-ampliado-lote",
+            api_diagnostico_ampliado_lote,
             methods=["POST"],
         ),
     ],

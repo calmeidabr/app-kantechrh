@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callMamEngine, getSupabaseAdmin } from "@/lib/supabase";
-import {
-  calcularDetalhamentoAtributosServidor,
-  calcularPerfilNumerologicoServidor,
-  calcularScorePerfisServidor,
-  calcularScoreCategoriasServidor,
-  isDetalhamentoValido,
-} from "@/lib/detalhamento-server";
-import type { DetalheAtributoAuditoria } from "@/lib/mock-data";
 
 export const dynamic = "force-dynamic";
 
@@ -79,35 +71,19 @@ export async function POST(req: NextRequest) {
     let resultData: Record<string, unknown> | null = null;
 
     if (action === "detalhamento-atributos") {
-      const resumoCalculo = calcularPerfilNumerologicoServidor(
-        String(payload?.nome || ""),
-        String(payload?.data_nascimento || "")
-      );
       const { pesosPerfil, pesosCat } = await getPesosServidor();
-      // 1. Tenta chamar o container Docker mam-kantechrh
-      const res = await callMamEngine("/api/v1/detalhamento-atributos", payload || {});
-      const mamItens = (res.data as Record<string, unknown>)
-        ?.detalhamento_atributos as DetalheAtributoAuditoria[] | undefined;
-      if (res.ok && isDetalhamentoValido(mamItens)) {
-        const rawData = res.data as Record<string, unknown>;
-        resultData = {
-          ...rawData,
-          resumo_calculo: resumoCalculo,
-          score_perfis: calcularScorePerfisServidor(mamItens!, pesosPerfil),
-          score_categorias: calcularScoreCategoriasServidor(mamItens!, pesosCat),
-        };
-      } else {
-        // Fallback no servidor (BFF): executa o cálculo seguro no servidor Next.js
-        const fallbackDetalhes = calcularDetalhamentoAtributosServidor(
-          (payload || {}) as Parameters<typeof calcularDetalhamentoAtributosServidor>[0]
+      const res = await callMamEngine("/api/v1/detalhamento-atributos", {
+        ...(payload || {}),
+        pesos_perfil: pesosPerfil,
+        pesos_cat: pesosCat,
+      });
+      if (!res.ok) {
+        return NextResponse.json(
+          { success: false, error: res.error },
+          { status: 503 }
         );
-        resultData = {
-          detalhamento_atributos: fallbackDetalhes,
-          resumo_calculo: resumoCalculo,
-          score_perfis: calcularScorePerfisServidor(fallbackDetalhes, pesosPerfil),
-          score_categorias: calcularScoreCategoriasServidor(fallbackDetalhes, pesosCat),
-        };
       }
+      resultData = res.data as Record<string, unknown>;
     } else {
       const endpoint = endpointMap[action];
       if (!endpoint) {
