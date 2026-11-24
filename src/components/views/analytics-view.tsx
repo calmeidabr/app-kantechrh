@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Search,
   BarChart3,
@@ -92,6 +92,18 @@ export function PeopleAnalyticsView({
   const [selectedGeracao, setSelectedGeracao] = useState<string>("Todas");
   const [selectedSoftSkills, setSelectedSoftSkills] = useState<string[]>([]);
   const [buscaNomeAnalytics, setBuscaNomeAnalytics] = useState<string>("");
+  const [visibleTalentosCount, setVisibleTalentosCount] = useState<number>(10);
+
+  useEffect(() => {
+    setVisibleTalentosCount(10);
+  }, [
+    selectedGrupo,
+    selectedProfissao,
+    selectedCargo,
+    selectedGeracao,
+    selectedSoftSkills,
+    buscaNomeAnalytics,
+  ]);
 
   const opcoesGrupos = useMemo(
     () =>
@@ -779,7 +791,7 @@ export function PeopleAnalyticsView({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/60">
-                {filteredTalentos.map((t) => (
+                {filteredTalentos.slice(0, visibleTalentosCount).map((t) => (
                   <tr
                     key={t.id}
                     className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40"
@@ -821,6 +833,60 @@ export function PeopleAnalyticsView({
               </tbody>
             </table>
           </div>
+
+          {filteredTalentos.length > 10 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 dark:border-slate-800 px-6 pt-3 pb-2">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                Exibindo{" "}
+                <strong>
+                  {Math.min(visibleTalentosCount, filteredTalentos.length)}
+                </strong>{" "}
+                de <strong>{filteredTalentos.length}</strong> talentos
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                {visibleTalentosCount < filteredTalentos.length && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setVisibleTalentosCount((prev) =>
+                          Math.min(prev + 40, filteredTalentos.length)
+                        )
+                      }
+                      className="h-8 text-xs font-semibold"
+                    >
+                      Apresentar próximos{" "}
+                      {Math.min(40, filteredTalentos.length - visibleTalentosCount)}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setVisibleTalentosCount(filteredTalentos.length)
+                      }
+                      className="h-8 text-xs font-semibold border-[#510851]/30 text-[#510851] dark:text-purple-300 hover:bg-[#510851]/5"
+                    >
+                      Apresentar todos ({filteredTalentos.length})
+                    </Button>
+                  </>
+                )}
+                {visibleTalentosCount > 10 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setVisibleTalentosCount(10)}
+                    className="h-8 text-xs text-slate-500"
+                  >
+                    Mostrar menos (10)
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
