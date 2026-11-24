@@ -8,7 +8,7 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default:
-          "border-transparent bg-[#510851] text-white dark:bg-[#8b5cf6]",
+          "border-transparent bg-[#18345B] text-white dark:bg-[#2563EB]",
         secondary:
           "border-slate-200/80 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300",
         outline: "text-foreground border-slate-200 dark:border-slate-700",
@@ -17,7 +17,7 @@ const badgeVariants = cva(
         orange:
           "border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-400",
         purple:
-          "border-[#8b5cf6]/30 bg-[#8b5cf6]/10 text-[#510851] dark:text-[#a78bfa]",
+          "border-[#18345B]/25 bg-[#18345B]/10 text-[#18345B] dark:border-blue-400/30 dark:bg-blue-500/15 dark:text-blue-300",
       },
     },
     defaultVariants: {

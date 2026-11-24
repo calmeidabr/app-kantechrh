@@ -80,8 +80,8 @@ const HEATMAP_PALETTES: Record<
   purple: {
     label: "Roxo",
     swatch: "🟪",
-    levels: ["#f3e8ff", "#d8b4fe", "#a855f7", "#7e22ce", "#510851"],
-    textColors: ["#581c87", "#581c87", "#ffffff", "#ffffff", "#ffffff"],
+    levels: ["#DBEAFE", "#93C5FD", "#3B82F6", "#1D4ED8", "#18345B"],
+    textColors: ["#1E3A8A", "#1E3A8A", "#ffffff", "#ffffff", "#ffffff"],
   },
   orange: {
     label: "Laranja",
@@ -236,7 +236,7 @@ const INITIAL_EMPRESAS: EmpresaRecord[] = [
     responsavel_nome: "Cristiano Corrêa",
     email: "cristiano@mundokan.com.br",
     status: "Ativa",
-    cor: "#510851",
+    cor: "#18345B",
   },
   {
     id: "8",
@@ -297,7 +297,7 @@ const INITIAL_DEPARTAMENTOS: DepartamentoNode[] = [
 ];
 
 const EMP_COLORS = [
-  "#510851",
+  "#18345B",
   "#ea580c",
   "#10b981",
   "#6366f1",
@@ -659,7 +659,7 @@ export function OrganogramaView({
       responsavel_nome: novaEmpresaResp.trim() || "Gestor RH",
       email: "contato@empresa.com.br",
       status: "Ativa",
-      cor: "#510851",
+      cor: "#18345B",
     };
     setEmpresas((prev) => [...prev, nova]);
     setSelectedEmpresa(nova.nome_empresa);
@@ -1110,12 +1110,12 @@ export function OrganogramaView({
               )}
 
               {level === 0 ? (
-                <Building2 className="h-4 w-4 shrink-0 text-[#510851] dark:text-purple-400" />
+                <Building2 className="h-4 w-4 shrink-0 text-[#18345B] dark:text-blue-400" />
               ) : hasChildren ? (
                 isExpanded ? (
                   <FolderOpen className="h-4 w-4 shrink-0 text-[#ea580c]" />
                 ) : (
-                  <Folder className="h-4 w-4 shrink-0 text-[#510851] dark:text-purple-400" />
+                  <Folder className="h-4 w-4 shrink-0 text-[#18345B] dark:text-blue-400" />
                 )
               ) : (
                 <Users className="h-3.5 w-3.5 shrink-0 text-slate-400" />
@@ -1347,7 +1347,7 @@ export function OrganogramaView({
         className={`group relative flex flex-col justify-between rounded-2xl border p-4 transition-all duration-300 ${
           isLider
             ? "border-amber-500/60 bg-gradient-to-br from-amber-500/10 via-white to-[#ea580c]/5 shadow-sm dark:from-amber-500/10 dark:via-slate-900 dark:to-slate-900"
-            : "border-slate-200/80 bg-white hover:border-[#510851]/40 hover:shadow-xs dark:border-slate-800 dark:bg-slate-900/50"
+            : "border-slate-200/80 bg-white hover:border-[#18345B]/40 hover:shadow-xs dark:border-slate-800 dark:bg-slate-900/50"
         }`}
       >
         <div className="flex items-start justify-between gap-2">
@@ -1444,7 +1444,7 @@ export function OrganogramaView({
                     }}
                     className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
-                    <Eye className="h-3.5 w-3.5 text-[#510851]" />
+                    <Eye className="h-3.5 w-3.5 text-[#18345B]" />
                     Diagnóstico Individual
                   </button>
                 )}
@@ -1540,7 +1540,7 @@ export function OrganogramaView({
               <button
                 type="button"
                 onClick={() => onInspectTalento(t)}
-                className="inline-flex items-center gap-1 rounded-md border border-[#510851]/30 bg-[#510851]/5 px-2 py-1 text-[10px] font-semibold text-[#510851] hover:bg-[#510851]/15 dark:text-purple-300 transition-colors"
+                className="inline-flex items-center gap-1 rounded-md border border-[#18345B]/30 bg-[#18345B]/5 px-2 py-1 text-[10px] font-semibold text-[#18345B] hover:bg-[#18345B]/15 dark:text-blue-300 transition-colors"
                 title="Abrir Diagnóstico Comportamental"
               >
                 <Eye className="h-3 w-3" />
@@ -1586,7 +1586,7 @@ export function OrganogramaView({
       ====================================================================== */}
       <div className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white px-5 py-4 shadow-xs dark:border-slate-800 dark:bg-[#0d111d] lg:flex-row lg:items-center">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#510851] text-white shadow-xs">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#18345B] text-white shadow-xs">
             <Network className="h-5 w-5" />
           </div>
           <div>
@@ -1649,7 +1649,7 @@ export function OrganogramaView({
               onClick={() => setViewMode("setores")}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
                 viewMode === "setores"
-                  ? "bg-[#510851] text-white shadow-xs"
+                  ? "bg-[#18345B] text-white shadow-xs"
                   : "text-slate-600 hover:text-slate-900 dark:text-slate-400"
               }`}
             >
@@ -1674,7 +1674,7 @@ export function OrganogramaView({
 
       {/* PAINEL RETRÁTIL DE GESTÃO MULTI-TENANT DE EMPRESAS */}
       {showEmpresasPanel && (
-        <Card className="border-[#510851]/30">
+        <Card className="border-[#18345B]/30">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
               Cadastro e Gestão de Empresas (Multi-Tenant)
@@ -1726,7 +1726,7 @@ export function OrganogramaView({
                   onClick={() => setSelectedEmpresa(emp.nome_empresa)}
                   className={`cursor-pointer rounded-xl border p-3.5 transition-all ${
                     selectedEmpresa === emp.nome_empresa
-                      ? "border-[#510851] bg-[#510851]/5 ring-1 ring-[#510851] dark:border-purple-400"
+                      ? "border-[#18345B] bg-[#18345B]/5 ring-1 ring-[#18345B] dark:border-blue-400"
                       : "hover:bg-slate-50 dark:hover:bg-slate-900"
                   }`}
                 >
@@ -1808,7 +1808,7 @@ export function OrganogramaView({
                   }}
                   className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition-all ${
                     selectedDeptId === "all"
-                      ? "bg-[#510851] text-white shadow-xs"
+                      ? "bg-[#18345B] text-white shadow-xs"
                       : "bg-slate-100/80 text-slate-700 hover:bg-slate-200/70 dark:bg-slate-900 dark:text-slate-200"
                   }`}
                 >
@@ -1954,7 +1954,7 @@ export function OrganogramaView({
                       setShowVincularDrawer(true);
                       setDrawerSelectedNames([]);
                     }}
-                    className="bg-[#510851] text-xs font-semibold text-white hover:bg-[#510851]/90"
+                    className="bg-[#18345B] text-xs font-semibold text-white hover:bg-[#18345B]/90"
                   >
                     <UserPlus className="mr-1.5 h-3.5 w-3.5" />+ Vincular
                     Talentos
@@ -1984,7 +1984,7 @@ export function OrganogramaView({
                   <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
                     <span
                       title={getKanTooltip("Criação")}
-                      className="cursor-help rounded-lg bg-purple-500/10 px-2 py-1 text-purple-700 dark:text-purple-300"
+                      className="cursor-help rounded-lg bg-blue-500/10 px-2 py-1 text-blue-700 dark:text-blue-300"
                     >
                       Criação: {deptSynergyMetrics.criacao}
                     </span>
@@ -2243,7 +2243,7 @@ export function OrganogramaView({
                       <div className="space-y-3.5">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Users className="h-4 w-4 text-[#510851] dark:text-purple-400" />
+                            <Users className="h-4 w-4 text-[#18345B] dark:text-blue-400" />
                             <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                               Integrantes da Equipe ({totalIntegrantes})
                             </h3>
@@ -2296,7 +2296,7 @@ export function OrganogramaView({
                           className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed py-3 text-xs font-semibold transition-all ${
                             dragOverTeamZone
                               ? "border-[#ea580c] bg-[#ea580c]/10 text-[#ea580c]"
-                              : "border-slate-200 text-slate-400 hover:border-[#510851]/50 hover:bg-slate-50 hover:text-slate-700 dark:border-slate-800 dark:hover:bg-slate-900"
+                              : "border-slate-200 text-slate-400 hover:border-[#18345B]/50 hover:bg-slate-50 hover:text-slate-700 dark:border-slate-800 dark:hover:bg-slate-900"
                           }`}
                         >
                           <UserPlus className="h-3.5 w-3.5" />
@@ -2526,7 +2526,7 @@ export function OrganogramaView({
                                             onClick={() =>
                                               onInspectTalento?.(t)
                                             }
-                                            className="text-left text-xs font-extrabold text-[#4a0e4e] hover:underline dark:text-purple-300"
+                                            className="text-left text-xs font-extrabold text-[#4a0e4e] hover:underline dark:text-blue-300"
                                           >
                                             {isLid ? `👑 ${t.nome}` : t.nome}
                                           </button>
@@ -2607,7 +2607,7 @@ export function OrganogramaView({
                                     return (
                                       <th
                                         key={t.id}
-                                        className="min-w-[160px] border-r border-slate-200 px-3 py-2.5 text-center font-extrabold text-[#4a0e4e] dark:border-slate-800 dark:text-purple-300"
+                                        className="min-w-[160px] border-r border-slate-200 px-3 py-2.5 text-center font-extrabold text-[#4a0e4e] dark:border-slate-800 dark:text-blue-300"
                                       >
                                         <button
                                           type="button"
@@ -2865,7 +2865,7 @@ export function OrganogramaView({
                           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3.5 py-2 text-xs dark:bg-slate-950">
                             {hoveredCell ? (
                               <div className="flex flex-wrap items-center gap-2">
-                                <Badge className="bg-[#510851] text-white">
+                                <Badge className="bg-[#18345B] text-white">
                                   {hoveredCell.membro}
                                 </Badge>
                                 <span className="text-slate-500">
@@ -2922,7 +2922,7 @@ export function OrganogramaView({
         <Card className="p-6">
           <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
-              <Badge className="bg-[#510851] text-white">
+              <Badge className="bg-[#18345B] text-white">
                 ÁRVORE HIERÁRQUICA CONECTADA
               </Badge>
               <h3 className="mt-1.5 text-lg font-extrabold">
@@ -2980,7 +2980,7 @@ export function OrganogramaView({
               {/* Level 0: CEO / Presidência */}
               {talentos[0] && (
                 <div className="flex flex-col items-center">
-                  <div className="w-80 rounded-2xl border-2 border-[#510851] bg-gradient-to-br from-[#510851] to-[#3b0764] p-4 text-center text-white shadow-lg">
+                  <div className="w-80 rounded-2xl border-2 border-[#18345B] bg-gradient-to-br from-[#18345B] to-[#3b0764] p-4 text-center text-white shadow-lg">
                     <div className="text-[10px] font-bold uppercase tracking-widest text-amber-300">
                       👑 Nível Executivo (C-Level)
                     </div>
@@ -2998,7 +2998,7 @@ export function OrganogramaView({
                         <div className="text-xs font-bold">
                           {talentos[0].nome}
                         </div>
-                        <div className="text-[10px] text-purple-200">
+                        <div className="text-[10px] text-blue-200">
                           {talentos[0].cargo} • KAN {talentos[0].kan_nome}
                         </div>
                       </div>
@@ -3024,7 +3024,7 @@ export function OrganogramaView({
                     const borderColors = [
                       "border-[#ea580c]",
                       "border-emerald-500",
-                      "border-[#510851]",
+                      "border-[#18345B]",
                       "border-blue-500",
                     ];
                     return (
@@ -3101,7 +3101,7 @@ export function OrganogramaView({
             <div className="space-y-4 overflow-y-auto pr-1">
               <div className="flex items-center justify-between border-b border-slate-200 pb-3 dark:border-slate-800">
                 <div>
-                  <Badge className="bg-[#510851] text-white">
+                  <Badge className="bg-[#18345B] text-white">
                     ALOCAÇÃO RÁPIDA EM LOTE
                   </Badge>
                   <h3 className="mt-1 text-base font-extrabold text-slate-900 dark:text-white">

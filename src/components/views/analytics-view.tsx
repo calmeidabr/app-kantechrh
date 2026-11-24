@@ -66,8 +66,8 @@ function getGeracao(dataNasc: string): string {
 
 const CHART_PALETTE = [
   "#ea580c",
-  "#510851",
-  "#8b5cf6",
+  "#18345B",
+  "#2563EB",
   "#10b981",
   "#06b6d4",
   "#f59e0b",
@@ -287,7 +287,7 @@ export function PeopleAnalyticsView({
       <div className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-[#0d111d] lg:flex-row lg:items-center">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <Badge className="bg-[#510851] text-white">PEOPLE ANALYTICS</Badge>
+            <Badge className="bg-[#18345B] text-white">PEOPLE ANALYTICS</Badge>
             <Badge variant="orange">BI Comportamental KAN</Badge>
           </div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -404,7 +404,7 @@ export function PeopleAnalyticsView({
 
           <div className="border-t border-slate-100 pt-3 dark:border-slate-800">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-bold text-[#510851] dark:text-purple-300">
+              <span className="text-xs font-bold text-[#18345B] dark:text-blue-300">
                 Filtro Comportamental Inteligente por Soft Skills (Interseção de
                 Traços KAN):
               </span>
@@ -424,7 +424,7 @@ export function PeopleAnalyticsView({
                     className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
                       active
                         ? "border-[#ea580c] bg-[#ea580c] text-white shadow-2xs"
-                        : "border-slate-200 bg-slate-50 text-slate-600 hover:border-[#510851]/40 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                        : "border-slate-200 bg-slate-50 text-slate-600 hover:border-[#18345B]/40 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
                     }`}
                   >
                     {active && <CheckCircle2 className="h-3 w-3" />}
@@ -451,7 +451,7 @@ export function PeopleAnalyticsView({
             label: "Perfil Dominante",
             value: kpis.topPerfil,
             sub: "Maior incidência no recorte atual",
-            color: "#510851",
+            color: "#18345B",
             icon: Award,
           },
           {
@@ -465,7 +465,7 @@ export function PeopleAnalyticsView({
             label: "Departamentos Ativos",
             value: String(kpis.gruposUnicos),
             sub: "Áreas mapeadas no filtro",
-            color: "#8b5cf6",
+            color: "#2563EB",
             icon: Layers,
           },
         ].map((item) => {
@@ -573,7 +573,7 @@ export function PeopleAnalyticsView({
                         key={`cell-${entry.name}`}
                         fill={
                           entry.name === "CRIAÇÃO"
-                            ? "#510851"
+                            ? "#18345B"
                             : entry.name === "MOVIMENTO"
                             ? "#ea580c"
                             : "#10b981"
@@ -598,7 +598,7 @@ export function PeopleAnalyticsView({
                     style={{
                       backgroundColor:
                         item.name === "CRIAÇÃO"
-                          ? "#510851"
+                          ? "#18345B"
                           : item.name === "MOVIMENTO"
                           ? "#ea580c"
                           : "#10b981",
@@ -655,7 +655,7 @@ export function PeopleAnalyticsView({
                   />
                   <Bar
                     dataKey="Quantidade"
-                    fill="#8b5cf6"
+                    fill="#2563EB"
                     radius={[6, 6, 0, 0]}
                     barSize={28}
                   />
@@ -810,7 +810,7 @@ export function PeopleAnalyticsView({
                       {getGeracao(t.data_nascimento)}
                     </td>
                     <td className="px-3 py-3">
-                      <Badge className="bg-[#510851] text-[10px] text-white">
+                      <Badge className="bg-[#18345B] text-[10px] text-white">
                         {t.kan_nome}
                       </Badge>
                     </td>
@@ -867,7 +867,7 @@ export function PeopleAnalyticsView({
                       onClick={() =>
                         setVisibleTalentosCount(filteredTalentos.length)
                       }
-                      className="h-8 text-xs font-semibold border-[#510851]/30 text-[#510851] dark:text-purple-300 hover:bg-[#510851]/5"
+                      className="h-8 text-xs font-semibold border-[#18345B]/30 text-[#18345B] dark:text-blue-300 hover:bg-[#18345B]/5"
                     >
                       Apresentar todos ({filteredTalentos.length})
                     </Button>

@@ -66,8 +66,8 @@ const HEATMAP_PALETTES: Record<
     textColors: ["#065f46", "#065f46", "#064e3b", "#ffffff", "#ffffff"],
   },
   purple: {
-    levels: ["#f3e8ff", "#d8b4fe", "#a855f7", "#7e22ce", "#510851"],
-    textColors: ["#581c87", "#581c87", "#ffffff", "#ffffff", "#ffffff"],
+    levels: ["#DBEAFE", "#93C5FD", "#3B82F6", "#1D4ED8", "#18345B"],
+    textColors: ["#1E3A8A", "#1E3A8A", "#ffffff", "#ffffff", "#ffffff"],
   },
   orange: {
     levels: ["#ffedd5", "#fed7aa", "#fb923c", "#ea580c", "#9a3412"],
@@ -607,7 +607,7 @@ export function EquipesView({
       </div>
 
       {toastMsg && (
-        <div className="rounded-xl border border-[#510851]/20 bg-[#510851]/5 dark:bg-[#8b5cf6]/15 px-4 py-3 text-xs font-semibold text-[#510851] dark:text-white flex items-center justify-between">
+        <div className="rounded-xl border border-[#18345B]/20 bg-[#18345B]/5 dark:bg-[#2563EB]/15 px-4 py-3 text-xs font-semibold text-[#18345B] dark:text-white flex items-center justify-between">
           <span>{toastMsg}</span>
           <button onClick={() => setToastMsg(null)}>✕</button>
         </div>
@@ -641,7 +641,7 @@ export function EquipesView({
                 </label>
                 <div className="flex items-center gap-2">
                   {novaFotoPreview && (
-                    <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-[#510851]/30">
+                    <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-[#18345B]/30">
                       <img
                         src={novaFotoPreview}
                         alt="Preview da Equipe"
@@ -650,7 +650,7 @@ export function EquipesView({
                     </div>
                   )}
                   <label className="flex h-9 flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 px-3 text-xs font-medium transition-colors truncate">
-                    <UploadCloud className="h-3.5 w-3.5 text-[#510851] dark:text-[#a78bfa] shrink-0" />
+                    <UploadCloud className="h-3.5 w-3.5 text-[#18345B] dark:text-[#60A5FA] shrink-0" />
                     <span className="truncate">
                       {novaFotoPreview
                         ? novaFotoNome || "Alterar Imagem"
@@ -780,7 +780,7 @@ export function EquipesView({
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold">
                   Seleção Fina (Clique para marcar/desmarcar integrantes) —{" "}
-                  <span className="text-[#510851] dark:text-[#a78bfa]">
+                  <span className="text-[#18345B] dark:text-[#60A5FA]">
                     {membrosSelecionadosNovo.length} selecionado(s)
                   </span>{" "}
                   <span className="text-slate-400 font-normal">
@@ -805,7 +805,7 @@ export function EquipesView({
                       }
                       className={`flex items-center justify-between rounded-xl border p-3 text-left transition-all ${
                         isSel
-                          ? "border-[#510851] bg-[#510851]/5 dark:border-[#8b5cf6] dark:bg-[#8b5cf6]/15"
+                          ? "border-[#18345B] bg-[#18345B]/5 dark:border-[#2563EB] dark:bg-[#2563EB]/15"
                           : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900"
                       }`}
                     >
@@ -825,7 +825,7 @@ export function EquipesView({
                         </div>
                       </div>
                       {isSel && (
-                        <CheckCircle2 className="h-4 w-4 text-[#510851] dark:text-[#a78bfa] shrink-0" />
+                        <CheckCircle2 className="h-4 w-4 text-[#18345B] dark:text-[#60A5FA] shrink-0" />
                       )}
                     </button>
                   );
@@ -1000,7 +1000,7 @@ export function EquipesView({
                         className="h-12 w-12 rounded-2xl object-cover shrink-0 border border-slate-200 dark:border-slate-800 shadow-xs"
                       />
                     ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#510851]/10 dark:bg-[#8b5cf6]/20 text-[#510851] dark:text-[#a78bfa] font-extrabold text-lg shrink-0 border border-[#510851]/20">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#18345B]/10 dark:bg-[#2563EB]/20 text-[#18345B] dark:text-[#60A5FA] font-extrabold text-lg shrink-0 border border-[#18345B]/20">
                         {eq.nome[0]}
                       </div>
                     )}
@@ -1073,10 +1073,10 @@ export function EquipesView({
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5">
                       <div className="flex flex-wrap items-center gap-3">
                         <div className="flex items-center gap-2 text-xs font-semibold">
-                          <UserPlus className="h-4 w-4 text-[#510851] dark:text-[#a78bfa]" />
+                          <UserPlus className="h-4 w-4 text-[#18345B] dark:text-[#60A5FA]" />
                           <span>Adicionar Talento à Equipe:</span>
                         </div>
-                        <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 px-2.5 text-[11px] font-medium text-[#510851] dark:text-[#a78bfa] transition-colors">
+                        <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 px-2.5 text-[11px] font-medium text-[#18345B] dark:text-[#60A5FA] transition-colors">
                           <UploadCloud className="h-3.5 w-3.5" />
                           <span>Alterar Imagem da Equipe</span>
                           <input
@@ -1191,7 +1191,7 @@ export function EquipesView({
                                     onClick={() =>
                                       info && onInspectTalento(info)
                                     }
-                                    className="text-xs font-bold text-slate-900 dark:text-white hover:text-[#510851] truncate"
+                                    className="text-xs font-bold text-slate-900 dark:text-white hover:text-[#18345B] truncate"
                                   >
                                     {m.nome}
                                   </button>
@@ -1610,7 +1610,7 @@ export function EquipesView({
                                       label: "Verde",
                                       dot: "#009e3c",
                                     },
-                                    { id: "purple", label: "Roxo", dot: "#7e22ce" },
+                                    { id: "purple", label: "Roxo", dot: "#1D4ED8" },
                                     {
                                       id: "orange",
                                       label: "Laranja",

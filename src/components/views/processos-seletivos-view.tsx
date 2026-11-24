@@ -72,8 +72,8 @@ const HEATMAP_PALETTES: Record<
     textColors: ["#065f46", "#065f46", "#064e3b", "#ffffff", "#ffffff"],
   },
   purple: {
-    levels: ["#f3e8ff", "#d8b4fe", "#a855f7", "#7e22ce", "#510851"],
-    textColors: ["#581c87", "#581c87", "#ffffff", "#ffffff", "#ffffff"],
+    levels: ["#DBEAFE", "#93C5FD", "#3B82F6", "#1D4ED8", "#18345B"],
+    textColors: ["#1E3A8A", "#1E3A8A", "#ffffff", "#ffffff", "#ffffff"],
   },
   orange: {
     levels: ["#ffedd5", "#fed7aa", "#fb923c", "#ea580c", "#9a3412"],
@@ -382,7 +382,7 @@ export function VagasView({
       </div>
 
       {toastMsg && (
-        <div className="rounded-xl border border-[#510851]/20 bg-[#510851]/5 px-4 py-3 text-xs font-semibold text-[#510851] dark:text-white flex items-center justify-between">
+        <div className="rounded-xl border border-[#18345B]/20 bg-[#18345B]/5 px-4 py-3 text-xs font-semibold text-[#18345B] dark:text-white flex items-center justify-between">
           <span>{toastMsg}</span>
           <button onClick={() => setToastMsg(null)}>✕</button>
         </div>
@@ -461,10 +461,10 @@ export function VagasView({
             </div>
 
             {/* Mensagem explicativa: Requisitos são definidos no Processo Seletivo */}
-            <div className="rounded-xl border border-[#510851]/20 dark:border-purple-900/40 bg-[#510851]/5 dark:bg-purple-950/20 p-4 flex items-start gap-3">
+            <div className="rounded-xl border border-[#18345B]/20 dark:border-blue-900/40 bg-[#18345B]/5 dark:bg-blue-950/20 p-4 flex items-start gap-3">
               <span className="text-xl">🎯</span>
               <div className="text-xs space-y-1">
-                <strong className="text-[#510851] dark:text-purple-300 font-semibold block">
+                <strong className="text-[#18345B] dark:text-blue-300 font-semibold block">
                   Requisitos Comportamentais & Matriz de Avaliação
                 </strong>
                 <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
@@ -534,7 +534,7 @@ export function VagasView({
                     <h3 className="text-base font-bold text-slate-900 dark:text-white">
                       {vg.nome_vaga} ({vg.senioridade})
                     </h3>
-                    <Badge variant="outline" className="border-[#510851]/30 bg-[#510851]/5 text-[#510851] dark:text-purple-300 font-semibold text-[11px]">
+                    <Badge variant="outline" className="border-[#18345B]/30 bg-[#18345B]/5 text-[#18345B] dark:text-blue-300 font-semibold text-[11px]">
                       {vg.empresa}
                     </Badge>
                     <Badge variant="secondary">{vg.departamento}</Badge>
@@ -552,7 +552,7 @@ export function VagasView({
                       </Badge>
                     ))}
                     <span className="mx-1 text-slate-300">|</span>
-                    <span className="font-bold text-[#510851] dark:text-[#a78bfa]">
+                    <span className="font-bold text-[#18345B] dark:text-[#60A5FA]">
                       PERFIL:
                     </span>
                     {vg.perfis_ideais.map((p) => (
@@ -635,7 +635,7 @@ export function VagasView({
                         href={vg.link_vaga}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-[#510851] hover:underline"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-[#18345B] hover:underline"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
                         Link da Vaga

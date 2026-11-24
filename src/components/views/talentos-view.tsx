@@ -642,7 +642,7 @@ export function TalentosView({
       </div>
 
       {toastMsg && (
-        <div className="rounded-xl border border-[#510851]/20 bg-[#510851]/5 dark:bg-[#8b5cf6]/15 px-4 py-3 text-xs font-semibold text-[#510851] dark:text-white flex items-center justify-between">
+        <div className="rounded-xl border border-[#18345B]/20 bg-[#18345B]/5 dark:bg-[#2563EB]/15 px-4 py-3 text-xs font-semibold text-[#18345B] dark:text-white flex items-center justify-between">
           <span>{toastMsg}</span>
           <button onClick={() => setToastMsg(null)} className="text-slate-400">
             ✕
@@ -751,7 +751,7 @@ export function TalentosView({
                   onClick={() => cadFileInputRef.current?.click()}
                   className="flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900 px-3 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 truncate"
                 >
-                  <UploadCloud className="h-3.5 w-3.5 text-[#510851] shrink-0" />
+                  <UploadCloud className="h-3.5 w-3.5 text-[#18345B] shrink-0" />
                   <span className="truncate">{cadFotoPreview ? "Foto selecionada" : "Carregar PNG/JPG"}</span>
                 </button>
                 {cadFotoPreview && (
@@ -802,7 +802,7 @@ export function TalentosView({
               <select
                 value={cadEmpresa}
                 onChange={(e) => setCadEmpresa(e.target.value)}
-                className="flex h-9 w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-card px-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#510851]"
+                className="flex h-9 w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-card px-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#18345B]"
               >
                 <option value="Nenhuma / Não associada">
                   Nenhuma / Não associada
@@ -822,7 +822,7 @@ export function TalentosView({
               <select
                 value={cadDepto}
                 onChange={(e) => setCadDepto(e.target.value)}
-                className="flex h-9 w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-card px-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#510851]"
+                className="flex h-9 w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-card px-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#18345B]"
               >
                 {DEPARTAMENTOS_OPCOES.map((d) => (
                   <option key={d} value={d}>
@@ -854,7 +854,7 @@ export function TalentosView({
               onChange={(e) => setCadExp(e.target.value)}
               rows={2}
               placeholder="Resumo de experiências, certificações e histórico de liderança para enriquecer a análise com IA..."
-              className="w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-card p-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#510851]"
+              className="w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-card p-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#18345B]"
             />
           </div>
 
@@ -863,7 +863,7 @@ export function TalentosView({
             <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 p-3.5 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                  <UsersRound className="h-4 w-4 text-[#510851] dark:text-[#a78bfa]" />
+                  <UsersRound className="h-4 w-4 text-[#18345B] dark:text-[#60A5FA]" />
                   Equipes das quais este talento faz parte:
                 </span>
                 {equipesDoTalentoAtual.length > 0 ? (
@@ -871,7 +871,7 @@ export function TalentosView({
                     <button
                       key={eq.id}
                       onClick={() => onNavigateEquipe(eq.nome)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#510851]/25 bg-[#510851]/10 dark:bg-[#8b5cf6]/20 px-2.5 py-1 text-xs font-semibold text-[#510851] dark:text-[#a78bfa] hover:bg-[#510851] hover:text-white transition-colors"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#18345B]/25 bg-[#18345B]/10 dark:bg-[#2563EB]/20 px-2.5 py-1 text-xs font-semibold text-[#18345B] dark:text-[#60A5FA] hover:bg-[#18345B] hover:text-white transition-colors"
                     >
                       <span>{eq.nome}</span>
                     </button>
@@ -976,10 +976,10 @@ export function TalentosView({
             return (
               <Card
                 key={t.id}
-                className="overflow-hidden p-5 hover:border-[#510851]/40 transition-all flex flex-col justify-between space-y-4"
+                className="overflow-hidden p-5 hover:border-[#18345B]/40 transition-all flex flex-col justify-between space-y-4"
               >
                 <div className="flex items-start gap-3.5">
-                  <div className="relative h-14 w-14 min-h-[56px] min-w-[56px] max-h-[56px] max-w-[56px] shrink-0 overflow-hidden rounded-full ring-2 ring-[#510851]/20 bg-slate-100 dark:bg-slate-800">
+                  <div className="relative h-14 w-14 min-h-[56px] min-w-[56px] max-h-[56px] max-w-[56px] shrink-0 overflow-hidden rounded-full ring-2 ring-[#18345B]/20 bg-slate-100 dark:bg-slate-800">
                     <img
                       src={t.avatar}
                       alt={t.nome}
@@ -994,7 +994,7 @@ export function TalentosView({
                       <button
                         onClick={() => handleOpenEditModal(t)}
                         title={t.nome}
-                        className="line-clamp-2 break-words text-sm font-bold leading-snug text-slate-900 dark:text-white hover:text-[#510851] dark:hover:text-[#a78bfa] text-left"
+                        className="line-clamp-2 break-words text-sm font-bold leading-snug text-slate-900 dark:text-white hover:text-[#18345B] dark:hover:text-[#60A5FA] text-left"
                       >
                         {t.nome}
                       </button>
@@ -1012,7 +1012,7 @@ export function TalentosView({
 
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
                       <span className="flex items-center gap-1 truncate max-w-[170px]">
-                        <Tag className="h-3 w-3 text-[#510851] dark:text-[#a78bfa] shrink-0" />
+                        <Tag className="h-3 w-3 text-[#18345B] dark:text-[#60A5FA] shrink-0" />
                         <span className="truncate">
                           {t.grupo || t.departamento || t.empresa}
                         </span>
@@ -1038,7 +1038,7 @@ export function TalentosView({
                         <button
                           key={eq.id}
                           onClick={() => onNavigateEquipe(eq.nome)}
-                          className="rounded-md bg-purple-50 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/50 px-2 py-0.5 text-[11px] font-medium text-[#510851] dark:text-[#a78bfa] hover:bg-purple-100 dark:hover:bg-purple-900/60 transition-colors"
+                          className="rounded-md bg-blue-50 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-800/50 px-2 py-0.5 text-[11px] font-medium text-[#18345B] dark:text-[#60A5FA] hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
                           title={`Ver detalhes da equipe ${eq.nome}`}
                         >
                           {eq.nome}
@@ -1055,7 +1055,7 @@ export function TalentosView({
                       href={t.linkedin_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#510851] dark:text-[#a78bfa] hover:underline"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#18345B] dark:text-[#60A5FA] hover:underline"
                     >
                       <Linkedin className="h-3.5 w-3.5" />
                       LinkedIn
@@ -1072,17 +1072,17 @@ export function TalentosView({
                         variant="outline"
                         size="sm"
                         onClick={() => onNavigateEquipe(membroDe[0].nome)}
-                        className="border-[#510851]/40 text-[#510851] hover:bg-[#510851]/10 dark:text-purple-300 font-semibold gap-1 text-xs"
+                        className="border-[#18345B]/40 text-[#18345B] hover:bg-[#18345B]/10 dark:text-blue-300 font-semibold gap-1 text-xs"
                         title={
                           membroDe.length === 1
                             ? `Ver equipe "${membroDe[0].nome}" na sessão Equipes`
                             : `Ver as ${membroDe.length} equipes de ${t.nome} na sessão Equipes`
                         }
                       >
-                        <UsersRound className="h-3.5 w-3.5 text-[#510851] dark:text-[#a78bfa]" />
+                        <UsersRound className="h-3.5 w-3.5 text-[#18345B] dark:text-[#60A5FA]" />
                         <span>Equipes</span>
                         {membroDe.length > 1 && (
-                          <span className="ml-0.5 rounded-full bg-[#510851]/15 dark:bg-purple-900/60 text-[#510851] dark:text-purple-200 px-1.5 py-0.2 text-[10px] font-bold">
+                          <span className="ml-0.5 rounded-full bg-[#18345B]/15 dark:bg-blue-900/60 text-[#18345B] dark:text-blue-200 px-1.5 py-0.2 text-[10px] font-bold">
                             {membroDe.length}
                           </span>
                         )}
@@ -1097,7 +1097,7 @@ export function TalentosView({
                       variant="outline"
                       size="sm"
                       onClick={() => handleOpenEditModal(t)}
-                      className="border-[#510851]/40 text-[#510851] hover:bg-[#510851]/10 dark:text-purple-300 text-xs"
+                      className="border-[#18345B]/40 text-[#18345B] hover:bg-[#18345B]/10 dark:text-blue-300 text-xs"
                     >
                       <Pencil className="h-3 w-3 mr-1" />
                       Editar
@@ -1140,7 +1140,7 @@ export function TalentosView({
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border bg-background p-6 shadow-2xl">
             <div className="flex items-start justify-between border-b pb-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#510851] text-sm font-bold text-white shadow-sm overflow-hidden ring-2 ring-[#ea580c]">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#18345B] text-sm font-bold text-white shadow-sm overflow-hidden ring-2 ring-[#ea580c]">
                   {editFotoPreview ? (
                     <img
                       src={editFotoPreview}
@@ -1158,7 +1158,7 @@ export function TalentosView({
                   </h3>
                   <p className="text-xs text-muted-foreground">
                     ID #{editingTalento.codigo || editingTalento.id} • KAN:{" "}
-                    <strong className="text-[#510851] dark:text-[#a78bfa]">
+                    <strong className="text-[#18345B] dark:text-[#60A5FA]">
                       {editingTalento.kan_nome}
                     </strong>
                   </p>
@@ -1178,7 +1178,7 @@ export function TalentosView({
               {/* Foto do Talento (Upload, Trocar ou Remover) */}
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40">
                 <div className="relative group shrink-0">
-                  <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-[#510851]/30 dark:border-purple-500/40 shadow-sm bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                  <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-[#18345B]/30 dark:border-blue-500/40 shadow-sm bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
                     {editFotoPreview ? (
                       <img
                         src={editFotoPreview}
@@ -1187,7 +1187,7 @@ export function TalentosView({
                         onError={() => setEditFotoPreview(null)}
                       />
                     ) : (
-                      <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-[#510851] to-purple-800 text-white font-bold text-xl">
+                      <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-[#18345B] to-blue-800 text-white font-bold text-xl">
                         {editNome
                           ? editNome
                               .split(" ")
@@ -1204,7 +1204,7 @@ export function TalentosView({
                     type="button"
                     onClick={() => editFileInputRef.current?.click()}
                     title="Carregar ou trocar foto"
-                    className="absolute -bottom-1 -right-1 rounded-full bg-[#510851] p-1.5 text-white shadow hover:bg-[#510851]/90 transition-transform active:scale-95"
+                    className="absolute -bottom-1 -right-1 rounded-full bg-[#18345B] p-1.5 text-white shadow hover:bg-[#18345B]/90 transition-transform active:scale-95"
                   >
                     <Camera className="h-3.5 w-3.5" />
                   </button>
@@ -1234,9 +1234,9 @@ export function TalentosView({
                       size="sm"
                       onClick={() => editFileInputRef.current?.click()}
                       disabled={isProcessingPhoto || isSavingEdit}
-                      className="h-7 text-xs gap-1.5 border-slate-300 dark:border-slate-700 hover:border-[#510851]"
+                      className="h-7 text-xs gap-1.5 border-slate-300 dark:border-slate-700 hover:border-[#18345B]"
                     >
-                      <UploadCloud className="h-3.5 w-3.5 text-[#510851]" />
+                      <UploadCloud className="h-3.5 w-3.5 text-[#18345B]" />
                       {editFotoPreview ? "Trocar Foto" : "Carregar Nova Foto"}
                     </Button>
 
@@ -1406,7 +1406,7 @@ export function TalentosView({
                   size="sm"
                   onClick={handleSaveModalEdit}
                   disabled={isSavingEdit}
-                  className="bg-[#510851] text-xs font-semibold text-white hover:bg-[#510851]/90"
+                  className="bg-[#18345B] text-xs font-semibold text-white hover:bg-[#18345B]/90"
                 >
                   {isSavingEdit ? (
                     <>
@@ -1439,9 +1439,9 @@ const TALENTOS_MOCK_FALLBACK_IND = [
 ];
 
 const TALENTOS_MOCK_FALLBACK_SKILLS = [
-  { perfil: "Líder", score: 90, cor: "#510851" },
+  { perfil: "Líder", score: 90, cor: "#18345B" },
   { perfil: "Resultado", score: 88, cor: "#ea580c" },
-  { perfil: "Executor", score: 84, cor: "#8b5cf6" },
+  { perfil: "Executor", score: 84, cor: "#2563EB" },
   { perfil: "Criativo", score: 78, cor: "#10b981" },
   { perfil: "Comunicador", score: 75, cor: "#6366f1" },
   { perfil: "Influenciador", score: 72, cor: "#f59e0b" },

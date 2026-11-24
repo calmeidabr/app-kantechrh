@@ -129,7 +129,7 @@ export function TalentEquipesButton({
           >
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
               <div className="flex items-center gap-1.5 min-w-0">
-                <UsersRound className="h-3.5 w-3.5 text-[#510851] dark:text-[#a78bfa] shrink-0" />
+                <UsersRound className="h-3.5 w-3.5 text-[#18345B] dark:text-[#60A5FA] shrink-0" />
                 <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                   Equipes ({count})
                 </span>
@@ -163,11 +163,11 @@ export function TalentEquipesButton({
                           setOpen(false);
                           onSelectEquipe?.(eq.nome);
                         }}
-                        className="w-full rounded-lg border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 p-2 text-left hover:border-[#510851]/50 hover:bg-[#510851]/5 transition-colors flex items-start justify-between gap-2 group"
+                        className="w-full rounded-lg border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 p-2 text-left hover:border-[#18345B]/50 hover:bg-[#18345B]/5 transition-colors flex items-start justify-between gap-2 group"
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-[#510851] dark:group-hover:text-[#a78bfa] truncate">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-[#18345B] dark:group-hover:text-[#60A5FA] truncate">
                               {eq.nome}
                             </span>
                             {isLider && (
@@ -183,7 +183,7 @@ export function TalentEquipesButton({
                           </div>
                         </div>
                         {onSelectEquipe && (
-                          <ExternalLink className="h-3.5 w-3.5 text-slate-400 group-hover:text-[#510851] dark:group-hover:text-[#a78bfa] shrink-0 mt-0.5" />
+                          <ExternalLink className="h-3.5 w-3.5 text-slate-400 group-hover:text-[#18345B] dark:group-hover:text-[#60A5FA] shrink-0 mt-0.5" />
                         )}
                       </button>
                     </li>
@@ -207,7 +207,7 @@ export function TalentEquipesButton({
         variant="outline"
         size="sm"
         onClick={handleTriggerClick}
-        className={`gap-1.5 text-xs font-bold border-[#510851]/40 text-[#510851] hover:bg-[#510851]/10 dark:text-purple-300 h-9 shadow-xs ${
+        className={`gap-1.5 text-xs font-bold border-[#18345B]/40 text-[#18345B] hover:bg-[#18345B]/10 dark:text-blue-300 h-9 shadow-xs ${
           className.includes("w-full") ? "w-full justify-center" : ""
         }`}
         title={
@@ -218,13 +218,13 @@ export function TalentEquipesButton({
             : "Nenhuma equipe vinculada"
         }
       >
-        <UsersRound className="h-3.5 w-3.5 shrink-0 text-[#510851] dark:text-[#a78bfa]" />
+        <UsersRound className="h-3.5 w-3.5 shrink-0 text-[#18345B] dark:text-[#60A5FA]" />
         <span className="truncate">Equipes</span>
         {(count > 0 || showZeroCount) && (
           <span
             className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold shrink-0 ${
               count > 0
-                ? "bg-[#510851]/15 dark:bg-purple-900/60 text-[#510851] dark:text-purple-200"
+                ? "bg-[#18345B]/15 dark:bg-blue-900/60 text-[#18345B] dark:text-blue-200"
                 : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
             }`}
           >

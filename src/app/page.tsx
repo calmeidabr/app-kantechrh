@@ -634,11 +634,11 @@ export default function KantechApp() {
           empRes.empresas.length > 0
         ) {
           const palette = [
-            "#510851",
+            "#18345B",
             "#ea580c",
             "#0f766e",
             "#2563eb",
-            "#7c3aed",
+            "#1D4ED8",
             "#059669",
           ];
           const mappedTenants = empRes.empresas.map(
@@ -778,7 +778,7 @@ export default function KantechApp() {
     ];
 
     // Mapeamento das 3 categorias mais frequentes/relevantes (ou top 3 do ecossistema)
-    // Cores: base (cinza-azulado #e2e8f0 / #334155), meio (roxo escuro #510851), topo (laranja #ea580c)
+    // Cores: base (cinza-azulado #e2e8f0 / #334155), meio (roxo escuro #18345B), topo (laranja #ea580c)
     return perfisBase.map((perfilNome) => {
       // Talentos que possuem este perfil (em perfis_lista ou perfil_dominante)
       const matching = talentos.filter((t) => {
@@ -866,7 +866,7 @@ export default function KantechApp() {
                   <span className="font-bold text-[15px] tracking-tight text-slate-900 dark:text-white">
                     Kantech<span className="text-[#ea580c]">RH</span>
                   </span>
-                  <span className="rounded bg-[#510851]/10 dark:bg-[#8b5cf6]/20 px-1.5 py-0.5 text-[10px] font-semibold text-[#510851] dark:text-[#a78bfa]">
+                  <span className="rounded bg-[#18345B]/10 dark:bg-[#2563EB]/20 px-1.5 py-0.5 text-[10px] font-semibold text-[#18345B] dark:text-[#60A5FA]">
                     PRO
                   </span>
                 </div>
@@ -894,7 +894,7 @@ export default function KantechApp() {
                 }
               }}
               placeholder="Buscar talento..."
-              className="h-9 w-full rounded-lg border border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 pl-8 pr-10 text-xs text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#510851]/20 focus:border-[#510851]"
+              className="h-9 w-full rounded-lg border border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 pl-8 pr-10 text-xs text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#18345B]/20 focus:border-[#18345B]"
             />
             {sidebarQuery ? (
               <button
@@ -1090,7 +1090,7 @@ export default function KantechApp() {
             </p>
             <Button
               onClick={() => navigateTo("Talentos")}
-              className="w-full h-8 text-xs font-semibold bg-slate-900 hover:bg-[#510851] dark:bg-[#8b5cf6] text-white rounded-lg"
+              className="w-full h-8 text-xs font-semibold bg-slate-900 hover:bg-[#18345B] dark:bg-[#2563EB] text-white rounded-lg"
             >
               <Plus className="h-3.5 w-3.5" />
               Cadastrar Talento
@@ -1100,7 +1100,7 @@ export default function KantechApp() {
           <Button
             size="icon"
             onClick={() => navigateTo("Talentos")}
-            className="w-full h-9 bg-[#510851] text-white"
+            className="w-full h-9 bg-[#18345B] text-white"
             title="Cadastrar Talento"
           >
             <Plus className="h-4 w-4" />
@@ -1118,7 +1118,7 @@ export default function KantechApp() {
           className="pointer-events-none absolute inset-0 opacity-35"
           style={{
             background:
-              "radial-gradient(circle at 20% 20%, #510851 0%, transparent 50%), radial-gradient(circle at 80% 80%, #ea580c 0%, transparent 45%)",
+              "radial-gradient(circle at 20% 20%, #18345B 0%, transparent 50%), radial-gradient(circle at 80% 80%, #ea580c 0%, transparent 45%)",
           }}
         />
 
@@ -1334,7 +1334,7 @@ export default function KantechApp() {
 
             <button
               onClick={() => navigateTo("Processo seletivo")}
-              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-[#510851] dark:text-[#a78bfa] hover:underline px-2 py-1"
+              className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-[#18345B] dark:text-[#60A5FA] hover:underline px-2 py-1"
             >
               <Sparkles className="h-3.5 w-3.5 text-[#ea580c]" />
               Matching Seletivo
@@ -1362,9 +1362,9 @@ export default function KantechApp() {
 
             <button
               className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title="Identidade KantechRH (#510851 & #ea580c)"
+              title="Identidade KantechRH (#18345B & #ea580c)"
             >
-              <Palette className="h-4 w-4 text-[#510851] dark:text-[#a78bfa]" />
+              <Palette className="h-4 w-4 text-[#18345B] dark:text-[#60A5FA]" />
             </button>
 
             <div className="hidden sm:block h-5 w-[1px] bg-slate-200 dark:bg-slate-800 mx-0.5" />
@@ -1373,7 +1373,7 @@ export default function KantechApp() {
               <img
                 src={talentos[0]?.avatar || "/images/kan_logo_header.png"}
                 alt={authUser?.nome_completo || "Usuário"}
-                className="h-8 w-8 rounded-full object-cover ring-2 ring-[#510851]/20 shrink-0"
+                className="h-8 w-8 rounded-full object-cover ring-2 ring-[#18345B]/20 shrink-0"
               />
               <div className="hidden md:flex flex-col text-left">
                 <span className="text-xs font-semibold leading-none">
@@ -1408,9 +1408,9 @@ export default function KantechApp() {
                     value={String(talentos.length)}
                     trend="+14.2% este mês"
                     subtitle="Base ativa de talentos"
-                    accentColor="#510851"
+                    accentColor="#18345B"
                     icon={
-                      <Users className="h-4 w-4 text-[#510851] dark:text-[#a78bfa]" />
+                      <Users className="h-4 w-4 text-[#18345B] dark:text-[#60A5FA]" />
                     }
                   />
                   <KpiMetricCard
@@ -1434,8 +1434,8 @@ export default function KantechApp() {
                     value="Online"
                     trend="Inteligência Comportamental"
                     subtitle="Processamento em Tempo Real"
-                    accentColor="#8b5cf6"
-                    icon={<BrainCircuit className="h-4 w-4 text-[#8b5cf6]" />}
+                    accentColor="#2563EB"
+                    icon={<BrainCircuit className="h-4 w-4 text-[#2563EB]" />}
                   />
                 </div>
 
@@ -1458,7 +1458,7 @@ export default function KantechApp() {
                             Categoria Base
                           </span>
                           <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
-                            <span className="h-2.5 w-2.5 rounded-xs bg-[#510851] dark:bg-[#7c3aed]" />
+                            <span className="h-2.5 w-2.5 rounded-xs bg-[#18345B] dark:bg-[#1D4ED8]" />
                             Categoria Intermediária
                           </span>
                           <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
@@ -1499,7 +1499,7 @@ export default function KantechApp() {
                                 tick={{ fontSize: 12, fill: "#64748b" }}
                               />
                               <RechartsTooltip
-                                cursor={{ fill: "rgba(81, 8, 81, 0.04)" }}
+                                cursor={{ fill: "rgba(24, 52, 91, 0.04)" }}
                                 content={({ active, payload }) => {
                                   if (!active || !payload || !payload.length) return null;
                                   const d = payload[0].payload;
@@ -1517,8 +1517,8 @@ export default function KantechApp() {
                                           <span className="font-bold text-slate-800 dark:text-slate-100">{d.cat3Val}</span>
                                         </div>
                                         <div className="flex justify-between items-center py-0.5">
-                                          <span className="flex items-center gap-1 text-[#510851] dark:text-[#a78bfa] font-medium">
-                                            <span className="h-2 w-2 rounded-full bg-[#510851] dark:bg-[#a78bfa]" />
+                                          <span className="flex items-center gap-1 text-[#18345B] dark:text-[#60A5FA] font-medium">
+                                            <span className="h-2 w-2 rounded-full bg-[#18345B] dark:bg-[#60A5FA]" />
                                             {d.cat2Nome}:
                                           </span>
                                           <span className="font-bold text-slate-800 dark:text-slate-100">{d.cat2Val}</span>
@@ -1548,11 +1548,11 @@ export default function KantechApp() {
                                 className="dark:fill-slate-700"
                                 name="Categoria Base"
                               />
-                              {/* Camada 2 (Meio): Roxo (#510851) */}
+                              {/* Camada 2 (Meio): Roxo (#18345B) */}
                               <Bar
                                 dataKey="cat2Val"
                                 stackId="perfis"
-                                fill="#510851"
+                                fill="#18345B"
                                 className="dark:fill-[#6b116b]"
                                 name="Categoria Intermediária"
                               />
@@ -1584,7 +1584,7 @@ export default function KantechApp() {
                               onClick={() => navigateTo("Talentos")}
                               className="w-full sm:w-auto"
                             >
-                              <Plus className="h-3.5 w-3.5 text-[#510851]" />
+                              <Plus className="h-3.5 w-3.5 text-[#18345B]" />
                               Cadastrar Talento
                             </Button>
                             <Button
@@ -1642,14 +1642,14 @@ export default function KantechApp() {
                             <Card
                               key={t.id}
                               onClick={() => handleInspectTalento(t)}
-                              className="p-4 border-slate-200/90 dark:border-slate-800 hover:border-[#510851]/40 transition-all cursor-pointer shadow-2xs"
+                              className="p-4 border-slate-200/90 dark:border-slate-800 hover:border-[#18345B]/40 transition-all cursor-pointer shadow-2xs"
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="flex items-center gap-3 min-w-0">
                                   <img
                                     src={t.avatar}
                                     alt={t.nome}
-                                    className="h-11 w-11 rounded-full object-cover ring-2 ring-[#510851]/15 dark:ring-[#8b5cf6]/25 shrink-0"
+                                    className="h-11 w-11 rounded-full object-cover ring-2 ring-[#18345B]/15 dark:ring-[#2563EB]/25 shrink-0"
                                   />
                                   <div className="min-w-0">
                                     <div className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">
@@ -1671,7 +1671,7 @@ export default function KantechApp() {
                                     e.stopPropagation();
                                     handleInspectTalento(t);
                                   }}
-                                  className="rounded-lg p-1.5 text-slate-500 hover:bg-[#510851]/10 hover:text-[#510851] dark:hover:text-[#a78bfa] shrink-0"
+                                  className="rounded-lg p-1.5 text-slate-500 hover:bg-[#18345B]/10 hover:text-[#18345B] dark:hover:text-[#60A5FA] shrink-0"
                                   title="Abrir Diagnóstico Comportamental"
                                 >
                                   <Eye className="h-4 w-4" />
@@ -1769,7 +1769,7 @@ export default function KantechApp() {
                                           onClick={() =>
                                             handleInspectTalento(t)
                                           }
-                                          className="font-semibold text-slate-900 dark:text-slate-100 hover:text-[#510851] dark:hover:text-[#a78bfa] cursor-pointer"
+                                          className="font-semibold text-slate-900 dark:text-slate-100 hover:text-[#18345B] dark:hover:text-[#60A5FA] cursor-pointer"
                                         >
                                           {t.nome}
                                         </div>
@@ -1809,7 +1809,7 @@ export default function KantechApp() {
                                     <div className="inline-flex items-center gap-1">
                                       <button
                                         onClick={() => handleInspectTalento(t)}
-                                        className="rounded-lg p-1.5 text-slate-500 hover:bg-[#510851]/10 hover:text-[#510851] dark:hover:text-[#a78bfa] transition-colors"
+                                        className="rounded-lg p-1.5 text-slate-500 hover:bg-[#18345B]/10 hover:text-[#18345B] dark:hover:text-[#60A5FA] transition-colors"
                                         title="Abrir Diagnóstico Comportamental"
                                       >
                                         <Eye className="h-4 w-4" />
@@ -1863,7 +1863,7 @@ export default function KantechApp() {
                     <Card className="p-4 space-y-3">
                       <button
                         onClick={() => navigateTo("Talentos")}
-                        className="flex w-full items-center justify-between rounded-xl border border-slate-200/80 dark:border-slate-800 p-3.5 hover:border-[#510851]/40 hover:bg-slate-50/70 dark:hover:bg-slate-900/50 transition-all text-left"
+                        className="flex w-full items-center justify-between rounded-xl border border-slate-200/80 dark:border-slate-800 p-3.5 hover:border-[#18345B]/40 hover:bg-slate-50/70 dark:hover:bg-slate-900/50 transition-all text-left"
                       >
                         <div className="flex items-center gap-3.5">
                           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600">
@@ -1883,10 +1883,10 @@ export default function KantechApp() {
 
                       <button
                         onClick={() => navigateTo("Equipes")}
-                        className="flex w-full items-center justify-between rounded-xl border border-slate-200/80 dark:border-slate-800 p-3.5 hover:border-[#510851]/40 hover:bg-slate-50/70 dark:hover:bg-slate-900/50 transition-all text-left"
+                        className="flex w-full items-center justify-between rounded-xl border border-slate-200/80 dark:border-slate-800 p-3.5 hover:border-[#18345B]/40 hover:bg-slate-50/70 dark:hover:bg-slate-900/50 transition-all text-left"
                       >
                         <div className="flex items-center gap-3.5">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#8b5cf6]/15 text-[#510851] dark:text-[#a78bfa]">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2563EB]/15 text-[#18345B] dark:text-[#60A5FA]">
                             <UsersRound className="h-5 w-5" />
                           </div>
                           <div>
@@ -1942,7 +1942,7 @@ export default function KantechApp() {
 
                         <Button
                           onClick={() => navigateTo("Processo seletivo")}
-                          className="w-full bg-slate-950 hover:bg-[#510851] dark:bg-[#8b5cf6] dark:hover:bg-[#7c3aed] text-white font-semibold h-10 rounded-xl"
+                          className="w-full bg-slate-950 hover:bg-[#18345B] dark:bg-[#2563EB] dark:hover:bg-[#1D4ED8] text-white font-semibold h-10 rounded-xl"
                         >
                           Analisar Processo Seletivo
                         </Button>
@@ -2180,7 +2180,7 @@ function SidebarItem({
     orange:
       "border-orange-500/30 bg-orange-500/10 text-[#ea580c] dark:text-orange-400",
     purple:
-      "border-[#8b5cf6]/30 bg-[#8b5cf6]/10 text-[#510851] dark:text-[#a78bfa]",
+      "border-[#2563EB]/30 bg-[#2563EB]/10 text-[#18345B] dark:text-[#60A5FA]",
   }[badgeVariant];
 
   return (
@@ -2189,7 +2189,7 @@ function SidebarItem({
       title={collapsed ? label : undefined}
       className={`group flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-xs font-medium transition-all ${
         active
-          ? "bg-slate-100/90 dark:bg-slate-800/90 text-[#510851] dark:text-white font-semibold shadow-2xs"
+          ? "bg-slate-100/90 dark:bg-slate-800/90 text-[#18345B] dark:text-white font-semibold shadow-2xs"
           : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/60 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200"
       }`}
     >
@@ -2197,7 +2197,7 @@ function SidebarItem({
         <span
           className={`${
             active
-              ? "text-[#510851] dark:text-[#a78bfa]"
+              ? "text-[#18345B] dark:text-[#60A5FA]"
               : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"
           }`}
         >

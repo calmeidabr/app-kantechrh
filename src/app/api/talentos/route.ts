@@ -13,10 +13,10 @@ function normalizarKanNumero(n: number): 3 | 6 | 9 {
 }
 
 const SOFT_SKILL_COLORS: Record<string, string> = {
-  Líder: "#510851",
-  Lider: "#510851",
+  Líder: "#18345B",
+  Lider: "#18345B",
   Resultado: "#ea580c",
-  Executor: "#8b5cf6",
+  Executor: "#2563EB",
   Criativo: "#10b981",
   Comunicador: "#6366f1",
   Influenciador: "#f59e0b",
@@ -307,7 +307,7 @@ function mapSupabaseRowToTalento(
     return {
       perfil: p,
       score: Math.max(55, Math.min(98, baseScore)),
-      cor: SOFT_SKILL_COLORS[p] || "#510851",
+      cor: SOFT_SKILL_COLORS[p] || "#18345B",
     };
   });
 

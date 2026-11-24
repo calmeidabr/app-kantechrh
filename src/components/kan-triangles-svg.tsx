@@ -190,7 +190,7 @@ export function KanTrianglesSvg({
             onMouseLeave={() => setHoveredMember(null)}
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all ${
               hoveredMember === m.nome
-                ? "border-[#510851] bg-[#510851] text-white shadow-xs"
+                ? "border-[#18345B] bg-[#18345B] text-white shadow-xs"
                 : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
             }`}
           >

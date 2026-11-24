@@ -964,7 +964,7 @@ export function ProcessoSeletivoView({
                   <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
                     <Button
                       size="sm"
-                      className="bg-[#510851] hover:bg-[#510851]/90 text-white text-xs font-bold"
+                      className="bg-[#18345B] hover:bg-[#18345B]/90 text-white text-xs font-bold"
                       onClick={() => handleOpenProcesso(vg.id, "ranking")}
                     >
                       Ranking (pts)
@@ -1127,7 +1127,7 @@ export function ProcessoSeletivoView({
                         onClick={() => handleToggleReqField("kan_ideal", opt)}
                         className={`rounded-lg border px-2.5 py-1 font-semibold transition ${
                           active
-                            ? "bg-[#510851] text-white border-[#510851]"
+                            ? "bg-[#18345B] text-white border-[#18345B]"
                             : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
                         }`}
                       >
@@ -1233,7 +1233,7 @@ export function ProcessoSeletivoView({
                         }
                         className={`rounded-lg border px-2 py-0.5 font-semibold transition ${
                           active
-                            ? "bg-[#510851] text-white border-[#510851]"
+                            ? "bg-[#18345B] text-white border-[#18345B]"
                             : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
                         }`}
                       >
@@ -1304,8 +1304,8 @@ export function ProcessoSeletivoView({
             onClick={() => setActiveMode("ranking")}
             className={`rounded-xl px-4 py-3 text-left border transition-all cursor-pointer ${
               activeMode === "ranking"
-                ? "bg-[#510851] text-white border-[#510851] shadow-sm"
-                : "border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 hover:border-[#510851]/50"
+                ? "bg-[#18345B] text-white border-[#18345B] shadow-sm"
+                : "border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 hover:border-[#18345B]/50"
             }`}
           >
             <div className="text-xs font-extrabold">
@@ -1314,7 +1314,7 @@ export function ProcessoSeletivoView({
             <div
               className={`text-[11px] mt-0.5 ${
                 activeMode === "ranking"
-                  ? "text-purple-100"
+                  ? "text-blue-100"
                   : "text-slate-500"
               }`}
             >
@@ -1390,7 +1390,7 @@ export function ProcessoSeletivoView({
                     onClick={() => setMinPontos(preset.pts)}
                     className={`rounded-md border px-2 py-0.5 text-[11px] font-bold transition cursor-pointer ${
                       minPontos === preset.pts
-                        ? "bg-[#510851] text-white border-[#510851]"
+                        ? "bg-[#18345B] text-white border-[#18345B]"
                         : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300"
                     }`}
                   >
@@ -1490,7 +1490,7 @@ export function ProcessoSeletivoView({
                             type="button"
                             onClick={() => onInspectTalento(row.talento)}
                             title="Abrir Diagnóstico Individual"
-                            className="rounded-md p-1 text-slate-400 hover:text-[#510851] hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                            className="rounded-md p-1 text-slate-400 hover:text-[#18345B] hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </button>
@@ -1578,7 +1578,7 @@ export function ProcessoSeletivoView({
                     }}
                     className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
                       harmoniaTargetMode === "equipe"
-                        ? "bg-[#510851] text-white shadow-xs"
+                        ? "bg-[#18345B] text-white shadow-xs"
                         : "text-slate-500"
                     }`}
                   >
@@ -1593,7 +1593,7 @@ export function ProcessoSeletivoView({
                     }}
                     className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
                       harmoniaTargetMode === "departamento"
-                        ? "bg-[#510851] text-white shadow-xs"
+                        ? "bg-[#18345B] text-white shadow-xs"
                         : "text-slate-500"
                     }`}
                   >
@@ -1676,7 +1676,7 @@ export function ProcessoSeletivoView({
               </p>
               <Button
                 size="sm"
-                className="bg-[#510851] text-white"
+                className="bg-[#18345B] text-white"
                 onClick={() => setActiveMode("ranking")}
               >
                 Ir para Seleção por Ranking
@@ -1930,7 +1930,7 @@ export function ProcessoSeletivoView({
                         </Button>
                         <Button
                           size="sm"
-                          className="bg-[#510851] hover:bg-[#510851]/90 text-white font-bold"
+                          className="bg-[#18345B] hover:bg-[#18345B]/90 text-white font-bold"
                           onClick={handleConfirmarSalvarHarmonia}
                           disabled={isSavingHarmonia}
                         >

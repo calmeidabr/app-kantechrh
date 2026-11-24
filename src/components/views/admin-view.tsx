@@ -95,8 +95,8 @@ const HEATMAP_PALETTES: Record<
   },
   purple: {
     // KantechRH KAN Purple progression
-    levels: ["#f3e8ff", "#d8b4fe", "#a855f7", "#7e22ce", "#510851"],
-    textColors: ["#581c87", "#581c87", "#ffffff", "#ffffff", "#ffffff"],
+    levels: ["#DBEAFE", "#93C5FD", "#3B82F6", "#1D4ED8", "#18345B"],
+    textColors: ["#1E3A8A", "#1E3A8A", "#ffffff", "#ffffff", "#ffffff"],
   },
   orange: {
     // KantechRH Methodology Orange progression
@@ -657,13 +657,13 @@ export function PainelControleView({
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col justify-between gap-4 rounded-xl border bg-gradient-to-r from-[#510851] via-[#3b0764] to-[#1e1b2e] p-5 text-white shadow-md lg:flex-row lg:items-center">
+      <div className="flex flex-col justify-between gap-4 rounded-xl border bg-gradient-to-r from-[#18345B] via-[#3b0764] to-[#1e1b2e] p-5 text-white shadow-md lg:flex-row lg:items-center">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Badge className="bg-[#ea580c] text-white hover:bg-[#ea580c]">
               ADMIN MASTER
             </Badge>
-            <span className="flex items-center gap-1.5 text-xs font-medium text-purple-200">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-blue-200">
               <Server className="h-3.5 w-3.5 text-emerald-400" />
               Engine Isolada:{" "}
               <code className="text-emerald-300">mam-kantechrh:8000</code> (Rede
@@ -673,7 +673,7 @@ export function PainelControleView({
           <h2 className="text-xl font-bold tracking-tight">
             Painel de Controle Administrativo — KantechRH
           </h2>
-          <p className="text-xs text-purple-200/80">
+          <p className="text-xs text-blue-200/80">
             Governança das matrizes metodológicas KAN, auditoria de scores, mapa
             de calor comportamental de 9 eixos, mapas cabalísticos e gestão SaaS
             Multi-Tenant.
@@ -725,7 +725,7 @@ export function PainelControleView({
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
                 isActive
-                  ? "bg-[#510851] text-white shadow-sm dark:bg-[#ea580c]"
+                  ? "bg-[#18345B] text-white shadow-sm dark:bg-[#ea580c]"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
@@ -736,7 +736,7 @@ export function PainelControleView({
                   className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
                     isActive
                       ? "bg-white/20 text-white"
-                      : "bg-[#510851]/10 text-[#510851] dark:bg-purple-500/20 dark:text-purple-300"
+                      : "bg-[#18345B]/10 text-[#18345B] dark:bg-blue-500/20 dark:text-blue-300"
                   }`}
                 >
                   {tab.badge}
@@ -793,17 +793,17 @@ export function PainelControleView({
                   onClick={() => setDiagMode("talento")}
                   className={`cursor-pointer rounded-xl border p-4 transition-all ${
                     diagMode === "talento"
-                      ? "border-[#510851] bg-[#510851]/5 ring-1 ring-[#510851] dark:border-purple-500"
+                      ? "border-[#18345B] bg-[#18345B]/5 ring-1 ring-[#18345B] dark:border-blue-500"
                       : "hover:bg-muted/50"
                   }`}
                 >
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#510851] dark:text-purple-300">
+                    <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#18345B] dark:text-blue-300">
                       <Award className="h-4 w-4" />
                       Ou Diagnóstico Ampliado Individual
                     </span>
                     {diagMode === "talento" && (
-                      <Badge className="bg-[#510851] text-white">Ativo</Badge>
+                      <Badge className="bg-[#18345B] text-white">Ativo</Badge>
                     )}
                   </div>
                   <select
@@ -1016,7 +1016,7 @@ export function PainelControleView({
                             label: "Verde Shadcn",
                             dot: "#009e3c",
                           },
-                          { id: "purple", label: "Roxo KAN", dot: "#7e22ce" },
+                          { id: "purple", label: "Roxo KAN", dot: "#1D4ED8" },
                           {
                             id: "orange",
                             label: "Laranja Kantech",
@@ -1046,7 +1046,7 @@ export function PainelControleView({
                       onClick={() => setShowHeatmapValues(!showHeatmapValues)}
                       className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                         showHeatmapValues
-                          ? "border-[#510851] bg-[#510851] text-white dark:border-[#ea580c] dark:bg-[#ea580c]"
+                          ? "border-[#18345B] bg-[#18345B] text-white dark:border-[#ea580c] dark:bg-[#ea580c]"
                           : "border-slate-200/80 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
                       }`}
                     >
@@ -1212,7 +1212,7 @@ export function PainelControleView({
                           {hoveredCell.membro}
                         </span>
                         <span>•</span>
-                        <span className="font-semibold text-[#510851] dark:text-purple-300">
+                        <span className="font-semibold text-[#18345B] dark:text-blue-300">
                           {hoveredCell.eixo}
                         </span>
                         <span>•</span>
@@ -1332,7 +1332,7 @@ export function PainelControleView({
                                     pts)
                                   </Badge>
                                 </td>
-                                <td className="py-2.5 font-bold text-[#510851] dark:text-purple-300">
+                                <td className="py-2.5 font-bold text-[#18345B] dark:text-blue-300">
                                   {topEixo[0]} ({topEixo[1]} pts)
                                 </td>
                               </tr>
@@ -1502,7 +1502,7 @@ export function PainelControleView({
                       </h4>
                       <Badge
                         variant="outline"
-                        className="text-[10px] font-semibold text-purple-300 border-purple-500/40 bg-purple-500/10"
+                        className="text-[10px] font-semibold text-blue-300 border-blue-500/40 bg-blue-500/10"
                       >
                         Rastreabilidade Metodológica KAN
                       </Badge>
@@ -1527,7 +1527,7 @@ export function PainelControleView({
                       <Database
                         className={`h-3.5 w-3.5 ${
                           syncingDetalhamentoSupabase
-                            ? "animate-spin text-purple-400"
+                            ? "animate-spin text-blue-400"
                             : "text-[#ea580c]"
                         }`}
                       />
@@ -1610,7 +1610,7 @@ export function PainelControleView({
                                     softSkillsList.map((skill, sIdx) => (
                                       <span
                                         key={sIdx}
-                                        className="inline-flex items-center rounded bg-purple-950/60 px-2 py-0.5 text-[11px] font-medium text-purple-200 border border-purple-800/40"
+                                        className="inline-flex items-center rounded bg-blue-950/60 px-2 py-0.5 text-[11px] font-medium text-blue-200 border border-blue-800/40"
                                       >
                                         {skill}
                                       </span>
@@ -1646,10 +1646,10 @@ export function PainelControleView({
               {/* 2. Score Perfil Matrix Table */}
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#510851] dark:text-purple-300">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#18345B] dark:text-blue-300">
                     2. Matriz de Auditoria — Score Perfil (`score_df_calc`)
                   </h4>
-                  <Badge className="bg-[#510851] text-white">
+                  <Badge className="bg-[#18345B] text-white">
                     Selecionado: {auditTalento.perfis_lista.join(", ")}
                   </Badge>
                 </div>
@@ -1738,7 +1738,7 @@ export function PainelControleView({
                             <td className="px-2 py-2 text-center">
                               {rowBackend?.repeticao_2 ?? 0}
                             </td>
-                            <td className="px-3 py-2 text-right font-mono font-bold text-[#510851] dark:text-purple-300 whitespace-nowrap">
+                            <td className="px-3 py-2 text-right font-mono font-bold text-[#18345B] dark:text-blue-300 whitespace-nowrap">
                               {rowBackend?.total ?? 0} pts
                             </td>
                           </tr>
@@ -1752,10 +1752,10 @@ export function PainelControleView({
               {/* 3. Score Categoria Matrix Table */}
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#510851] dark:text-purple-300">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#18345B] dark:text-blue-300">
                     3. Matriz de Auditoria — Score Categoria (`score_cat_calc`)
                   </h4>
-                  <Badge className="bg-[#510851] text-white">
+                  <Badge className="bg-[#18345B] text-white">
                     Selecionado: {auditTalento.categorias_lista.join(", ")}
                   </Badge>
                 </div>
@@ -1844,7 +1844,7 @@ export function PainelControleView({
                             <td className="px-2 py-2 text-center">
                               {rowBackend?.repeticao_2 ?? 0}
                             </td>
-                            <td className="px-3 py-2 text-right font-mono font-bold text-[#510851] dark:text-purple-300 whitespace-nowrap">
+                            <td className="px-3 py-2 text-right font-mono font-bold text-[#18345B] dark:text-blue-300 whitespace-nowrap">
                               {rowBackend?.total ?? 0} pts
                             </td>
                           </tr>
@@ -1999,7 +1999,7 @@ export function PainelControleView({
                           <td className="px-3 py-2 font-semibold">{t.nome}</td>
                           <td className="px-2 py-2">{t.data_nascimento}</td>
                           <td className="px-2 py-2">
-                            <Badge className="bg-[#510851] text-[10px] text-white">
+                            <Badge className="bg-[#18345B] text-[10px] text-white">
                               {t.kan_nome}
                             </Badge>
                           </td>
@@ -2243,7 +2243,7 @@ export function PainelControleView({
                         "Planilha 'lote_talentos_q4.xlsx' validada: 24 perfis prontos para processamento no mam-kantechrh."
                       )
                     }
-                    className="bg-[#510851] text-xs text-white hover:bg-[#510851]/90"
+                    className="bg-[#18345B] text-xs text-white hover:bg-[#18345B]/90"
                   >
                     Selecionar Arquivo CSV / XLSX
                   </Button>
@@ -2356,7 +2356,7 @@ export function PainelControleView({
                       className="space-y-2.5 rounded-xl border bg-muted/20 p-3.5"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-[#510851] dark:text-purple-300">
+                        <span className="text-xs font-bold text-[#18345B] dark:text-blue-300">
                           {p.label}
                         </span>
                         <Badge
@@ -2441,8 +2441,8 @@ export function PainelControleView({
               {[
                 {
                   kan: "3 • CRIAÇÃO",
-                  color: "border-purple-500/40 bg-purple-500/5",
-                  badge: "bg-[#510851] text-white",
+                  color: "border-blue-500/40 bg-blue-500/5",
+                  badge: "bg-[#18345B] text-white",
                   desc: "Representa a gênese, ideação, inovação e abertura de novos caminhos. Profissionais na frequência de Criação impulsionam mudanças, visão estratégica e originalidade.",
                 },
                 {
@@ -2495,7 +2495,7 @@ export function PainelControleView({
                     placeholder="Identificador do Preset no Servidor"
                     className="font-mono text-xs"
                   />
-                  <Button className="bg-[#510851] text-xs text-white hover:bg-[#510851]/90">
+                  <Button className="bg-[#18345B] text-xs text-white hover:bg-[#18345B]/90">
                     Executar no mam-kantechrh ({talentos.length} Talentos)
                   </Button>
                 </div>
@@ -2528,7 +2528,7 @@ export function PainelControleView({
                   <Button
                     size="sm"
                     onClick={() => setShowNewUserForm((prev) => !prev)}
-                    className="bg-[#510851] text-xs text-white hover:bg-[#510851]/90"
+                    className="bg-[#18345B] text-xs text-white hover:bg-[#18345B]/90"
                   >
                     <Plus className="mr-1.5 h-3.5 w-3.5" />
                     {showNewUserForm ? "Fechar Formulário" : "Novo Usuário"}
@@ -2543,8 +2543,8 @@ export function PainelControleView({
                 )}
 
                 {showNewUserForm && (
-                  <div className="space-y-3 rounded-xl border border-[#510851]/30 bg-muted/20 p-4">
-                    <div className="text-xs font-bold uppercase tracking-wider text-[#510851] dark:text-purple-300">
+                  <div className="space-y-3 rounded-xl border border-[#18345B]/30 bg-muted/20 p-4">
+                    <div className="text-xs font-bold uppercase tracking-wider text-[#18345B] dark:text-blue-300">
                       Cadastrar Novo Usuário no Supabase
                     </div>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -2881,7 +2881,7 @@ export function PainelControleView({
                             Máx. {ten.max_maps} mapas • {ten.max_users} usuários
                           </div>
                         </div>
-                        <Badge className="bg-[#510851] text-[10px] uppercase text-white">
+                        <Badge className="bg-[#18345B] text-[10px] uppercase text-white">
                           {ten.plan_tier}
                         </Badge>
                       </div>
@@ -2929,7 +2929,7 @@ export function PainelControleView({
                         className={
                           pl.destaque
                             ? "bg-[#ea580c] text-white"
-                            : "bg-[#510851] text-white"
+                            : "bg-[#18345B] text-white"
                         }
                       >
                         {pl.preco}

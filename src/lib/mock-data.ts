@@ -227,7 +227,7 @@ export const DEPARTAMENTOS_OPCOES = [
 
 export const EMPRESAS_TENANT = [
   { id: "mundo-kan", nome: "Mundo Kan", plano: "Alta Performance", cor: "#ea580c" },
-  { id: "cristiano-teste", nome: "Cristiano Teste", plano: "Free", cor: "#8b5cf6" },
+  { id: "cristiano-teste", nome: "Cristiano Teste", plano: "Free", cor: "#2563EB" },
   { id: "testes", nome: "testes", plano: "Free", cor: "#10b981" },
 ];
 
@@ -291,9 +291,9 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
       },
     ],
     soft_skills: [
-      { perfil: "Líder", score: 94, cor: "#510851" },
+      { perfil: "Líder", score: 94, cor: "#18345B" },
       { perfil: "Resultado", score: 91, cor: "#ea580c" },
-      { perfil: "Executor", score: 86, cor: "#8b5cf6" },
+      { perfil: "Executor", score: 86, cor: "#2563EB" },
       { perfil: "Criativo", score: 82, cor: "#10b981" },
       { perfil: "Comunicador", score: 78, cor: "#6366f1" },
       { perfil: "Influenciador", score: 75, cor: "#f59e0b" },
@@ -355,10 +355,10 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
       { perfil: "Criativo", score: 95, cor: "#10b981" },
       { perfil: "Comunicador", score: 92, cor: "#6366f1" },
       { perfil: "Influenciador", score: 88, cor: "#f59e0b" },
-      { perfil: "Líder", score: 79, cor: "#510851" },
+      { perfil: "Líder", score: 79, cor: "#18345B" },
       { perfil: "Vendedor", score: 81, cor: "#ec4899" },
       { perfil: "Resultado", score: 74, cor: "#ea580c" },
-      { perfil: "Executor", score: 70, cor: "#8b5cf6" },
+      { perfil: "Executor", score: 70, cor: "#2563EB" },
     ],
     ai_diagnosis: [
       "Profissional com forte inclinação para inovação, comunicação executiva e adaptabilidade em cenários dinâmicos. Possui leitura rápida de contexto e facilidade para destravar gargalos de relacionamento entre equipes técnicas e áreas de negócio.",
@@ -407,9 +407,9 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
       },
     ],
     soft_skills: [
-      { perfil: "Executor", score: 96, cor: "#8b5cf6" },
+      { perfil: "Executor", score: 96, cor: "#2563EB" },
       { perfil: "Resultado", score: 89, cor: "#ea580c" },
-      { perfil: "Líder", score: 78, cor: "#510851" },
+      { perfil: "Líder", score: 78, cor: "#18345B" },
       { perfil: "Criativo", score: 72, cor: "#10b981" },
       { perfil: "Comunicador", score: 65, cor: "#6366f1" },
       { perfil: "Influenciador", score: 62, cor: "#f59e0b" },
@@ -459,9 +459,9 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
       { perfil: "Influenciador", score: 93, cor: "#f59e0b" },
       { perfil: "Comunicador", score: 90, cor: "#6366f1" },
       { perfil: "Resultado", score: 87, cor: "#ea580c" },
-      { perfil: "Líder", score: 80, cor: "#510851" },
+      { perfil: "Líder", score: 80, cor: "#18345B" },
       { perfil: "Criativo", score: 77, cor: "#10b981" },
-      { perfil: "Executor", score: 69, cor: "#8b5cf6" },
+      { perfil: "Executor", score: 69, cor: "#2563EB" },
     ],
     ai_diagnosis: [
       "Profissional com vocação comercial nata, combinando carisma interpessoal com ambição por metas agressivas de receita.",
@@ -505,8 +505,8 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
     soft_skills: [
       { perfil: "Influenciador", score: 90, cor: "#f59e0b" },
       { perfil: "Comunicador", score: 89, cor: "#6366f1" },
-      { perfil: "Executor", score: 83, cor: "#8b5cf6" },
-      { perfil: "Líder", score: 77, cor: "#510851" },
+      { perfil: "Executor", score: 83, cor: "#2563EB" },
+      { perfil: "Líder", score: 77, cor: "#18345B" },
       { perfil: "Criativo", score: 75, cor: "#10b981" },
       { perfil: "Resultado", score: 73, cor: "#ea580c" },
       { perfil: "Vendedor", score: 68, cor: "#ec4899" },
@@ -551,10 +551,10 @@ export const TALENTOS_MOCK: TalentoProfile[] = [
       },
     ],
     soft_skills: [
-      { perfil: "Executor", score: 93, cor: "#8b5cf6" },
+      { perfil: "Executor", score: 93, cor: "#2563EB" },
       { perfil: "Resultado", score: 86, cor: "#ea580c" },
       { perfil: "Criativo", score: 80, cor: "#10b981" },
-      { perfil: "Líder", score: 72, cor: "#510851" },
+      { perfil: "Líder", score: 72, cor: "#18345B" },
       { perfil: "Comunicador", score: 68, cor: "#6366f1" },
       { perfil: "Influenciador", score: 64, cor: "#f59e0b" },
       { perfil: "Vendedor", score: 60, cor: "#ec4899" },

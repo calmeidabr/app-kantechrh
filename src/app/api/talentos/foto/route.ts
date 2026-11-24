@@ -52,7 +52,7 @@ function buildInitialsSvg(nome: string): string {
       : (parts[0]?.slice(0, 2) || "KR").toUpperCase();
 
   const colors = [
-    ["#510851", "#8b5cf6"],
+    ["#18345B", "#2563EB"],
     ["#ea580c", "#f97316"],
     ["#0f766e", "#10b981"],
     ["#1d4ed8", "#6366f1"],

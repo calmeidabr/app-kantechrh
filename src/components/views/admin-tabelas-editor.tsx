@@ -584,7 +584,7 @@ export function AdminTabelasEditor() {
                 }}
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
                   selectedGrupo === grp
-                    ? "bg-[#510851] text-white shadow-sm"
+                    ? "bg-[#18345B] text-white shadow-sm"
                     : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
@@ -934,7 +934,7 @@ export function AdminTabelasEditor() {
                 size="sm"
                 onClick={handleSaveEdit}
                 disabled={isSaving}
-                className="bg-[#510851] text-xs font-semibold text-white hover:bg-[#510851]/90"
+                className="bg-[#18345B] text-xs font-semibold text-white hover:bg-[#18345B]/90"
               >
                 {isSaving ? (
                   <>
