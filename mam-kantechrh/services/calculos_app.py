@@ -467,99 +467,375 @@ def calcular_match_vaga(
     return resultados
 
 
+COORDS_PLANO_TESLA: Dict[int, tuple] = {
+    1: (794.0, 176.0),
+    2: (1037.0, 243.0),
+    3: (960.0, 380.0),
+    4: (794.0, 585.0),
+    5: (486.0, 585.0),
+    6: (320.0, 380.0),
+    7: (243.0, 243.0),
+    8: (486.0, 176.0),
+    9: (640.0, 120.0),
+    11: (1037.0, 243.0),
+    22: (794.0, 585.0),
+}
+
+
+def _norm_vert(v: Any) -> int:
+    try:
+        n = int(v)
+    except (TypeError, ValueError):
+        return 9
+    if n == 11:
+        return 2
+    if n == 22:
+        return 4
+    return n if n in COORDS_PLANO_TESLA else 9
+
+
+def _get_vertices(t: Dict[str, Any]) -> List[int]:
+    raw = t.get("vertices_triangulo") or t.get("vertices") or []
+    return [_norm_vert(v) for v in raw]
+
+
+def _get_vert_set(t: Dict[str, Any]) -> set:
+    return set(_get_vertices(t))
+
+
+def _get_kan_nome(t: Dict[str, Any]) -> str:
+    return str(t.get("kan_nome") or t.get("kan") or "").strip()
+
+
+def _shared_vertices_count(a: Dict[str, Any], b: Dict[str, Any]) -> int:
+    return len(_get_vert_set(a).intersection(_get_vert_set(b)))
+
+
+def _is_full_overlap(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
+    sa = _get_vert_set(a)
+    sb = _get_vert_set(b)
+    return len(sa) > 0 and sa == sb
+
+
+def _polygon_area(poly: List[tuple]) -> float:
+    if len(poly) < 3:
+        return 0.0
+    area = 0.0
+    n = len(poly)
+    for i in range(n):
+        x1, y1 = poly[i]
+        x2, y2 = poly[(i + 1) % n]
+        area += x1 * y2 - x2 * y1
+    return abs(area) / 2.0
+
+
+def _ensure_ccw(poly: List[tuple]) -> List[tuple]:
+    signed = 0.0
+    n = len(poly)
+    for i in range(n):
+        x1, y1 = poly[i]
+        x2, y2 = poly[(i + 1) % n]
+        signed += (x2 - x1) * (y2 + y1)
+    return list(reversed(poly)) if signed > 0 else list(poly)
+
+
+def _clip_polygon(subject: List[tuple], clip: List[tuple]) -> List[tuple]:
+    output = list(subject)
+    clip_ccw = _ensure_ccw(clip)
+    n_clip = len(clip_ccw)
+    for i in range(n_clip):
+        cp1 = clip_ccw[i]
+        cp2 = clip_ccw[(i + 1) % n_clip]
+        inp = output
+        output = []
+        if not inp:
+            break
+
+        def inside(p: tuple) -> bool:
+            return (cp2[0] - cp1[0]) * (p[1] - cp1[1]) - (cp2[1] - cp1[1]) * (
+                p[0] - cp1[0]
+            ) >= -1e-6
+
+        def intersect(s: tuple, e: tuple) -> tuple:
+            dc = (cp1[0] - cp2[0], cp1[1] - cp2[1])
+            dp = (s[0] - e[0], s[1] - e[1])
+            n1 = cp1[0] * cp2[1] - cp1[1] * cp2[0]
+            n2 = s[0] * e[1] - s[1] * e[0]
+            denom = dc[0] * dp[1] - dc[1] * dp[0]
+            if abs(denom) < 1e-9:
+                return e
+            return (
+                (n1 * dp[0] - n2 * dc[0]) / denom,
+                (n1 * dp[1] - n2 * dc[1]) / denom,
+            )
+
+        s = inp[-1]
+        for e in inp:
+            if inside(e):
+                if not inside(s):
+                    output.append(intersect(s, e))
+                output.append(e)
+            elif inside(s):
+                output.append(intersect(s, e))
+            s = e
+    return output
+
+
+def _triangles_cross_or_overlap(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
+    """Retorna True se os triângulos passam um pelo outro no Plano de Tesla (excluindo sobreposição total)."""
+    if _is_full_overlap(a, b):
+        return False
+    verts_a = _get_vertices(a)
+    verts_b = _get_vertices(b)
+    if len(verts_a) < 3 or len(verts_b) < 3:
+        return False
+    poly_a = [COORDS_PLANO_TESLA.get(v, COORDS_PLANO_TESLA[9]) for v in verts_a[:3]]
+    poly_b = [COORDS_PLANO_TESLA.get(v, COORDS_PLANO_TESLA[9]) for v in verts_b[:3]]
+    clipped = _clip_polygon(_ensure_ccw(poly_a), _ensure_ccw(poly_b))
+    return _polygon_area(clipped) > 1.0
+
+
 def calcular_harmonia_grupo(
     membros_atuais: List[Dict[str, Any]], candidato: Dict[str, Any]
 ) -> Dict[str, Any]:
-    """Calcula os 5 critérios e o score percentual de harmonia do candidato com o grupo."""
-    todos_sim = list(membros_atuais) + [candidato]
-    kans_presentes = {str(t.get("kan_nome") or "") for t in todos_sim if t.get("kan_nome")}
-    qtd_kans = len(kans_presentes)
+    """
+    Calcula os 5 critérios oficiais da Análise de Harmonia de Equipes sobre o Plano de Tesla:
+      1. Complementariedade (0 / 50 / 100 pts + regra da ponte 3+ talentos + Alerta de Repulsão)
+      2. Integração Geométrica (0 / 100 pts via interseção real de triângulos 2D)
+      3. Balanceamento (0 / 100 / 150 pts — exceção 150 pts para 3 KANs diferentes)
+      4. Tração Operacional (0 / 100 / 150 pts — 150 pts se todos com o mesmo KAN)
+      5. Segurança Relacional (0 / 50 / 100 pts)
+    """
+    todos_sim = list(membros_atuais) + ([candidato] if candidato else [])
+    alertas: List[Dict[str, str]] = []
+    tem_sobreposicao_total = False
+    tem_sobreposicao_mesmo_kan = False
 
-    # 1. Complementaridade
-    nota_comp = 4.8 if qtd_kans >= 3 else (4.5 if qtd_kans == 2 else 4.1)
+    # Verificar sobreposição total (todos os vértices coincidentes) entre todos os pares do grupo
+    for i in range(len(todos_sim)):
+        for j in range(i + 1, len(todos_sim)):
+            a = todos_sim[i]
+            b = todos_sim[j]
+            if _is_full_overlap(a, b):
+                tem_sobreposicao_total = True
+                kan_a = _get_kan_nome(a)
+                kan_b = _get_kan_nome(b)
+                mesmo_kan = bool(kan_a and kan_a == kan_b)
+                if mesmo_kan:
+                    tem_sobreposicao_mesmo_kan = True
+                nome_a = str(a.get("nome") or "Talento 1")
+                nome_b = str(b.get("nome") or "Talento 2")
+                alertas.append(
+                    {
+                        "severidade": "critico" if mesmo_kan else "atencao",
+                        "talentoA": nome_a,
+                        "talentoB": nome_b,
+                        "mesmoKan": mesmo_kan,
+                        "texto": (
+                            f"{nome_a} e {nome_b} com possibilidade de produtividade muito alta ou repulsão"
+                            + (f" — Alerta Maior (mesmo KAN: {kan_a})." if mesmo_kan else ".")
+                        ),
+                    }
+                )
 
-    # 2. Integração Geométrica
-    vertices_grupo = set()
-    for m in membros_atuais:
-        for v in (m.get("vertices_triangulo") or []):
-            vertices_grupo.add(v)
-    cand_verts = candidato.get("vertices_triangulo") or []
-    vertices_compartilhados = sum(1 for v in cand_verts if v in vertices_grupo)
-
-    if len(membros_atuais) == 0:
-        nota_geom = 4.6
-    elif vertices_compartilhados >= 2:
-        nota_geom = 4.7
-    elif vertices_compartilhados == 1:
-        nota_geom = 4.6
-    else:
-        nota_geom = 4.4
-
-    # 3. Balanceamento (cobertura dos 9 eixos comportamentais)
-    eixos_list = [t.get("scores_eixos") or calcular_scores_eixos(t) for t in todos_sim]
-    medias_eixos = []
-    for eixo in EIXOS_COMPORTAMENTAIS:
-        soma = sum(e.get(eixo, 300) for e in eixos_list)
-        medias_eixos.append(soma / max(1, len(todos_sim)))
-    eixos_fortes = sum(1 for m in medias_eixos if m >= 400)
-    nota_bal = min(4.9, max(4.2, round(4.0 + (eixos_fortes / 9.0) * 0.9, 1)))
-
-    # 4. Potencial de Entrega
-    scores_cand = candidato.get("scores_eixos") or calcular_scores_eixos(candidato)
-    media_entrega = (
-        scores_cand.get("Resultado", 450)
-        + scores_cand.get("Organização", 450)
-        + scores_cand.get("Análise", 450)
-    ) / 3.0
-    nota_entrega = 4.9 if media_entrega >= 550 else (4.7 if media_entrega >= 420 else 4.4)
-
-    # 5. Segurança Relacional
-    media_rel = (
-        scores_cand.get("Relacionamento", 450)
-        + scores_cand.get("Empatia", 450)
-        + scores_cand.get("Comunicação", 450)
-    ) / 3.0
-    nota_rel = 4.8 if media_rel >= 550 else (4.6 if media_rel >= 420 else 4.4)
-
-    media_final_5 = (nota_comp + nota_geom + nota_bal + nota_entrega + nota_rel) / 5.0
-    score_pct = round((media_final_5 / 5.0) * 100.0, 1)
-    classificacao = (
-        "Encaixe Muito Alto"
-        if score_pct >= 90
-        else ("Encaixe Alto" if score_pct >= 82 else "Encaixe Adequado")
+    # 1. COMPLEMENTARIEDADE (0 / 50 / 100)
+    pts_comp = 0
+    sub_comp = "Sem complementariedade"
+    cand_sobrepoe_alguem = any(
+        _is_full_overlap(candidato, m) for m in membros_atuais
     )
 
+    # Regra da Ponte (3+ talentos): 2 talentos da equipe sem vértices coincidentes entre si,
+    # e o candidato toca ao menos 1 vértice de cada um (sem sobreposição total)
+    faz_ponte = False
+    if len(membros_atuais) >= 2 and candidato:
+        for i in range(len(membros_atuais)):
+            if faz_ponte:
+                break
+            for j in range(i + 1, len(membros_atuais)):
+                m1 = membros_atuais[i]
+                m2 = membros_atuais[j]
+                if (
+                    _shared_vertices_count(m1, m2) == 0
+                    and not _is_full_overlap(candidato, m1)
+                    and not _is_full_overlap(candidato, m2)
+                    and _shared_vertices_count(candidato, m1) >= 1
+                    and _shared_vertices_count(candidato, m2) >= 1
+                ):
+                    faz_ponte = True
+                    break
+
+    max_shared_cand = 0
+    for m in membros_atuais:
+        if not _is_full_overlap(candidato, m):
+            max_shared_cand = max(max_shared_cand, _shared_vertices_count(candidato, m))
+
+    if len(membros_atuais) == 0:
+        pts_comp = 0
+        sub_comp = "Selecione equipe ou departamento"
+    elif cand_sobrepoe_alguem and max_shared_cand == 0 and not faz_ponte:
+        pts_comp = 0
+        sub_comp = "Não pontuado (alerta de repulsão)"
+    elif faz_ponte:
+        pts_comp = 100
+        sub_comp = "Ótima (elo entre talentos desconexos)"
+    elif max_shared_cand >= 2:
+        pts_comp = 100
+        sub_comp = "Ótima (2 vértices coincidentes)"
+    elif max_shared_cand == 1:
+        pts_comp = 50
+        sub_comp = "Média (1 vértice coincidente)"
+    else:
+        pts_comp = 0
+        sub_comp = "Sem complementariedade"
+
+    # 2. INTEGRAÇÃO GEOMÉTRICA (0 / 100)
+    tem_integracao = any(
+        _triangles_cross_or_overlap(candidato, m) for m in membros_atuais
+    )
+    pts_geom = 100 if tem_integracao else 0
+    if tem_integracao:
+        sub_geom = "Integração ótima (triângulos se cruzam)"
+    elif cand_sobrepoe_alguem:
+        sub_geom = "Sobreposição total (alerta)"
+    else:
+        sub_geom = "Sem integração geométrica"
+
+    # 3. BALANCEAMENTO (0 / 100 / 150)
+    kans_unicos = {_get_kan_nome(t) for t in todos_sim if _get_kan_nome(t)}
+    tri_sigs = {tuple(sorted(_get_vert_set(t))) for t in todos_sim}
+    tem_vertices_diferentes = len(tri_sigs) > 1
+    tem_kans_diferentes = len(kans_unicos) >= 2
+
+    if len(kans_unicos) >= 3:
+        pts_bal = 150
+        sub_bal = "Balanceamento total (3 KANs diferentes)"
+    elif tem_vertices_diferentes or tem_kans_diferentes:
+        pts_bal = 100
+        sub_bal = (
+            f"Alto ({len(kans_unicos)} KANs + vértices distintos)"
+            if tem_kans_diferentes
+            else "Alto (vértices distintos)"
+        )
+    else:
+        pts_bal = 0
+        sub_bal = "Sem balanceamento"
+
+    # 4. TRAÇÃO OPERACIONAL (0 / 100 / 150)
+    algum_vertice_coincidente_grupo = False
+    for i in range(len(todos_sim)):
+        if algum_vertice_coincidente_grupo:
+            break
+        for j in range(i + 1, len(todos_sim)):
+            if _shared_vertices_count(todos_sim[i], todos_sim[j]) >= 1:
+                algum_vertice_coincidente_grupo = True
+                break
+
+    if len(kans_unicos) == 1 and len(todos_sim) > 0:
+        kan_unico = next(iter(kans_unicos))
+        pts_tracao = 150
+        sub_tracao = f"Potencializada para {kan_unico}"
+    elif algum_vertice_coincidente_grupo:
+        pts_tracao = 100
+        sub_tracao = "Tração operacional ótima"
+    else:
+        pts_tracao = 0
+        sub_tracao = "Sem tração operacional"
+
+    # 5. SEGURANÇA RELACIONAL (0 / 50 / 100)
+    if tem_sobreposicao_mesmo_kan:
+        pts_seg = 0
+        sub_seg = "Baixa (sobreposição total + mesmo KAN)"
+    elif not tem_integracao:
+        pts_seg = 50
+        sub_seg = "Média (sem integração geométrica)"
+    elif tem_integracao and algum_vertice_coincidente_grupo and len(kans_unicos) >= 2:
+        pts_seg = 100
+        sub_seg = "Alta (integração + vértices + KANs)"
+    else:
+        pts_seg = 50
+        sub_seg = "Segurança relacional média"
+
+    total_pts = pts_comp + pts_geom + pts_bal + pts_tracao + pts_seg
+    max_pts = 550
+    score_pct = round(min(100.0, (total_pts / float(max_pts)) * 100.0), 1)
+
+    if tem_sobreposicao_mesmo_kan:
+        classificacao = "Alerta de Repulsão"
+    elif total_pts >= 450:
+        classificacao = "Harmonia Excelente"
+    elif total_pts >= 350:
+        classificacao = "Harmonia Alta"
+    elif total_pts >= 250:
+        classificacao = "Harmonia Média"
+    else:
+        classificacao = "Harmonia Baixa"
+
     return {
+        "totalPts": total_pts,
+        "maxPts": max_pts,
         "scorePct": score_pct,
         "classificacao": classificacao,
+        "alertas": alertas,
+        "temSobreposicaoTotal": tem_sobreposicao_total,
+        "temSobreposicaoMesmoKan": tem_sobreposicao_mesmo_kan,
         "criterios": [
             {
-                "titulo": "Complementaridade",
-                "nota": f"{nota_comp:.1f}/5.0",
-                "sub": "Equilíbrio de KANs",
+                "titulo": "Complementariedade",
+                "nota": f"{pts_comp} pts",
+                "pts": pts_comp,
+                "sub": sub_comp,
             },
             {
                 "titulo": "Integração Geométrica",
-                "nota": f"{nota_geom:.1f}/5.0",
-                "sub": "Conexões de Triângulos",
+                "nota": f"{pts_geom} pts",
+                "pts": pts_geom,
+                "sub": sub_geom,
             },
             {
                 "titulo": "Balanceamento",
-                "nota": f"{nota_bal:.1f}/5.0",
-                "sub": "Cobertura de Planos",
+                "nota": f"{pts_bal} pts",
+                "pts": pts_bal,
+                "sub": sub_bal,
             },
             {
-                "titulo": "Potencial de Entrega",
-                "nota": f"{nota_entrega:.1f}/5.0",
-                "sub": "Materialidade/Praticidade",
+                "titulo": "Tração Operacional",
+                "nota": f"{pts_tracao} pts",
+                "pts": pts_tracao,
+                "sub": sub_tracao,
             },
             {
                 "titulo": "Segurança Relacional",
-                "nota": f"{nota_rel:.1f}/5.0",
-                "sub": "Mitigação de Conflitos",
+                "nota": f"{pts_seg} pts",
+                "pts": pts_seg,
+                "sub": sub_seg,
             },
         ],
     }
+
+
+def calcular_harmonia_shortlist(
+    membros_atuais: List[Dict[str, Any]], candidatos: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Calcula e ranqueia a harmonia de toda a Short List contra a equipe ou departamento escolhido."""
+    resultados = []
+    for cand in candidatos:
+        harm = calcular_harmonia_grupo(membros_atuais, cand)
+        resultados.append(
+            {
+                "id": cand.get("id"),
+                "nome": cand.get("nome"),
+                "harmonia": harm,
+            }
+        )
+    resultados.sort(
+        key=lambda r: (
+            0 if r["harmonia"].get("temSobreposicaoMesmoKan") else 1,
+            r["harmonia"].get("totalPts", 0),
+        ),
+        reverse=True,
+    )
+    return resultados
 
 
 def calcular_sinergia_departamento(membros: List[Dict[str, Any]]) -> Dict[str, Any]:

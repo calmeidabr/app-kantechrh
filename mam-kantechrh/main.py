@@ -16,6 +16,7 @@ from services.calculos_app import (
     listar_soft_skills_compativeis,
     calcular_match_vaga,
     calcular_harmonia_grupo,
+    calcular_harmonia_shortlist,
     calcular_sinergia_departamento,
     sugerir_requisitos_vaga,
 )
@@ -459,6 +460,17 @@ async def api_calcular_harmonia_grupo(request: Request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+async def api_calcular_harmonia_shortlist(request: Request):
+    try:
+        body = await request.json()
+        membros_atuais = body.get("membros_atuais") or []
+        candidatos = body.get("candidatos") or []
+        resultados = calcular_harmonia_shortlist(membros_atuais, candidatos)
+        return JSONResponse({"resultados": resultados})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 async def api_calcular_sinergia_departamento(request: Request):
     try:
         body = await request.json()
@@ -508,6 +520,11 @@ app = Starlette(
         Route(
             "/api/v1/calcular-harmonia-grupo",
             api_calcular_harmonia_grupo,
+            methods=["POST"],
+        ),
+        Route(
+            "/api/v1/calcular-harmonia-shortlist",
+            api_calcular_harmonia_shortlist,
             methods=["POST"],
         ),
         Route(

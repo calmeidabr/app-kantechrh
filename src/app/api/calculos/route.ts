@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
     const endpointMap: Record<string, string> = {
       "calcular-match-vaga": "/api/v1/calcular-match-vaga",
       "calcular-harmonia-grupo": "/api/v1/calcular-harmonia-grupo",
+      "calcular-harmonia-shortlist": "/api/v1/calcular-harmonia-shortlist",
       "calcular-sinergia-departamento": "/api/v1/calcular-sinergia-departamento",
       "sugerir-requisitos-vaga": "/api/v1/sugerir-requisitos-vaga",
       "enriquecer-talentos-lote": "/api/v1/enriquecer-talentos-lote",
