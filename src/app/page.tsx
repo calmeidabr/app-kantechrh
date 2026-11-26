@@ -40,6 +40,7 @@ import {
 import {
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   Tooltip as RechartsTooltip,
@@ -831,23 +832,57 @@ export default function KantechApp() {
     }, 1000);
   };
 
-  const heatmapRows = ["12.00", "11.00", "10.00", "09.00", "08.00"];
-  const heatmapCols = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-  const heatmapEixos = [
-    "Empatia",
-    "Inovação",
-    "Análise",
-    "Comunicação",
-    "Liderança",
-  ];
-  // 1 to 5 intensity levels matching the exact Shadcn UI reference image
-  const heatmapMatrix = [
-    [1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 4, 1],
-    [2, 2, 4, 2, 4, 2],
-    [3, 3, 4, 3, 4, 4],
-    [5, 5, 5, 5, 5, 5],
-  ];
+  // Últimos 6 processos seletivos modificados para o gráfico da página principal
+  const chartProcessosSeletivos = useMemo(() => {
+    const getModTimestamp = (v: VagaData): number => {
+      const candidatesTs: number[] = [];
+      if (v.updated_at) {
+        const t = new Date(v.updated_at).getTime();
+        if (!Number.isNaN(t)) candidatesTs.push(t);
+      }
+      if (Array.isArray(v.historico_harmonia) && v.historico_harmonia.length > 0) {
+        for (const h of v.historico_harmonia) {
+          if (h?.salvo_em) {
+            const th = new Date(h.salvo_em).getTime();
+            if (!Number.isNaN(th)) candidatesTs.push(th);
+          }
+        }
+      }
+      if (v.created_at) {
+        const tc = new Date(v.created_at).getTime();
+        if (!Number.isNaN(tc)) candidatesTs.push(tc);
+      }
+      return candidatesTs.length > 0 ? Math.max(...candidatesTs) : v.id || 0;
+    };
+
+    const sorted = [...vagas]
+      .sort((a, b) => getModTimestamp(b) - getModTimestamp(a))
+      .slice(0, 6);
+
+    return sorted.map((v) => {
+      const rawTitle = (v.nome_vaga || "Processo").trim();
+      const shortLabel =
+        rawTitle.length > 10 ? `${rawTitle.slice(0, 9).trim()}…` : rawTitle;
+      const numCandidatos = Array.isArray(v.candidatos_associados)
+        ? v.candidatos_associados.length
+        : 0;
+      const temSelecionado = Boolean(
+        v.candidato_selecionado && v.candidato_selecionado.trim()
+      );
+
+      return {
+        id: v.id,
+        nome_vaga: rawTitle,
+        eixoX: shortLabel,
+        candidatos: numCandidatos,
+        temSelecionado,
+        candidato_selecionado: v.candidato_selecionado || null,
+        departamento: v.departamento || "Geral",
+        empresa: v.empresa || "Mundo Kan",
+        senioridade: v.senioridade || "",
+      };
+    });
+  }, [vagas]);
 
   const renderSidebarNavigationContent = (isCollapsed: boolean) => (
     <>
@@ -1949,85 +1984,172 @@ export default function KantechApp() {
                       </CardContent>
                     </Card>
 
-                    {/* Heatmap Card (Shadcn UI Kit Rounded Squircle Style - 20% Compact) */}
+                    {/* Gráfico: Processos Seletivos (Últimos 6 Modificados) x Nº de Candidatos */}
                     <Card className="rounded-2xl border-slate-200/80 dark:border-slate-800 shadow-xs">
                       <CardHeader className="flex flex-row items-center justify-between pb-1">
-                        <CardTitle className="text-sm font-semibold">
-                          Matriz de Aderência & Sinergia KAN
-                        </CardTitle>
-                        <MoreVertical className="h-4 w-4 text-slate-400" />
-                      </CardHeader>
-                      <CardContent className="space-y-3.5 pt-1">
                         <div>
-                          <div className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-                            88.4%
-                          </div>
-                          <div className="text-xs text-slate-500 mt-0.5">
-                            Taxa de Sinergia Comportamental{" "}
-                            <span className="font-bold text-[#009e3c] dark:text-emerald-400">
-                              +3.42%
+                          <CardTitle className="text-sm font-semibold">
+                            Candidatos por Processo Seletivo
+                          </CardTitle>
+                          <CardDescription className="text-[11px] text-slate-400">
+                            Últimos 6 processos modificados
+                          </CardDescription>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => navigateTo("Processo seletivo")}
+                          title="Ver todos os Processos Seletivos"
+                          className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 transition-colors"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </CardHeader>
+                      <CardContent className="space-y-3.5 pt-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                              {chartProcessosSeletivos.reduce(
+                                (acc, item) => acc + item.candidatos,
+                                0
+                              )}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              candidato(s) nos últimos{" "}
+                              {chartProcessosSeletivos.length} processos
                             </span>
                           </div>
                         </div>
 
-                        <div className="space-y-2 pt-0.5">
-                          {heatmapRows.map((rowLabel, rIdx) => (
-                            <div
-                              key={rowLabel}
-                              className="grid grid-cols-[38px_1fr] items-center gap-2.5"
-                            >
-                              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                                {rowLabel}
-                              </span>
-                              <div className="grid grid-cols-6 gap-2">
-                                {heatmapMatrix[rIdx].map((level, cIdx) => {
-                                  const bgColors: Record<number, string> = {
-                                    1: "#e6f7ed",
-                                    2: "#c3eed4",
-                                    3: "#8ce2ad",
-                                    4: "#42d374",
-                                    5: "#009e3c",
-                                  };
-                                  const scorePct =
-                                    level === 5
-                                      ? 96
-                                      : level === 4
-                                      ? 88
-                                      : level === 3
-                                      ? 79
-                                      : level === 2
-                                      ? 68
-                                      : 58;
-                                  return (
-                                    <div
-                                      key={cIdx}
-                                      title={`${heatmapEixos[rIdx]} (${heatmapCols[cIdx]}): ${scorePct}% de Sinergia`}
-                                      style={{
-                                        backgroundColor: bgColors[level],
-                                      }}
-                                      className="h-[35px] w-full rounded-[11px] transition-all duration-200 hover:scale-105 hover:shadow-sm cursor-pointer"
-                                    />
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ))}
-
-                          {/* X-Axis Labels at Bottom */}
-                          <div className="grid grid-cols-[38px_1fr] items-center gap-2.5 pt-0.5">
-                            <span />
-                            <div className="grid grid-cols-6 gap-2 text-center">
-                              {heatmapCols.map((colLabel) => (
-                                <span
-                                  key={colLabel}
-                                  className="text-[11px] font-medium text-slate-500 dark:text-slate-400"
-                                >
-                                  {colLabel}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
+                        {/* Legenda de Cores: Com Candidato Selecionado vs Em Aberto */}
+                        <div className="flex flex-wrap items-center gap-3 text-[11px]">
+                          <span className="inline-flex items-center gap-1.5 font-medium text-slate-600 dark:text-slate-300">
+                            <span className="h-2.5 w-2.5 rounded-xs bg-[#10b981]" />
+                            Candidato Selecionado
+                          </span>
+                          <span className="inline-flex items-center gap-1.5 font-medium text-slate-600 dark:text-slate-300">
+                            <span className="h-2.5 w-2.5 rounded-xs bg-[#18345B] dark:bg-[#3b82f6]" />
+                            Em Seleção (Aberto)
+                          </span>
                         </div>
+
+                        {chartProcessosSeletivos.length === 0 ? (
+                          <div className="py-10 text-center text-xs text-slate-400">
+                            Nenhum processo seletivo cadastrado.
+                          </div>
+                        ) : (
+                          <div className="h-[225px] w-full pt-1">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart
+                                data={chartProcessosSeletivos}
+                                barSize={28}
+                                margin={{
+                                  top: 10,
+                                  right: 8,
+                                  left: -22,
+                                  bottom: 18,
+                                }}
+                              >
+                                <CartesianGrid
+                                  strokeDasharray="3 3"
+                                  vertical={false}
+                                  stroke="rgba(148,163,184,0.2)"
+                                />
+                                <XAxis
+                                  dataKey="eixoX"
+                                  axisLine={false}
+                                  tickLine={false}
+                                  interval={0}
+                                  angle={-18}
+                                  textAnchor="end"
+                                  height={42}
+                                  tick={{
+                                    fontSize: 10,
+                                    fill: "#64748b",
+                                    fontWeight: 600,
+                                  }}
+                                />
+                                <YAxis
+                                  axisLine={false}
+                                  tickLine={false}
+                                  allowDecimals={false}
+                                  tick={{ fontSize: 11, fill: "#64748b" }}
+                                />
+                                <RechartsTooltip
+                                  cursor={{ fill: "rgba(24, 52, 91, 0.05)" }}
+                                  content={({ active, payload }) => {
+                                    if (!active || !payload || !payload.length) {
+                                      return null;
+                                    }
+                                    const d = payload[0].payload as {
+                                      id: number;
+                                      nome_vaga: string;
+                                      candidatos: number;
+                                      temSelecionado: boolean;
+                                      candidato_selecionado: string | null;
+                                      departamento: string;
+                                      empresa: string;
+                                      senioridade: string;
+                                    };
+                                    return (
+                                      <div className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 p-3 shadow-xl backdrop-blur-md text-xs space-y-1.5 max-w-[230px]">
+                                        <div className="font-bold text-slate-900 dark:text-white leading-snug">
+                                          {d.nome_vaga}
+                                        </div>
+                                        <div className="text-[11px] text-slate-500">
+                                          {d.empresa} • {d.departamento}
+                                          {d.senioridade
+                                            ? ` (${d.senioridade})`
+                                            : ""}
+                                        </div>
+                                        <div className="pt-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                                          <span className="text-slate-500">
+                                            Nº de Candidatos:
+                                          </span>
+                                          <span className="font-extrabold text-slate-900 dark:text-white">
+                                            {d.candidatos}
+                                          </span>
+                                        </div>
+                                        {d.temSelecionado ? (
+                                          <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                                            🏆 Selecionado:{" "}
+                                            {d.candidato_selecionado}
+                                          </div>
+                                        ) : (
+                                          <div className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                                            ⏳ Em aberto (sem selecionado)
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  }}
+                                />
+                                <Bar
+                                  dataKey="candidatos"
+                                  radius={[6, 6, 0, 0]}
+                                  className="cursor-pointer"
+                                  onClick={(barData) => {
+                                    if (barData?.id) {
+                                      handleAnalisarProcesso(Number(barData.id));
+                                    }
+                                  }}
+                                >
+                                  {chartProcessosSeletivos.map((entry) => (
+                                    <Cell
+                                      key={`cell-proc-${entry.id}`}
+                                      fill={
+                                        entry.temSelecionado
+                                          ? "#10b981"
+                                          : theme === "dark"
+                                          ? "#3b82f6"
+                                          : "#18345B"
+                                      }
+                                    />
+                                  ))}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </div>

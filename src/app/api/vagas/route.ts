@@ -156,6 +156,17 @@ export async function GET(req: NextRequest) {
         }
       }
 
+      const procUpdated = proc?.updated_at ? String(proc.updated_at) : "";
+      const rowUpdated = row.updated_at ? String(row.updated_at) : "";
+      const latestUpdated =
+        procUpdated && rowUpdated
+          ? new Date(procUpdated).getTime() >= new Date(rowUpdated).getTime()
+            ? procUpdated
+            : rowUpdated
+          : procUpdated ||
+            rowUpdated ||
+            String(row.created_at || new Date().toISOString());
+
       return {
         id,
         processo_id: proc?.id ? Number(proc.id) : undefined,
@@ -175,6 +186,7 @@ export async function GET(req: NextRequest) {
         candidato_selecionado: selecionadoFromQuals || undefined,
         historico_harmonia: histHarmonia,
         created_at: String(row.created_at || new Date().toISOString()),
+        updated_at: latestUpdated,
         tenant_id: String(row.tenant_id || "00000000-0000-0000-0000-000000000000"),
       };
     });
@@ -488,6 +500,7 @@ export async function POST(req: NextRequest) {
       candidato_selecionado: candidatoSelecionadoLimpo,
       historico_harmonia: Array.isArray(historico_harmonia) ? historico_harmonia : (existingProc?.historico_harmonia || []),
       created_at: String(savedVaga.created_at || new Date().toISOString()),
+      updated_at: new Date().toISOString(),
       tenant_id: String(savedVaga.tenant_id || resolvedTenantId),
     };
 

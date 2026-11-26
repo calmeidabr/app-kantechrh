@@ -119,6 +119,7 @@ export interface VagaData {
   candidato_selecionado?: string;
   historico_harmonia?: AnaliseHarmoniaItem[];
   created_at: string;
+  updated_at?: string;
   tenant_id?: string;
 }
 

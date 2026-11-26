@@ -654,6 +654,7 @@ export function ProcessoSeletivoView({
     const updatedVaga: VagaData = {
       ...vagaAtiva,
       candidatos_associados: updatedLista,
+      updated_at: new Date().toISOString(),
     };
     setVagas((prev) =>
       prev.map((v) => (v.id === vagaAtiva.id ? updatedVaga : v))
@@ -694,6 +695,7 @@ export function ProcessoSeletivoView({
         ...vagaAtiva,
         candidatos_associados: listaComEscolhido,
         candidato_selecionado: nomeEscolhido,
+        updated_at: new Date().toISOString(),
       };
       setCandidatoEmSelecao(nomeEscolhido);
       setVagas((prev) =>
@@ -715,6 +717,7 @@ export function ProcessoSeletivoView({
     const updatedVaga: VagaData = {
       ...vg,
       candidato_selecionado: undefined,
+      updated_at: new Date().toISOString(),
     };
     setVagas((prev) => prev.map((v) => (v.id === vg.id ? updatedVaga : v)));
     setSelectedVagaId(vg.id);
