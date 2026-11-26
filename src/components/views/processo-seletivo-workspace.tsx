@@ -25,6 +25,7 @@ import {
   ChevronDown,
   ChevronUp,
   Plus,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -130,7 +131,14 @@ export function ProcessoSeletivoView({
 }) {
   // Navegação em 2 telas: Hub Resumido -> Workspace do Processo
   const [screen, setScreen] = useState<"hub" | "processo">("hub");
-  const [activeMode, setActiveMode] = useState<"ranking" | "harmonia">("ranking");
+  const [activeMode, setActiveMode] = useState<
+    "ranking" | "harmonia" | "shortlist_final"
+  >("ranking");
+
+  // Estado do Modo 3 (Shortlist Final — Seleção e Fechamento/Reabertura)
+  const [candidatoEmSelecao, setCandidatoEmSelecao] = useState<string>("");
+  const [isSavingCandidatoSelecionado, setIsSavingCandidatoSelecionado] =
+    useState(false);
 
   // Filtros do Hub
   const [hubBusca, setHubBusca] = useState("");
@@ -199,15 +207,21 @@ export function ProcessoSeletivoView({
     if (!vagaAtiva) return;
     setVisibleRankingCount(10);
     setActiveHarmoniaIdx(0);
-    const eqPadrao =
-      equipes.find((e) => e.nome === vagaAtiva.equipe_associada)?.nome ||
-      equipes[0]?.nome ||
-      "";
+    setCandidatoEmSelecao(vagaAtiva.candidato_selecionado || "");
+    const eqAssociada = equipes.find(
+      (e) => e.nome === vagaAtiva.equipe_associada
+    );
+    const eqPadrao = eqAssociada?.nome || equipes[0]?.nome || "";
     setSelectedEquipeNome(eqPadrao);
     if (vagaAtiva.departamento) {
       setSelectedDeptNome(vagaAtiva.departamento);
     }
-  }, [vagaAtiva?.id, equipes]);
+    if (!vagaAtiva.equipe_associada && vagaAtiva.departamento) {
+      setHarmoniaTargetMode("departamento");
+    } else if (vagaAtiva.equipe_associada) {
+      setHarmoniaTargetMode("equipe");
+    }
+  }, [vagaAtiva?.id, vagaAtiva?.candidato_selecionado, equipes]);
 
   // Calcular Ranking (Mapa de Calor) exclusivamente no container mam-kantechrh
   useEffect(() => {
@@ -366,67 +380,6 @@ export function ProcessoSeletivoView({
     return talentos.filter((t) => nomes.includes(t.nome));
   }, [vagaAtiva, talentos]);
 
-  const alvoMembrosKey = alvoMembrosAtuais.map((m) => m.talento.id).join(",");
-  const shortlistKey = shortlistTalentos.map((t) => t.id).join(",");
-
-  // Calcular Harmonia de toda a Short List em lote no container mam-kantechrh
-  useEffect(() => {
-    let active = true;
-    if (
-      screen !== "processo" ||
-      activeMode !== "harmonia" ||
-      shortlistTalentos.length === 0
-    ) {
-      return;
-    }
-
-    setLoadingHarmonia(true);
-    fetch("/api/calculos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "calcular-harmonia-shortlist",
-        payload: {
-          membros_atuais: alvoMembrosAtuais.map((m) => ({
-            id: m.talento.id,
-            nome: m.talento.nome,
-            kan_nome: m.talento.kan_nome,
-            vertices_triangulo: m.talento.vertices_triangulo,
-            scores_eixos: m.talento.scores_eixos,
-          })),
-          candidatos: shortlistTalentos.map((t) => ({
-            id: t.id,
-            nome: t.nome,
-            kan_nome: t.kan_nome,
-            vertices_triangulo: t.vertices_triangulo,
-            scores_eixos: t.scores_eixos,
-          })),
-        },
-      }),
-    })
-      .then((r) => r.json())
-      .then((res) => {
-        if (active && res.success && Array.isArray(res.result?.resultados)) {
-          const map: Record<string, HarmoniaResultado> = {};
-          for (const item of res.result.resultados) {
-            if (item.id && item.harmonia) {
-              map[item.id] = item.harmonia as HarmoniaResultado;
-            }
-          }
-          setShortlistHarmoniaMap(map);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setLoadingHarmonia(false);
-      });
-
-    return () => {
-      active = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen, activeMode, alvoMembrosKey, shortlistKey]);
-
   // Ranking ordenado (Modo 1)
   const todosRankeados = useMemo(() => {
     return talentos
@@ -446,6 +399,85 @@ export function ProcessoSeletivoView({
       })
       .sort((a, b) => b.totalPts - a.totalPts);
   }, [talentos, matchResultsMap, loadingMatch]);
+
+  // Candidatos base para o Shortlist Final (usa Short List marcado ou Top 10 do Ranking se nenhum marcado)
+  const shortlistFinalCandidatosBase = useMemo(() => {
+    if (shortlistTalentos.length > 0) {
+      return shortlistTalentos;
+    }
+    return todosRankeados.slice(0, 10).map((r) => r.talento);
+  }, [shortlistTalentos, todosRankeados]);
+
+  // Lista unificada de candidatos para cálculo de Harmonia (Modo 2 + Modo 3)
+  const candidatosParaCalculoHarmonia = useMemo(() => {
+    if (activeMode === "shortlist_final") {
+      return shortlistFinalCandidatosBase;
+    }
+    return shortlistTalentos;
+  }, [activeMode, shortlistFinalCandidatosBase, shortlistTalentos]);
+
+  const alvoMembrosKey = alvoMembrosAtuais.map((m) => m.talento.id).join(",");
+  const shortlistKey = candidatosParaCalculoHarmonia
+    .map((t) => t.id)
+    .join(",");
+
+  // Calcular Harmonia de toda a Short List em lote no container mam-kantechrh
+  useEffect(() => {
+    let active = true;
+    if (
+      screen !== "processo" ||
+      (activeMode !== "harmonia" && activeMode !== "shortlist_final") ||
+      candidatosParaCalculoHarmonia.length === 0
+    ) {
+      return;
+    }
+
+    setLoadingHarmonia(true);
+    fetch("/api/calculos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "calcular-harmonia-shortlist",
+        payload: {
+          membros_atuais: alvoMembrosAtuais.map((m) => ({
+            id: m.talento.id,
+            nome: m.talento.nome,
+            kan_nome: m.talento.kan_nome,
+            vertices_triangulo: m.talento.vertices_triangulo,
+            scores_eixos: m.talento.scores_eixos,
+          })),
+          candidatos: candidatosParaCalculoHarmonia.map((t) => ({
+            id: t.id,
+            nome: t.nome,
+            kan_nome: t.kan_nome,
+            vertices_triangulo: t.vertices_triangulo,
+            scores_eixos: t.scores_eixos,
+          })),
+        },
+      }),
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        if (active && res.success && Array.isArray(res.result?.resultados)) {
+          const map: Record<string, HarmoniaResultado> = {};
+          for (const item of res.result.resultados) {
+            if (item.id && item.harmonia) {
+              map[item.id] = item.harmonia as HarmoniaResultado;
+            }
+          }
+          setShortlistHarmoniaMap((prev) => ({ ...prev, ...map }));
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setLoadingHarmonia(false);
+      });
+
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, activeMode, alvoMembrosKey, shortlistKey]);
 
   const rankingFiltrado = useMemo(() => {
     const q = normText(buscaRanking);
@@ -505,6 +537,86 @@ export function ProcessoSeletivoView({
       ? shortlistOrdenada[0].talento.id
       : null;
 
+  // Indica se há Equipe ou Departamento com integrantes associado para compor o Shortlist Final
+  const temGrupoAssociado = Boolean(
+    (vagaAtiva?.equipe_associada || vagaAtiva?.departamento) &&
+      alvoMembrosAtuais.length > 0
+  );
+
+  // Shortlist Final consolidada: maiores pontuadores no Ranking + Harmonia de Equipe/Departamento (quando houver)
+  const shortlistFinalOrdenada = useMemo(() => {
+    return shortlistFinalCandidatosBase
+      .map((t) => {
+        const rank = matchResultsMap[t.id];
+        const harm = shortlistHarmoniaMap[t.id];
+        const rankingPts = rank?.totalPts ?? 0;
+        const harmoniaObj: HarmoniaResultado = harm || {
+          totalPts: 0,
+          maxPts: 550,
+          scorePct: 0,
+          classificacao: loadingHarmonia ? "Calculando..." : "Aguardando",
+          alertas: [],
+          temSobreposicaoTotal: false,
+          temSobreposicaoMesmoKan: false,
+          criterios: [],
+        };
+        const harmoniaPts = temGrupoAssociado ? harmoniaObj.totalPts : 0;
+        const totalCombinadoPts = temGrupoAssociado
+          ? rankingPts + harmoniaPts
+          : rankingPts;
+
+        return {
+          talento: t,
+          rankingPts,
+          aderenciaPct: rank?.aderenciaPct ?? 0,
+          tierLabel: rank?.tierLabel ?? "Inicial",
+          perfilStatus: rank?.perfilStatus ?? "—",
+          softStatus: rank?.softStatus ?? "—",
+          harmonia: harmoniaObj,
+          harmoniaPts,
+          totalCombinadoPts,
+          inShortlistManual: (vagaAtiva?.candidatos_associados || []).includes(
+            t.nome
+          ),
+        };
+      })
+      .sort((a, b) => {
+        if (temGrupoAssociado) {
+          const penA = a.harmonia.temSobreposicaoMesmoKan ? 0 : 1;
+          const penB = b.harmonia.temSobreposicaoMesmoKan ? 0 : 1;
+          if (penA !== penB) return penB - penA;
+        }
+        if (b.totalCombinadoPts !== a.totalCombinadoPts) {
+          return b.totalCombinadoPts - a.totalCombinadoPts;
+        }
+        return b.rankingPts - a.rankingPts;
+      });
+  }, [
+    shortlistFinalCandidatosBase,
+    matchResultsMap,
+    shortlistHarmoniaMap,
+    loadingHarmonia,
+    temGrupoAssociado,
+    vagaAtiva?.candidatos_associados,
+  ]);
+
+  const melhorRankingFinalId = useMemo(() => {
+    if (shortlistFinalOrdenada.length === 0) return null;
+    const sorted = [...shortlistFinalOrdenada].sort(
+      (a, b) => b.rankingPts - a.rankingPts
+    );
+    return sorted[0]?.rankingPts > 0 ? sorted[0].talento.id : null;
+  }, [shortlistFinalOrdenada]);
+
+  const melhorHarmoniaFinalId = useMemo(() => {
+    if (!temGrupoAssociado || shortlistFinalOrdenada.length === 0) return null;
+    const valid = shortlistFinalOrdenada.filter(
+      (i) => !i.harmonia.temSobreposicaoMesmoKan && i.harmoniaPts > 0
+    );
+    const sorted = [...valid].sort((a, b) => b.harmoniaPts - a.harmoniaPts);
+    return sorted[0]?.talento.id || null;
+  }, [shortlistFinalOrdenada, temGrupoAssociado]);
+
   // Helpers de persistência
   const showToast = (msg: string, ms = 4000) => {
     setToastMsg(msg);
@@ -549,12 +661,71 @@ export function ProcessoSeletivoView({
     void persistirVagaNoBanco(updatedVaga, true);
   };
 
-  const handleOpenProcesso = (vagaId: number, mode: "ranking" | "harmonia") => {
+  const handleOpenProcesso = (
+    vagaId: number,
+    mode: "ranking" | "harmonia" | "shortlist_final"
+  ) => {
+    const targetVaga = vagas.find((v) => v.id === vagaId);
     setSelectedVagaId(vagaId);
     setActiveMode(mode);
     setScreen("processo");
     setActiveHarmoniaIdx(0);
     setCustomizeOpen(false);
+    if (targetVaga) {
+      setCandidatoEmSelecao(targetVaga.candidato_selecionado || "");
+    }
+  };
+
+  const handleSalvarCandidatoSelecionado = async (nomeOverride?: string) => {
+    if (!vagaAtiva) return;
+    const nomeEscolhido = (nomeOverride ?? candidatoEmSelecao).trim();
+    if (!nomeEscolhido) {
+      showToast("⚠️ Selecione um candidato no Shortlist Final antes de salvar.");
+      return;
+    }
+    setIsSavingCandidatoSelecionado(true);
+    try {
+      const listaAtual = vagaAtiva.candidatos_associados || [];
+      const listaComEscolhido = listaAtual.includes(nomeEscolhido)
+        ? listaAtual
+        : [...listaAtual, nomeEscolhido];
+
+      const updatedVaga: VagaData = {
+        ...vagaAtiva,
+        candidatos_associados: listaComEscolhido,
+        candidato_selecionado: nomeEscolhido,
+      };
+      setCandidatoEmSelecao(nomeEscolhido);
+      setVagas((prev) =>
+        prev.map((v) => (v.id === vagaAtiva.id ? updatedVaga : v))
+      );
+      await persistirVagaNoBanco(updatedVaga, true);
+      showToast(
+        `🏆 Candidato "${nomeEscolhido}" selecionado e salvo no processo "${vagaAtiva.nome_vaga}"!`
+      );
+    } finally {
+      setIsSavingCandidatoSelecionado(false);
+    }
+  };
+
+  const handleReabrirProcesso = async (vagaAlvo?: VagaData) => {
+    const vg = vagaAlvo || vagaAtiva;
+    if (!vg) return;
+    const candidatoAnterior = vg.candidato_selecionado || "";
+    const updatedVaga: VagaData = {
+      ...vg,
+      candidato_selecionado: undefined,
+    };
+    setVagas((prev) => prev.map((v) => (v.id === vg.id ? updatedVaga : v)));
+    setSelectedVagaId(vg.id);
+    setCandidatoEmSelecao(candidatoAnterior);
+    setActiveMode("shortlist_final");
+    setScreen("processo");
+    setCustomizeOpen(false);
+    await persistirVagaNoBanco(updatedVaga, true);
+    showToast(
+      `🔄 Processo "${vg.nome_vaga}" reaberto! Apresentando o Shortlist Final para nova decisão.`
+    );
   };
 
   const handleSugerirRequisitosIA = async () => {
@@ -953,6 +1124,35 @@ export function ProcessoSeletivoView({
                       </div>
                     </div>
 
+                    {vg.candidato_selecionado && (
+                      <div className="rounded-xl border-2 border-emerald-500/40 bg-emerald-500/10 p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                            <Award className="h-3.5 w-3.5" />
+                            Candidato Selecionado
+                          </span>
+                          <Badge variant="success" className="text-[10px]">
+                            Concluído
+                          </Badge>
+                        </div>
+                        <div className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                          <span>{vg.candidato_selecionado}</span>
+                        </div>
+                        <div className="pt-1 flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[11px] font-bold border-emerald-500/40 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-500/15 w-full"
+                            onClick={() => void handleReabrirProcesso(vg)}
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                            Reabrir Processo
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
                     {histCount > 0 && (
                       <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 px-3 py-1.5 text-[11px] text-emerald-700 dark:text-emerald-300 font-medium flex items-center justify-between">
                         <span>Análises de harmonia salvas</span>
@@ -961,20 +1161,32 @@ export function ProcessoSeletivoView({
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                  <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        size="sm"
+                        className="bg-[#18345B] hover:bg-[#18345B]/90 text-white text-xs font-bold"
+                        onClick={() => handleOpenProcesso(vg.id, "ranking")}
+                      >
+                        Ranking (pts)
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="bg-[#ea580c] hover:bg-[#ea580c]/90 text-white text-xs font-bold"
+                        onClick={() => handleOpenProcesso(vg.id, "harmonia")}
+                      >
+                        Harmonia ({shortListCount})
+                      </Button>
+                    </div>
                     <Button
                       size="sm"
-                      className="bg-[#18345B] hover:bg-[#18345B]/90 text-white text-xs font-bold"
-                      onClick={() => handleOpenProcesso(vg.id, "ranking")}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"
+                      onClick={() =>
+                        handleOpenProcesso(vg.id, "shortlist_final")
+                      }
                     >
-                      Ranking (pts)
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="bg-[#ea580c] hover:bg-[#ea580c]/90 text-white text-xs font-bold"
-                      onClick={() => handleOpenProcesso(vg.id, "harmonia")}
-                    >
-                      Harmonia ({shortListCount})
+                      <Award className="h-3.5 w-3.5" />
+                      Shortlist Final
                     </Button>
                   </div>
                 </Card>
@@ -1297,8 +1509,38 @@ export function ProcessoSeletivoView({
           </div>
         )}
 
-        {/* Seletor de Modo: Ranking (Mapa de Calor) vs Harmonia de Equipe */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-200/80 dark:border-slate-800">
+        {/* Banner de Candidato Selecionado no Processo (com opção de Reabrir) */}
+        {vagaAtiva.candidato_selecionado && (
+          <div className="rounded-xl border-2 border-emerald-500/40 bg-emerald-500/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="rounded-full bg-emerald-600 text-white p-1.5">
+                <Award className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                  Processo Concluído • Candidato Selecionado
+                </div>
+                <div className="text-sm font-extrabold text-slate-900 dark:text-white">
+                  {vagaAtiva.candidato_selecionado}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-emerald-500/40 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-500/15 font-bold text-xs"
+                onClick={() => void handleReabrirProcesso(vagaAtiva)}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reabrir Processo
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Seletor de Modo: Ranking (Mapa de Calor) vs Harmonia de Equipe vs Shortlist Final */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-200/80 dark:border-slate-800">
           <button
             type="button"
             onClick={() => setActiveMode("ranking")}
@@ -1342,6 +1584,30 @@ export function ProcessoSeletivoView({
               }`}
             >
               Escolha Equipe ou Departamento e plote os triângulos 1 a 1 no Plano de Tesla
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveMode("shortlist_final")}
+            className={`rounded-xl px-4 py-3 text-left border transition-all cursor-pointer ${
+              activeMode === "shortlist_final"
+                ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                : "border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 hover:border-emerald-600/50"
+            }`}
+          >
+            <div className="text-xs font-extrabold flex items-center gap-1.5">
+              <Award className="h-3.5 w-3.5" />
+              3. Shortlist Final ({shortlistFinalOrdenada.length})
+            </div>
+            <div
+              className={`text-[11px] mt-0.5 ${
+                activeMode === "shortlist_final"
+                  ? "text-emerald-100"
+                  : "text-slate-500"
+              }`}
+            >
+              Maiores pontuadores em Ranking + Harmonia e seleção do candidato
             </div>
           </button>
         </div>
@@ -1417,6 +1683,14 @@ export function ProcessoSeletivoView({
               >
                 Analisar Harmonia ({shortlistTalentos.length})
                 <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
+                onClick={() => setActiveMode("shortlist_final")}
+              >
+                <Award className="h-3.5 w-3.5" />
+                Shortlist Final
               </Button>
             </div>
           </div>
@@ -1939,6 +2213,14 @@ export function ProcessoSeletivoView({
                             ? "Salvando..."
                             : "Confirmar e Salvar Análise"}
                         </Button>
+                        <Button
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                          onClick={() => setActiveMode("shortlist_final")}
+                        >
+                          <Award className="h-3.5 w-3.5" />
+                          Shortlist Final
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -1988,6 +2270,395 @@ export function ProcessoSeletivoView({
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ====================================================================
+          MODO 3: SHORTLIST FINAL (MAIORES PONTUADORES EM RANKING + HARMONIA E SELEÇÃO FINAL)
+      ==================================================================== */}
+      {activeMode === "shortlist_final" && (
+        <div className="space-y-4">
+          {/* Barra Superior: Contexto de Equipe/Departamento Associado e Destaques */}
+          <Card className="p-4 sm:p-5 space-y-4 border-emerald-500/40">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="success">Shortlist Final Consolidado</Badge>
+                  {shortlistTalentos.length > 0 ? (
+                    <Badge variant="orange">
+                      {shortlistTalentos.length} candidato(s) no Short List
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">
+                      Top {shortlistFinalOrdenada.length} do Ranking Geral
+                    </Badge>
+                  )}
+                </div>
+                <h2 className="text-base font-extrabold text-slate-900 dark:text-white mt-1">
+                  Ranking Final de Decisão — {vagaAtiva.nome_vaga}
+                </h2>
+                <p className="text-xs text-slate-500">
+                  {temGrupoAssociado
+                    ? `Consolidando os candidatos que mais pontuaram no Ranking da Vaga e na Harmonia com ${
+                        harmoniaTargetMode === "departamento"
+                          ? `o Departamento "${alvoNomeExibicao}"`
+                          : `a Equipe "${alvoNomeExibicao}"`
+                      } (${alvoMembrosAtuais.length} integrante(s)).`
+                    : "Exibindo os candidatos que mais pontuaram no Ranking da Vaga (nenhuma equipe ou departamento com integrantes associado no momento)."}
+                </p>
+              </div>
+
+              {/* Seletor rápido de Equipe / Departamento para compor a Harmonia do Shortlist Final */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setHarmoniaTargetMode("equipe")}
+                    className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
+                      harmoniaTargetMode === "equipe"
+                        ? "bg-[#18345B] text-white"
+                        : "text-slate-500"
+                    }`}
+                  >
+                    <UsersRound className="h-3.5 w-3.5" />
+                    Equipe
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHarmoniaTargetMode("departamento")}
+                    className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
+                      harmoniaTargetMode === "departamento"
+                        ? "bg-[#18345B] text-white"
+                        : "text-slate-500"
+                    }`}
+                  >
+                    <Building2 className="h-3.5 w-3.5" />
+                    Departamento
+                  </button>
+                </div>
+
+                {harmoniaTargetMode === "equipe" ? (
+                  <select
+                    value={selectedEquipeNome}
+                    onChange={(e) => setSelectedEquipeNome(e.target.value)}
+                    className="h-8 rounded-lg border border-slate-200 dark:border-slate-800 bg-card px-2.5 text-xs font-bold"
+                  >
+                    {equipes.map((eq) => (
+                      <option key={eq.id} value={eq.nome}>
+                        {eq.nome} ({eq.membros.length} integrantes)
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <select
+                    value={selectedDeptNome}
+                    onChange={(e) => setSelectedDeptNome(e.target.value)}
+                    className="h-8 rounded-lg border border-slate-200 dark:border-slate-800 bg-card px-2.5 text-xs font-bold"
+                  >
+                    {opcoesDepartamentos.map((dep) => (
+                      <option key={dep} value={dep}>
+                        {dep}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+
+            {/* Cards de Destaque: 1º Consolidado, Maior Ranking e Maior Harmonia */}
+            {shortlistFinalOrdenada.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200/80 dark:border-slate-800">
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
+                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                    🏆 1º Colocado no Shortlist Final
+                  </div>
+                  <div className="text-sm font-extrabold text-slate-900 dark:text-white mt-0.5">
+                    {shortlistFinalOrdenada[0].talento.nome}
+                  </div>
+                  <div className="text-xs text-emerald-700 dark:text-emerald-300 font-bold mt-0.5">
+                    {shortlistFinalOrdenada[0].totalCombinadoPts} pts totais
+                    {temGrupoAssociado
+                      ? ` (${shortlistFinalOrdenada[0].rankingPts} Ranking + ${shortlistFinalOrdenada[0].harmoniaPts} Harmonia)`
+                      : ""}
+                  </div>
+                </div>
+
+                {(() => {
+                  const topRankItem = shortlistFinalOrdenada.find(
+                    (i) => i.talento.id === melhorRankingFinalId
+                  );
+                  return (
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 p-3">
+                      <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#18345B] dark:text-blue-300">
+                        🎯 Maior Pontuação no Ranking
+                      </div>
+                      <div className="text-sm font-extrabold text-slate-900 dark:text-white mt-0.5">
+                        {topRankItem?.talento.nome || "—"}
+                      </div>
+                      <div className="text-xs text-slate-600 dark:text-slate-300 font-bold mt-0.5">
+                        {topRankItem
+                          ? `${topRankItem.rankingPts} pts • ${topRankItem.tierLabel}`
+                          : "—"}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {(() => {
+                  const topHarmItem = shortlistFinalOrdenada.find(
+                    (i) => i.talento.id === melhorHarmoniaFinalId
+                  );
+                  return (
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 p-3">
+                      <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#ea580c]">
+                        🤝 Maior Harmonia ({alvoNomeExibicao})
+                      </div>
+                      <div className="text-sm font-extrabold text-slate-900 dark:text-white mt-0.5">
+                        {temGrupoAssociado
+                          ? topHarmItem?.talento.nome || "Calculando..."
+                          : "Sem equipe/depto. associado"}
+                      </div>
+                      <div className="text-xs text-slate-600 dark:text-slate-300 font-bold mt-0.5">
+                        {temGrupoAssociado && topHarmItem
+                          ? `${topHarmItem.harmoniaPts} pts • ${topHarmItem.harmonia.classificacao}`
+                          : "—"}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </Card>
+
+          {/* Tabela do Shortlist Final com Seleção de Candidato e Botão Salvar */}
+          <Card className="p-4 sm:p-5 space-y-4">
+            {(loadingMatch || (temGrupoAssociado && loadingHarmonia)) && (
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-[#ea580c]" />
+                Atualizando pontuações de Ranking e Harmonia no motor mam-kantechrh...
+              </div>
+            )}
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-400">
+                    <th className="py-2.5 px-2 w-12">Pos.</th>
+                    <th className="py-2.5 px-2">Candidato</th>
+                    <th className="py-2.5 px-2">KAN & Perfis</th>
+                    <th className="py-2.5 px-2 text-right">
+                      Pontuação Ranking
+                    </th>
+                    {temGrupoAssociado && (
+                      <th className="py-2.5 px-2 text-right">
+                        Harmonia ({alvoNomeExibicao})
+                      </th>
+                    )}
+                    <th className="py-2.5 px-2 text-right">
+                      Pontuação Consolidada
+                    </th>
+                    <th className="py-2.5 px-2 text-right">
+                      Selecionar Candidato
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70">
+                  {shortlistFinalOrdenada.map((item, idx) => {
+                    const isMarked = candidatoEmSelecao === item.talento.nome;
+                    const isSavedOfficial =
+                      vagaAtiva.candidato_selecionado === item.talento.nome;
+                    const isTopRank =
+                      item.talento.id === melhorRankingFinalId;
+                    const isTopHarm =
+                      temGrupoAssociado &&
+                      item.talento.id === melhorHarmoniaFinalId;
+                    const tier = getHeatTierStyle(item.rankingPts);
+
+                    return (
+                      <tr
+                        key={item.talento.id}
+                        onClick={() => setCandidatoEmSelecao(item.talento.nome)}
+                        className={`transition-colors cursor-pointer ${
+                          isSavedOfficial
+                            ? "bg-emerald-50/90 dark:bg-emerald-950/30"
+                            : isMarked
+                            ? "bg-orange-50/70 dark:bg-orange-950/20"
+                            : "hover:bg-slate-50/80 dark:hover:bg-slate-900/40"
+                        }`}
+                      >
+                        <td className="py-3 px-2 font-extrabold text-slate-700 dark:text-slate-200">
+                          {idx + 1}º
+                        </td>
+                        <td className="py-3 px-2">
+                          <div className="flex items-center gap-2">
+                            <div>
+                              <div className="font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
+                                <span>{item.talento.nome}</span>
+                                {isSavedOfficial && (
+                                  <span className="rounded-full bg-emerald-600 text-white px-2 py-0.5 text-[10px] font-extrabold">
+                                    🏆 Candidato Selecionado
+                                  </span>
+                                )}
+                                {isTopRank && (
+                                  <span className="rounded-full bg-[#18345B] text-white px-2 py-0.5 text-[10px] font-bold">
+                                    ★ Top Ranking
+                                  </span>
+                                )}
+                                {isTopHarm && (
+                                  <span className="rounded-full bg-[#ea580c] text-white px-2 py-0.5 text-[10px] font-bold">
+                                    ★ Top Harmonia
+                                  </span>
+                                )}
+                                {temGrupoAssociado &&
+                                  item.harmonia.temSobreposicaoTotal && (
+                                    <span className="rounded-full bg-red-600 text-white px-2 py-0.5 text-[10px] font-bold">
+                                      ⚠ Repulsão
+                                    </span>
+                                  )}
+                              </div>
+                              <div className="text-[11px] text-slate-500 mt-0.5">
+                                {item.talento.cargo || item.talento.profissao}
+                                {item.talento.departamento
+                                  ? ` • ${item.talento.departamento}`
+                                  : ""}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onInspectTalento(item.talento);
+                              }}
+                              title="Abrir Diagnóstico Individual"
+                              className="rounded-md p-1 text-slate-400 hover:text-[#18345B] hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                        <td className="py-3 px-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge variant="purple">
+                              {item.talento.kan_nome}
+                            </Badge>
+                            <span className="text-slate-600 dark:text-slate-300">
+                              {item.talento.perfis_lista.slice(0, 2).join(", ")}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-2 text-right">
+                          <span
+                            className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-extrabold"
+                            style={{
+                              backgroundColor: tier.bg,
+                              color: tier.text,
+                            }}
+                          >
+                            {item.rankingPts} pts • {tier.label}
+                          </span>
+                        </td>
+                        {temGrupoAssociado && (
+                          <td className="py-3 px-2 text-right">
+                            <div
+                              className={`text-xs font-extrabold ${
+                                item.harmonia.temSobreposicaoMesmoKan
+                                  ? "text-red-600"
+                                  : isTopHarm
+                                  ? "text-emerald-600"
+                                  : "text-[#ea580c]"
+                              }`}
+                            >
+                              {item.harmoniaPts} pts
+                            </div>
+                            <div className="text-[10px] text-slate-500">
+                              {item.harmonia.classificacao}
+                            </div>
+                          </td>
+                        )}
+                        <td className="py-3 px-2 text-right">
+                          <span className="inline-flex items-center rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 px-2.5 py-1 text-xs font-extrabold">
+                            {item.totalCombinadoPts} pts
+                          </span>
+                        </td>
+                        <td
+                          className="py-3 px-2 text-right"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCandidatoEmSelecao(item.talento.nome)
+                            }
+                            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                              isMarked
+                                ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                                : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:border-emerald-600"
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="shortlist-final-candidato"
+                              checked={isMarked}
+                              onChange={() =>
+                                setCandidatoEmSelecao(item.talento.nome)
+                              }
+                              className="h-3.5 w-3.5 accent-emerald-600 cursor-pointer"
+                            />
+                            {isMarked ? "Selecionado" : "Selecionar"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Barra de Decisão Final: Salvar Candidato Selecionado e Reabrir Processo */}
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+              <div className="text-xs">
+                <span className="text-slate-500">
+                  Candidato marcado para fechamento da vaga:
+                </span>{" "}
+                {candidatoEmSelecao ? (
+                  <strong className="text-slate-900 dark:text-white text-sm ml-1">
+                    {candidatoEmSelecao}
+                  </strong>
+                ) : (
+                  <span className="italic text-slate-400 ml-1">
+                    Clique em &ldquo;Selecionar&rdquo; em um candidato da lista acima
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {vagaAtiva.candidato_selecionado && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleReabrirProcesso(vagaAtiva)}
+                    className="border-amber-500/50 text-amber-800 dark:text-amber-300 hover:bg-amber-500/10 font-bold"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Reabrir Processo
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  disabled={
+                    !candidatoEmSelecao || isSavingCandidatoSelecionado
+                  }
+                  onClick={() => void handleSalvarCandidatoSelecionado()}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  {isSavingCandidatoSelecionado
+                    ? "Salvando..."
+                    : "Salvar Candidato Selecionado"}
+                </Button>
+              </div>
+            </div>
+          </Card>
         </div>
       )}
     </div>

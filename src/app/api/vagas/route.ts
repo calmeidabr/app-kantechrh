@@ -125,7 +125,13 @@ export async function GET(req: NextRequest) {
       const softSkillsFromQuals = rawQuals
         .filter((q) => q.startsWith("SOFT:"))
         .map((q) => q.replace(/^SOFT:\s*/, ""));
-      const pureQuals = rawQuals.filter((q) => !q.startsWith("SOFT:"));
+      const selecionadoFromQuals = rawQuals
+        .find((q) => q.startsWith("SELECIONADO:"))
+        ?.replace(/^SELECIONADO:\s*/, "")
+        .trim();
+      const pureQuals = rawQuals.filter(
+        (q) => !q.startsWith("SOFT:") && !q.startsWith("SELECIONADO:")
+      );
       const softSkillsDirect = parseArr(proc?.soft_skills_ideais || row.soft_skills_ideais);
       const softSkillsIdeais = [
         ...new Set([...softSkillsDirect, ...softSkillsFromQuals]),
@@ -166,6 +172,7 @@ export async function GET(req: NextRequest) {
         descricao_vaga: String(row.descricao_vaga || ""),
         equipe_associada: equipeAssociada,
         candidatos_associados: candidatosAssociados,
+        candidato_selecionado: selecionadoFromQuals || undefined,
         historico_harmonia: histHarmonia,
         created_at: String(row.created_at || new Date().toISOString()),
         tenant_id: String(row.tenant_id || "00000000-0000-0000-0000-000000000000"),
@@ -315,6 +322,7 @@ export async function POST(req: NextRequest) {
       descricao_vaga,
       equipe_associada,
       candidatos_associados,
+      candidato_selecionado,
       historico_harmonia,
       tenant_id,
     } = body;
@@ -348,12 +356,27 @@ export async function POST(req: NextRequest) {
       resolvedTenantId = "00000000-0000-0000-0000-000000000000";
     }
 
+    const candidatoSelecionadoLimpo =
+      typeof candidato_selecionado === "string" && candidato_selecionado.trim()
+        ? candidato_selecionado.trim()
+        : undefined;
+
     const combinedQuals = [
-      ...(Array.isArray(qualidades_ideais) ? qualidades_ideais : []),
+      ...(Array.isArray(qualidades_ideais)
+        ? qualidades_ideais.filter(
+            (q: string) =>
+              typeof q === "string" &&
+              !q.startsWith("SOFT:") &&
+              !q.startsWith("SELECIONADO:")
+          )
+        : []),
       ...(Array.isArray(soft_skills_ideais)
         ? soft_skills_ideais.map((s: string) =>
             s.startsWith("SOFT:") ? s : `SOFT:${s}`
           )
+        : []),
+      ...(candidatoSelecionadoLimpo
+        ? [`SELECIONADO:${candidatoSelecionadoLimpo}`]
         : []),
     ];
 
@@ -462,6 +485,7 @@ export async function POST(req: NextRequest) {
       descricao_vaga: String(savedVaga.descricao_vaga || ""),
       equipe_associada: equipe_associada || undefined,
       candidatos_associados: Array.isArray(candidatos_associados) ? candidatos_associados : [],
+      candidato_selecionado: candidatoSelecionadoLimpo,
       historico_harmonia: Array.isArray(historico_harmonia) ? historico_harmonia : (existingProc?.historico_harmonia || []),
       created_at: String(savedVaga.created_at || new Date().toISOString()),
       tenant_id: String(savedVaga.tenant_id || resolvedTenantId),

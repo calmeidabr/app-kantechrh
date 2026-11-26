@@ -116,6 +116,7 @@ export interface VagaData {
   descricao_vaga: string;
   equipe_associada?: string;
   candidatos_associados: string[];
+  candidato_selecionado?: string;
   historico_harmonia?: AnaliseHarmoniaItem[];
   created_at: string;
   tenant_id?: string;
