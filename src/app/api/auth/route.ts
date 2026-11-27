@@ -221,9 +221,77 @@ export async function POST(req: NextRequest) {
         (u: Record<string, unknown>) => String(u.id) === authUserId
       );
 
-    const tenantId = finalDbUser?.tenant_id
+    const finalUsername = finalDbUser?.usuario
+      ? String(finalDbUser.usuario)
+      : resolvedUsername;
+    const isAdminKanUser = finalUsername.trim().toLowerCase() === "adminkan";
+
+    let tenantId = finalDbUser?.tenant_id
       ? String(finalDbUser.tenant_id)
       : "00000000-0000-0000-0000-000000000000";
+
+    // Garantir que usuários clientes (não-adminkan) nunca fiquem no tenant global 00000000-0000-0000-0000-000000000000
+    if (
+      !isAdminKanUser &&
+      (!tenantId || tenantId === "00000000-0000-0000-0000-000000000000")
+    ) {
+      const userEmailToLookup = (
+        finalDbUser?.email ? String(finalDbUser.email) : resolvedEmail
+      )
+        .trim()
+        .toLowerCase();
+
+      const { data: latestSignup } = await supabaseAdmin
+        .from("signup_requests")
+        .select("tenant_id, plano, empresa")
+        .ilike("email_confirmacao", userEmailToLookup)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (
+        latestSignup?.tenant_id &&
+        String(latestSignup.tenant_id) !== "00000000-0000-0000-0000-000000000000"
+      ) {
+        tenantId = String(latestSignup.tenant_id);
+      } else {
+        const empName = String(
+          latestSignup?.empresa || finalDbUser?.empresa || finalUsername || "Workspace"
+        ).trim();
+        const planTier = String(latestSignup?.plano || "free")
+          .trim()
+          .toLowerCase();
+        const slug = `${empName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "") || "org"}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+        const { data: createdTenant } = await supabaseAdmin
+          .from("tenants")
+          .insert({
+            name: `${empName} Workspace`,
+            slug,
+            tier: planTier,
+          })
+          .select("id")
+          .maybeSingle();
+
+        if (createdTenant?.id) {
+          tenantId = String(createdTenant.id);
+        }
+      }
+
+      if (
+        finalDbUser?.id &&
+        tenantId &&
+        tenantId !== "00000000-0000-0000-0000-000000000000"
+      ) {
+        await supabaseAdmin
+          .from("usuarios")
+          .update({ tenant_id: tenantId })
+          .eq("id", finalDbUser.id);
+      }
+    }
 
     const { data: tenantData } = await supabaseAdmin
       .from("tenants")
@@ -233,9 +301,7 @@ export async function POST(req: NextRequest) {
 
     const userSession: AuthUserSession = {
       id: authUserId || String(finalDbUser?.id || resolvedUsername),
-      usuario: finalDbUser?.usuario
-        ? String(finalDbUser.usuario)
-        : resolvedUsername,
+      usuario: finalUsername,
       nome_completo: finalDbUser?.nome_completo
         ? String(finalDbUser.nome_completo)
         : resolvedUsername,
@@ -246,24 +312,34 @@ export async function POST(req: NextRequest) {
         : undefined,
       empresa: finalDbUser?.empresa
         ? String(finalDbUser.empresa)
-        : tenantData?.name || "Mundo Kan",
+        : tenantData?.name || "Workspace KantechRH",
       cargo: finalDbUser?.cargo
         ? String(finalDbUser.cargo)
-        : String(finalDbUser?.direitos || "").toLowerCase() === "admin master"
+        : isAdminKanUser
         ? "Admin Master"
         : "Gestor de RH",
       departamento: finalDbUser?.departamento
         ? String(finalDbUser.departamento)
         : "Diretoria Executiva",
-      direitos: finalDbUser?.direitos ? String(finalDbUser.direitos) : "Comum",
+      direitos: isAdminKanUser
+        ? "admin master"
+        : finalDbUser?.direitos
+        ? String(finalDbUser.direitos)
+        : "Editor",
       status: finalDbUser?.status ? String(finalDbUser.status) : "Ativo",
       foto: finalDbUser?.foto ? String(finalDbUser.foto) : undefined,
       grupo: finalDbUser?.grupo ? String(finalDbUser.grupo) : "Geral",
       tenant_id: tenantId,
-      tenant_name: tenantData?.name ? String(tenantData.name) : "Mundo Kan",
-      tenant_tier: tenantData?.tier
+      tenant_name: tenantData?.name
+        ? String(tenantData.name)
+        : finalDbUser?.empresa
+        ? String(finalDbUser.empresa)
+        : "Workspace KantechRH",
+      tenant_tier: isAdminKanUser
+        ? "alta_performance"
+        : tenantData?.tier
         ? String(tenantData.tier)
-        : "alta_performance",
+        : "free",
       is_main_user: Boolean(finalDbUser?.is_main_user ?? true),
     };
 

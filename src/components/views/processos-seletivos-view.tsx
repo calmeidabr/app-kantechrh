@@ -233,6 +233,13 @@ export function VagasView({
     vagas[0]?.id || null
   );
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [limitReachedAlert, setLimitReachedAlert] = useState<{
+    planName: string;
+    currentCount: number;
+    maxLimit: number;
+    upgradeUrl: string;
+    message: string;
+  } | null>(null);
 
   // New Vaga Form State
   const [nomeVaga, setNomeVaga] = useState("");
@@ -273,6 +280,23 @@ export function VagasView({
       });
 
       const data = await res.json();
+      if (res.status === 403 && data?.limitReached) {
+        setToastMsg(null);
+        setLimitReachedAlert({
+          planName: String(data.planName || "Atual"),
+          currentCount: Number(data.currentCount ?? 0),
+          maxLimit: Number(data.maxLimit ?? 0),
+          upgradeUrl: String(
+            data.upgradeUrl || "https://www.kantechrh.com.br/#pricing"
+          ),
+          message: String(
+            data.error ||
+              "Limite máximo de criação mensal do plano atingido. Faça o upgrade para continuar criando novos processos seletivos."
+          ),
+        });
+        setIsCreatingVaga(false);
+        return;
+      }
       if (!res.ok || !data.success || !data.vaga) {
         throw new Error(data.error || "Erro ao salvar vaga no banco de dados.");
       }
@@ -380,6 +404,52 @@ export function VagasView({
           </Button>
         </div>
       </div>
+
+      {limitReachedAlert && (
+        <div className="rounded-2xl border-2 border-[#ea580c] bg-orange-50/90 dark:bg-orange-950/30 p-5 shadow-md space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-[#ea580c] px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-white">
+                Limite Máximo Mensal Atingido • Plano {limitReachedAlert.planName}
+              </div>
+              <h3 className="mt-2 text-base font-extrabold text-slate-900 dark:text-white">
+                Você atingiu o limite de {limitReachedAlert.maxLimit} processo(s) seletivos criados no mês ({limitReachedAlert.currentCount}/{limitReachedAlert.maxLimit})
+              </h3>
+              <p className="mt-1 text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+                {limitReachedAlert.message}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLimitReachedAlert(null)}
+              className="rounded-lg p-1 text-slate-400 hover:text-slate-700"
+              aria-label="Fechar aviso"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <a
+              href={limitReachedAlert.upgradeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#ea580c] hover:bg-[#ea580c]/90 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all"
+            >
+              Fazer Upgrade de Plano
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                setLimitReachedAlert(null);
+                setFormOpen(false);
+              }}
+              className="inline-flex items-center justify-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100"
+            >
+              Continuar Acessando Minha Base
+            </button>
+          </div>
+        </div>
+      )}
 
       {toastMsg && (
         <div className="rounded-xl border border-[#18345B]/20 bg-[#18345B]/5 px-4 py-3 text-xs font-semibold text-[#18345B] dark:text-white flex items-center justify-between">

@@ -194,12 +194,17 @@ export function DiagnosticoAmpliadoView({
 
   // Sync when parent selectedTalento changes
   useEffect(() => {
-    if (selectedTalento?.nome) {
+    if (talentos.length === 0) {
+      setTalentoSelNome("");
+      setDiagInd(null);
+      return;
+    }
+    if (selectedTalento?.nome && talentos.some((t) => t.nome === selectedTalento.nome)) {
       setTalentoSelNome(selectedTalento.nome);
-    } else if (!talentoSelNome && talentos.length > 0) {
+    } else if (!talentoSelNome || !talentos.some((t) => t.nome === talentoSelNome)) {
       setTalentoSelNome(talentos[0].nome);
     }
-  }, [selectedTalento?.nome, talentos]);
+  }, [selectedTalento?.nome, talentos, talentoSelNome]);
 
   // Individual diagnosis state
   const [diagInd, setDiagInd] = useState<DiagnosticoAmpliadoResponse | null>(

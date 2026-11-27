@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin, normalizeKey } from "@/lib/supabase";
 import { VAGAS_MOCK } from "@/lib/mock-data";
+import {
+  getRequestTenantContext,
+  getPlanLimits,
+  getCurrentMonthStartIso,
+  UPGRADE_PLAN_URL,
+} from "@/lib/auth-security";
 
 export const dynamic = "force-dynamic";
 
@@ -55,9 +61,17 @@ function normalizeKan(val: string): string {
  */
 export async function GET(req: NextRequest) {
   try {
+    const ctx = getRequestTenantContext(req);
     const { searchParams } = new URL(req.url);
-    const tenantId = searchParams.get("tenant_id");
-    const isAdminMaster = searchParams.get("admin") === "true";
+    const queryTenantId = searchParams.get("tenant_id");
+
+    if (!ctx.isAdminKan && !ctx.tenantId) {
+      return NextResponse.json({
+        source: "supabase-empty",
+        count: 0,
+        vagas: [],
+      });
+    }
 
     const supabaseAdmin = getSupabaseAdmin();
 
@@ -67,13 +81,16 @@ export async function GET(req: NextRequest) {
       .order("id", { ascending: false });
     let procQuery = supabaseAdmin.from("processos_seletivos").select("*");
 
-    if (
-      tenantId &&
-      !isAdminMaster &&
-      tenantId !== "00000000-0000-0000-0000-000000000000"
+    if (!ctx.isAdminKan && ctx.tenantId) {
+      vagasQuery = vagasQuery.eq("tenant_id", ctx.tenantId);
+      procQuery = procQuery.eq("tenant_id", ctx.tenantId);
+    } else if (
+      ctx.isAdminKan &&
+      queryTenantId &&
+      queryTenantId !== "all"
     ) {
-      vagasQuery = vagasQuery.eq("tenant_id", tenantId);
-      procQuery = procQuery.eq("tenant_id", tenantId);
+      vagasQuery = vagasQuery.eq("tenant_id", queryTenantId);
+      procQuery = procQuery.eq("tenant_id", queryTenantId);
     }
 
     const [{ data: vagasData, error: vagasErr }, { data: procData }] =
@@ -81,15 +98,16 @@ export async function GET(req: NextRequest) {
 
     if (vagasErr) {
       return NextResponse.json({
-        source: "mock-fallback",
+        source: ctx.isAdminKan ? "mock-fallback" : "supabase-error",
         warning: vagasErr.message,
-        vagas: VAGAS_MOCK,
+        vagas: ctx.isAdminKan ? VAGAS_MOCK : [],
       });
     }
 
     if (!vagasData || vagasData.length === 0) {
       return NextResponse.json({
         source: "supabase-empty",
+        count: 0,
         vagas: [],
       });
     }
@@ -347,14 +365,14 @@ export async function POST(req: NextRequest) {
     }
 
     const supabaseAdmin = getSupabaseAdmin();
-    const empresaNome = (empresa && String(empresa).trim()) || "Mundo Kan";
+    const ctx = getRequestTenantContext(req, tenant_id);
+    const empresaNome =
+      (empresa && String(empresa).trim()) || ctx.empresa || "Mundo Kan";
 
-    // Resolução de tenant_id:
-    // 1. Se fornecido UUID válido, utiliza-o.
-    // 2. Senão, busca na tabela public.empresas pelo nome da empresa.
-    // 3. Fallback para tenant padrão '00000000-0000-0000-0000-000000000000'.
-    let resolvedTenantId = typeof tenant_id === "string" && tenant_id.length > 20 ? tenant_id : null;
-    if (!resolvedTenantId && empresaNome) {
+    let resolvedTenantId =
+      ctx.tenantId ||
+      (typeof tenant_id === "string" && tenant_id.length > 20 ? tenant_id : null);
+    if (!resolvedTenantId && ctx.isAdminKan && empresaNome) {
       const { data: empMatch } = await supabaseAdmin
         .from("empresas")
         .select("tenant_id")
@@ -366,6 +384,43 @@ export async function POST(req: NextRequest) {
     }
     if (!resolvedTenantId) {
       resolvedTenantId = "00000000-0000-0000-0000-000000000000";
+    }
+
+    const isEdit = Boolean(id && Number(id) > 0 && Number(id) < 1000000000);
+
+    // Se for um NOVO processo seletivo / vaga e o usuário não for adminkan, valida o limite mensal do plano
+    if (!isEdit && !ctx.isAdminKan) {
+      const { data: tenantRow } = await supabaseAdmin
+        .from("tenants")
+        .select("tier")
+        .eq("id", resolvedTenantId)
+        .maybeSingle();
+
+      const planLimits = getPlanLimits(tenantRow?.tier || ctx.tenantTier);
+      const monthStartIso = getCurrentMonthStartIso();
+
+      const { count: monthCount } = await supabaseAdmin
+        .from("vagas")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", resolvedTenantId)
+        .gte("created_at", monthStartIso);
+
+      const currentCreatedThisMonth = monthCount ?? 0;
+      if (currentCreatedThisMonth >= planLimits.maxProcessosMes) {
+        return NextResponse.json(
+          {
+            success: false,
+            limitReached: true,
+            resource: "processos",
+            planName: planLimits.label,
+            currentCount: currentCreatedThisMonth,
+            maxLimit: planLimits.maxProcessosMes,
+            upgradeUrl: UPGRADE_PLAN_URL,
+            error: `Limite máximo mensal do Plano ${planLimits.label} atingido (${currentCreatedThisMonth}/${planLimits.maxProcessosMes} processos seletivos criados neste mês). Você continua com acesso completo à sua base criada. Faça o upgrade de plano se desejar continuar criando novos processos.`,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     const candidatoSelecionadoLimpo =
@@ -407,7 +462,6 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    const isEdit = id && Number(id) > 0 && Number(id) < 1000000000;
     let savedVaga: any = null;
     let vagaError: any = null;
 
@@ -421,6 +475,7 @@ export async function POST(req: NextRequest) {
       savedVaga = res.data;
       vagaError = res.error;
     } else {
+      vagaPayload.created_at = new Date().toISOString();
       const res = await supabaseAdmin
         .from("vagas")
         .insert(vagaPayload)

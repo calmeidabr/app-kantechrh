@@ -3,6 +3,12 @@ import { getSupabaseAdmin, callMamEngine, normalizeKey } from "@/lib/supabase";
 import { TALENTOS_MOCK, TalentoProfile, KanType, DetalheAtributoAuditoria } from "@/lib/mock-data";
 import { invalidateDiagnosticoCache } from "@/lib/diagnostico-cache";
 import { invalidateFotoCache, setFotoCache } from "@/lib/foto-cache";
+import {
+  getRequestTenantContext,
+  getPlanLimits,
+  getCurrentMonthStartIso,
+  UPGRADE_PLAN_URL,
+} from "@/lib/auth-security";
 
 export const dynamic = "force-dynamic";
 
@@ -390,26 +396,37 @@ function mapSupabaseRowToTalento(
  */
 export async function GET(req: NextRequest) {
   try {
+    const ctx = getRequestTenantContext(req);
     const { searchParams } = new URL(req.url);
-    const tenantId = searchParams.get("tenant_id");
-    const isAdminMaster = searchParams.get("admin") === "true";
+    const queryTenantId = searchParams.get("tenant_id");
+
+    // Se não for adminkan e não houver tenant autenticado, retorna lista vazia (isolamento multi-tenant)
+    if (!ctx.isAdminKan && !ctx.tenantId) {
+      return NextResponse.json({
+        source: "supabase-empty",
+        count: 0,
+        talentos: [],
+      });
+    }
 
     const supabaseAdmin = getSupabaseAdmin();
 
     let mapasQuery = supabaseAdmin
       .from("mapas_salvos")
       .select(
-        "id, nome, data_nascimento, profissao, cargo, grupo, empresa, departamento, linkedin_url, experiencias, lider, perfil_json, ai_diagnosis, tenant_id"
+        "id, nome, data_nascimento, profissao, cargo, grupo, empresa, departamento, linkedin_url, experiencias, lider, perfil_json, ai_diagnosis, tenant_id, criado_em"
       )
       .order("nome", { ascending: true })
       .limit(1000);
 
-    if (
-      tenantId &&
-      !isAdminMaster &&
-      tenantId !== "00000000-0000-0000-0000-000000000000"
+    if (!ctx.isAdminKan && ctx.tenantId) {
+      mapasQuery = mapasQuery.eq("tenant_id", ctx.tenantId);
+    } else if (
+      ctx.isAdminKan &&
+      queryTenantId &&
+      queryTenantId !== "all"
     ) {
-      mapasQuery = mapasQuery.eq("tenant_id", tenantId);
+      mapasQuery = mapasQuery.eq("tenant_id", queryTenantId);
     }
 
     const [{ data: mapasData, error: mapasError }, { data: valoresData }] =
@@ -420,16 +437,16 @@ export async function GET(req: NextRequest) {
 
     if (mapasError) {
       return NextResponse.json({
-        source: "mock-fallback",
+        source: ctx.isAdminKan ? "mock-fallback" : "supabase-error",
         warning: mapasError.message,
-        count: TALENTOS_MOCK.length,
-        talentos: TALENTOS_MOCK,
+        count: ctx.isAdminKan ? TALENTOS_MOCK.length : 0,
+        talentos: ctx.isAdminKan ? TALENTOS_MOCK : [],
       });
     }
 
     if (!mapasData || mapasData.length === 0) {
       return NextResponse.json({
-        source: "mock-empty-db",
+        source: "supabase-empty",
         count: 0,
         talentos: [],
       });
@@ -547,18 +564,69 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const ctx = getRequestTenantContext(req, tenant_id);
+    const effectiveTenantId =
+      ctx.tenantId || tenant_id || "00000000-0000-0000-0000-000000000000";
+    const effectiveEmpresa =
+      (empresa && String(empresa).trim()) || ctx.empresa || "Mundo Kan";
+
+    const nomeTrim = String(nome).trim();
+    const dataNascTrim = String(data_nascimento).trim();
+    const supabaseAdmin = getSupabaseAdmin();
+
+    // Verifica se o talento já existe DENTRO do mesmo tenant_id
+    const { data: existingMapa } = await supabaseAdmin
+      .from("mapas_salvos")
+      .select("id")
+      .eq("tenant_id", effectiveTenantId)
+      .ilike("nome", nomeTrim)
+      .limit(1)
+      .maybeSingle();
+
+    // Se for um NOVO cadastro e o usuário não for adminkan, valida o limite mensal do plano
+    if (!existingMapa?.id && !ctx.isAdminKan) {
+      const { data: tenantRow } = await supabaseAdmin
+        .from("tenants")
+        .select("tier")
+        .eq("id", effectiveTenantId)
+        .maybeSingle();
+
+      const planLimits = getPlanLimits(tenantRow?.tier || ctx.tenantTier);
+      const monthStartIso = getCurrentMonthStartIso();
+
+      const { count: monthCount } = await supabaseAdmin
+        .from("mapas_salvos")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", effectiveTenantId)
+        .gte("criado_em", monthStartIso);
+
+      const currentCreatedThisMonth = monthCount ?? 0;
+      if (currentCreatedThisMonth >= planLimits.maxTalentosMes) {
+        return NextResponse.json(
+          {
+            success: false,
+            limitReached: true,
+            resource: "talentos",
+            planName: planLimits.label,
+            currentCount: currentCreatedThisMonth,
+            maxLimit: planLimits.maxTalentosMes,
+            upgradeUrl: UPGRADE_PLAN_URL,
+            error: `Limite máximo mensal do Plano ${planLimits.label} atingido (${currentCreatedThisMonth}/${planLimits.maxTalentosMes} talentos criados neste mês). Você continua com acesso completo à sua base criada. Faça o upgrade de plano se desejar continuar cadastrando.`,
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     const mamResponse = await callMamEngine<Record<string, unknown>>(
       "/api/v1/calcular-completo",
       {
         nome,
         data_nascimento,
         cargo: cargo || profissao || "",
-        empresa: empresa || "Mundo Kan",
+        empresa: effectiveEmpresa,
       }
     );
-
-    const nomeTrim = String(nome).trim();
-    const dataNascTrim = String(data_nascimento).trim();
 
     if (!mamResponse.ok || !mamResponse.data) {
       return NextResponse.json(
@@ -574,7 +642,6 @@ export async function POST(req: NextRequest) {
 
     const calcData: Record<string, unknown> = mamResponse.data;
 
-    const supabaseAdmin = getSupabaseAdmin();
     const perfilJsonStr = calcData?.perfil_json
       ? typeof calcData.perfil_json === "string"
         ? calcData.perfil_json
@@ -588,25 +655,21 @@ export async function POST(req: NextRequest) {
       cargo: cargo || profissao || "Analista Sênior",
       grupo: grupo || departamento || "Geral",
       departamento: departamento || grupo || "Diretoria Executiva",
-      empresa: empresa || "Mundo Kan",
+      empresa: effectiveEmpresa,
       linkedin_url: linkedin_url || "",
       experiencias: experiencias || "",
       lider: Boolean(lider),
       perfil_json: perfilJsonStr,
-      tenant_id: tenant_id || "00000000-0000-0000-0000-000000000000",
+      tenant_id: effectiveTenantId,
     };
+
+    if (!existingMapa?.id) {
+      upsertMapaPayload.criado_em = new Date().toISOString();
+    }
 
     if (foto_base64) {
       upsertMapaPayload.foto_base64 = String(foto_base64).trim();
     }
-
-    // Verifica se o talento já existe em mapas_salvos (como 'nome' não tem UNIQUE constraint no banco, fazemos select + update/insert)
-    const { data: existingMapa } = await supabaseAdmin
-      .from("mapas_salvos")
-      .select("id")
-      .ilike("nome", nomeTrim)
-      .limit(1)
-      .maybeSingle();
 
     let savedMapa = null;
     let saveError = null;
@@ -781,6 +844,10 @@ export async function PUT(req: NextRequest) {
     const nomeTrim = String(nome).trim();
     const dataNascTrim = String(data_nascimento).trim();
 
+    const ctx = getRequestTenantContext(req, tenant_id);
+    const effectiveTenantId =
+      ctx.tenantId || tenant_id || "00000000-0000-0000-0000-000000000000";
+
     const updatePayload: Record<string, unknown> = {
       nome: nomeTrim,
       data_nascimento: dataNascTrim,
@@ -788,13 +855,15 @@ export async function PUT(req: NextRequest) {
       cargo: cargo || profissao || "Analista Sênior",
       grupo: grupo || departamento || "Geral",
       departamento: departamento || grupo || "Diretoria Executiva",
-      empresa: empresa || "Mundo Kan",
+      empresa: empresa || ctx.empresa || "Mundo Kan",
       linkedin_url: linkedin_url || "",
       experiencias: experiencias || "",
       lider: Boolean(lider),
     };
 
-    if (tenant_id) updatePayload.tenant_id = tenant_id;
+    if (!ctx.isAdminKan || tenant_id) {
+      updatePayload.tenant_id = effectiveTenantId;
+    }
     if (perfilJsonStr) updatePayload.perfil_json = perfilJsonStr;
     if (foto_base64 !== undefined) {
       updatePayload.foto_base64 = foto_base64 ? String(foto_base64).trim() : null;
@@ -805,23 +874,29 @@ export async function PUT(req: NextRequest) {
 
     // Update by ID if provided and valid
     if (id && !String(id).startsWith("mock-") && !isNaN(Number(id))) {
-      const res = await supabaseAdmin
+      let updByIdQuery = supabaseAdmin
         .from("mapas_salvos")
         .update(updatePayload)
-        .eq("id", Number(id))
-        .select()
-        .maybeSingle();
+        .eq("id", Number(id));
+      if (!ctx.isAdminKan) {
+        updByIdQuery = updByIdQuery.eq("tenant_id", effectiveTenantId);
+      }
+      const res = await updByIdQuery.select().maybeSingle();
       savedMapa = res.data;
       saveError = res.error;
     }
 
-    // Fallback: update by originalNome or nome
+    // Fallback: update by originalNome or nome (scoped by tenant_id)
     if (!savedMapa) {
       const searchName = String(originalNome || nomeTrim).trim();
-      const { data: existingByName } = await supabaseAdmin
+      let findByNameQuery = supabaseAdmin
         .from("mapas_salvos")
         .select("id")
-        .ilike("nome", searchName)
+        .ilike("nome", searchName);
+      if (!ctx.isAdminKan) {
+        findByNameQuery = findByNameQuery.eq("tenant_id", effectiveTenantId);
+      }
+      const { data: existingByName } = await findByNameQuery
         .limit(1)
         .maybeSingle();
 
@@ -841,7 +916,8 @@ export async function PUT(req: NextRequest) {
     if (!savedMapa && !saveError) {
       const insertPayload = {
         ...updatePayload,
-        tenant_id: tenant_id || "00000000-0000-0000-0000-000000000000",
+        tenant_id: effectiveTenantId,
+        criado_em: new Date().toISOString(),
       };
       const res = await supabaseAdmin
         .from("mapas_salvos")

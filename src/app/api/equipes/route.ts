@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { EQUIPES_MOCK } from "@/lib/mock-data";
+import {
+  getRequestTenantContext,
+  getPlanLimits,
+  getCurrentMonthStartIso,
+  UPGRADE_PLAN_URL,
+} from "@/lib/auth-security";
 
 export const dynamic = "force-dynamic";
 
@@ -41,9 +47,17 @@ function parseMembros(raw: unknown): { nome: string; lider: boolean }[] {
  */
 export async function GET(req: NextRequest) {
   try {
+    const ctx = getRequestTenantContext(req);
     const { searchParams } = new URL(req.url);
-    const tenantId = searchParams.get("tenant_id");
-    const isAdminMaster = searchParams.get("admin") === "true";
+    const queryTenantId = searchParams.get("tenant_id");
+
+    if (!ctx.isAdminKan && !ctx.tenantId) {
+      return NextResponse.json({
+        source: "supabase-empty",
+        count: 0,
+        equipes: [],
+      });
+    }
 
     const supabaseAdmin = getSupabaseAdmin();
     let query = supabaseAdmin
@@ -52,27 +66,30 @@ export async function GET(req: NextRequest) {
       .order("nome", { ascending: true })
       .limit(500);
 
-    if (
-      tenantId &&
-      !isAdminMaster &&
-      tenantId !== "00000000-0000-0000-0000-000000000000"
+    if (!ctx.isAdminKan && ctx.tenantId) {
+      query = query.eq("tenant_id", ctx.tenantId);
+    } else if (
+      ctx.isAdminKan &&
+      queryTenantId &&
+      queryTenantId !== "all"
     ) {
-      query = query.eq("tenant_id", tenantId);
+      query = query.eq("tenant_id", queryTenantId);
     }
 
     const { data, error } = await query;
 
     if (error) {
       return NextResponse.json({
-        source: "mock-fallback",
+        source: ctx.isAdminKan ? "mock-fallback" : "supabase-error",
         warning: error.message,
-        equipes: EQUIPES_MOCK,
+        equipes: ctx.isAdminKan ? EQUIPES_MOCK : [],
       });
     }
 
     if (!data || data.length === 0) {
       return NextResponse.json({
         source: "supabase-empty",
+        count: 0,
         equipes: [],
       });
     }
@@ -147,23 +164,27 @@ export async function POST(req: NextRequest) {
 
     const nomeTrim = String(nome).trim();
     const supabaseAdmin = getSupabaseAdmin();
+    const ctx = getRequestTenantContext(req, tenant_id);
 
     // 1. Valida e garante tenant_id existente no banco (evita erro de chave estrangeira)
-    let validTenantId = "00000000-0000-0000-0000-000000000000";
-    if (tenant_id && typeof tenant_id === "string" && tenant_id.trim()) {
-      const { data: tenantRow } = await supabaseAdmin
-        .from("tenants")
-        .select("id")
-        .eq("id", tenant_id.trim())
-        .maybeSingle();
-      if (tenantRow?.id) {
-        validTenantId = tenantRow.id;
-      }
+    let validTenantId =
+      ctx.tenantId ||
+      (tenant_id && typeof tenant_id === "string" ? tenant_id.trim() : "") ||
+      "00000000-0000-0000-0000-000000000000";
+
+    const { data: tenantRow } = await supabaseAdmin
+      .from("tenants")
+      .select("id, tier")
+      .eq("id", validTenantId)
+      .maybeSingle();
+
+    if (!tenantRow?.id) {
+      validTenantId = "00000000-0000-0000-0000-000000000000";
     }
 
     const payload: Record<string, unknown> = {
       nome: nomeTrim,
-      empresa: empresa || "Mundo Kan",
+      empresa: empresa || ctx.empresa || "Mundo Kan",
       departamento: departamento || "Geral",
       membros: Array.isArray(membros) ? membros : [],
       tenant_id: validTenantId,
@@ -178,22 +199,54 @@ export async function POST(req: NextRequest) {
 
     let existingId: number | null = null;
     if (id && !String(id).startsWith("eq-") && !isNaN(Number(id))) {
-      const { data: byId } = await supabaseAdmin
+      let byIdQuery = supabaseAdmin
         .from("equipes")
         .select("id")
-        .eq("id", Number(id))
-        .maybeSingle();
+        .eq("id", Number(id));
+      if (!ctx.isAdminKan) {
+        byIdQuery = byIdQuery.eq("tenant_id", validTenantId);
+      }
+      const { data: byId } = await byIdQuery.maybeSingle();
       if (byId?.id) existingId = Number(byId.id);
     }
 
     if (!existingId) {
-      const { data: byName } = await supabaseAdmin
+      let byNameQuery = supabaseAdmin
         .from("equipes")
         .select("id")
-        .ilike("nome", nomeTrim)
-        .limit(1)
-        .maybeSingle();
+        .eq("tenant_id", validTenantId)
+        .ilike("nome", nomeTrim);
+      const { data: byName } = await byNameQuery.limit(1).maybeSingle();
       if (byName?.id) existingId = Number(byName.id);
+    }
+
+    // Se for uma NOVA equipe e o usuário não for adminkan, valida o limite mensal do plano
+    if (!existingId && !ctx.isAdminKan) {
+      const planLimits = getPlanLimits(tenantRow?.tier || ctx.tenantTier);
+      const monthStartIso = getCurrentMonthStartIso();
+
+      const { count: monthCount } = await supabaseAdmin
+        .from("equipes")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", validTenantId)
+        .gte("created_at", monthStartIso);
+
+      const currentCreatedThisMonth = monthCount ?? 0;
+      if (currentCreatedThisMonth >= planLimits.maxEquipesMes) {
+        return NextResponse.json(
+          {
+            success: false,
+            limitReached: true,
+            resource: "equipes",
+            planName: planLimits.label,
+            currentCount: currentCreatedThisMonth,
+            maxLimit: planLimits.maxEquipesMes,
+            upgradeUrl: UPGRADE_PLAN_URL,
+            error: `Limite máximo mensal do Plano ${planLimits.label} atingido (${currentCreatedThisMonth}/${planLimits.maxEquipesMes} equipes criadas neste mês). Você continua com acesso completo à sua base criada. Faça o upgrade de plano se desejar continuar criando novas equipes.`,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     let data = null;
@@ -208,6 +261,7 @@ export async function POST(req: NextRequest) {
       data = res.data?.[0] || null;
       error = res.error;
     } else {
+      payload.created_at = new Date().toISOString();
       const res = await supabaseAdmin
         .from("equipes")
         .insert(payload)

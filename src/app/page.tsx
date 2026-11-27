@@ -147,6 +147,8 @@ interface AuthUserSession {
   direitos: "admin master" | "Editor" | "Analista" | "Comum" | string;
   empresa: string;
   tenant_id: string;
+  tenant_name?: string;
+  tenant_tier?: string;
   status: string;
 }
 
@@ -255,12 +257,10 @@ export default function KantechApp() {
   const [sidebarQuery, setSidebarQuery] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("Todos");
   const [homeTalentosVisibleCount, setHomeTalentosVisibleCount] = useState(10);
-  const [selectedTalento, setSelectedTalento] = useState<TalentoProfile>(
-    TALENTOS_MOCK[0]
-  );
-  const [selectedVagaId, setSelectedVagaId] = useState<number>(
-    VAGAS_MOCK[0].id
-  );
+  const [selectedTalento, setSelectedTalento] = useState<
+    TalentoProfile | undefined
+  >(undefined);
+  const [selectedVagaId, setSelectedVagaId] = useState<number>(0);
   const [initialOpenEquipe, setInitialOpenEquipe] = useState<string | null>(
     null
   );
@@ -426,14 +426,15 @@ export default function KantechApp() {
 
   const isAdminMaster = Boolean(
     authUser &&
-      (String(authUser.direitos || "").toLowerCase() === "admin master" ||
-        authUser.usuario === "adminkan")
+      String(authUser.usuario || "")
+        .trim()
+        .toLowerCase() === "adminkan"
   );
 
-  // Stateful collections so changes in Talentos / Equipes / Vagas / Processos reflect everywhere
-  const [talentos, setTalentos] = useState<TalentoProfile[]>(TALENTOS_MOCK);
-  const [equipes, setEquipes] = useState<EquipeData[]>(EQUIPES_MOCK);
-  const [vagas, setVagas] = useState<VagaData[]>(VAGAS_MOCK);
+  // Stateful collections so changes in Talentos / Equipes / Vagas / Processos reflect everywhere (inicializados vazios para isolamento multi-tenant)
+  const [talentos, setTalentos] = useState<TalentoProfile[]>([]);
+  const [equipes, setEquipes] = useState<EquipeData[]>([]);
+  const [vagas, setVagas] = useState<VagaData[]>([]);
   const [bffStatus, setBffStatus] = useState<{
     supabase: string;
     mamEngine: string;
@@ -543,44 +544,76 @@ export default function KantechApp() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [talentos]);
 
-  // Sync live data from Next.js BFF API routes (Supabase + mam-kantechrh)
+  // Sync live data from Next.js BFF API routes (Supabase + mam-kantechrh), isolado por Tenant
   useEffect(() => {
     let mounted = true;
     async function hydrateFromBff() {
+      if (!authUser) {
+        if (mounted) {
+          setTalentos([]);
+          setEquipes([]);
+          setVagas([]);
+          setSelectedTalento(undefined);
+          setSelectedVagaId(0);
+        }
+        return;
+      }
+
+      const tenantParam = authUser.tenant_id
+        ? `tenant_id=${encodeURIComponent(authUser.tenant_id)}&admin=${
+            isAdminMaster ? "true" : "false"
+          }`
+        : `admin=${isAdminMaster ? "true" : "false"}`;
+
       try {
         const [talRes, eqRes, vagRes, empRes, diagRes] = await Promise.all([
-          fetch("/api/talentos", { cache: "no-store" })
+          fetch(`/api/talentos?${tenantParam}`, {
+            cache: "no-store",
+            credentials: "include",
+          })
             .then((r) => r.json())
             .catch(() => null),
-          fetch("/api/equipes", { cache: "no-store" })
+          fetch(`/api/equipes?${tenantParam}`, {
+            cache: "no-store",
+            credentials: "include",
+          })
             .then((r) => r.json())
             .catch(() => null),
-          fetch("/api/vagas", { cache: "no-store" })
+          fetch(`/api/vagas?${tenantParam}`, {
+            cache: "no-store",
+            credentials: "include",
+          })
             .then((r) => r.json())
             .catch(() => null),
-          fetch("/api/empresas", { cache: "no-store" })
+          fetch(`/api/empresas?${tenantParam}`, {
+            cache: "no-store",
+            credentials: "include",
+          })
             .then((r) => r.json())
             .catch(() => null),
-          fetch("/api/diagnostico", { cache: "no-store" })
+          fetch("/api/diagnostico", {
+            cache: "no-store",
+            credentials: "include",
+          })
             .then((r) => r.json())
             .catch(() => null),
         ]);
 
         if (!mounted) return;
 
-        if (
-          talRes?.talentos &&
-          Array.isArray(talRes.talentos) &&
-          talRes.talentos.length > 0
-        ) {
-          setTalentos(talRes.talentos);
-          let chosen = talRes.talentos[0];
+        const loadedTalentos: TalentoProfile[] = Array.isArray(talRes?.talentos)
+          ? talRes.talentos
+          : [];
+        setTalentos(loadedTalentos);
+
+        if (loadedTalentos.length > 0) {
+          let chosen = loadedTalentos[0];
           if (typeof window !== "undefined") {
             const talParam = new URL(window.location.href).searchParams.get(
               "talento"
             );
             if (talParam) {
-              const found = talRes.talentos.find(
+              const found = loadedTalentos.find(
                 (t: TalentoProfile) =>
                   String(t.id) === talParam ||
                   t.codigo === talParam ||
@@ -590,29 +623,29 @@ export default function KantechApp() {
             }
           }
           setSelectedTalento(chosen);
+        } else {
+          setSelectedTalento(undefined);
         }
-        if (
-          eqRes?.equipes &&
-          Array.isArray(eqRes.equipes) &&
-          eqRes.equipes.length > 0
-        ) {
-          setEquipes(eqRes.equipes);
-          if (typeof window !== "undefined") {
-            const eqParam = new URL(window.location.href).searchParams.get(
-              "equipe"
-            );
-            if (eqParam) {
-              setInitialOpenEquipe(eqParam);
-            }
+
+        const loadedEquipes: EquipeData[] = Array.isArray(eqRes?.equipes)
+          ? eqRes.equipes
+          : [];
+        setEquipes(loadedEquipes);
+        if (loadedEquipes.length > 0 && typeof window !== "undefined") {
+          const eqParam = new URL(window.location.href).searchParams.get(
+            "equipe"
+          );
+          if (eqParam) {
+            setInitialOpenEquipe(eqParam);
           }
         }
-        if (
-          vagRes?.vagas &&
-          Array.isArray(vagRes.vagas) &&
-          vagRes.vagas.length > 0
-        ) {
-          setVagas(vagRes.vagas);
-          let initialVId = vagRes.vagas[0].id;
+
+        const loadedVagas: VagaData[] = Array.isArray(vagRes?.vagas)
+          ? vagRes.vagas
+          : [];
+        setVagas(loadedVagas);
+        if (loadedVagas.length > 0) {
+          let initialVId = loadedVagas[0].id;
           if (typeof window !== "undefined") {
             const vagParam = new URL(window.location.href).searchParams.get(
               "vaga"
@@ -621,14 +654,23 @@ export default function KantechApp() {
               const parsed = parseInt(vagParam, 10);
               if (
                 !isNaN(parsed) &&
-                vagRes.vagas.some((v: VagaData) => v.id === parsed)
+                loadedVagas.some((v: VagaData) => v.id === parsed)
               ) {
                 initialVId = parsed;
               }
             }
           }
           setSelectedVagaId(initialVId);
+        } else {
+          setSelectedVagaId(0);
         }
+
+        const userPlanLabel = String(
+          authUser.tenant_tier || (isAdminMaster ? "alta_performance" : "free")
+        )
+          .toUpperCase()
+          .replace(/_/g, " ");
+
         if (
           empRes?.empresas &&
           Array.isArray(empRes.empresas) &&
@@ -645,31 +687,44 @@ export default function KantechApp() {
           const mappedTenants = empRes.empresas.map(
             (e: Record<string, unknown>, idx: number) => ({
               id: String(e.id || `emp-${idx}`),
-              nome: String(e.nome || "Mundo Kan"),
-              plano: idx === 0 ? "Enterprise" : "Business Growth",
+              nome: String(
+                e.nome_empresa || e.nome || authUser.empresa || "Minha Empresa"
+              ),
+              plano: `Plano ${userPlanLabel}`,
               cor: palette[idx % palette.length],
               ativa: idx === 0,
             })
           );
           setEmpresasTenantList(mappedTenants);
           setSelectedTenant(mappedTenants[0]);
+        } else {
+          const fallbackTenantItem = {
+            id: authUser.tenant_id || "tenant-current",
+            nome: authUser.empresa || authUser.tenant_name || "Minha Empresa",
+            plano: `Plano ${userPlanLabel}`,
+            cor: "#18345B",
+            ativa: true,
+          };
+          setEmpresasTenantList([fallbackTenantItem]);
+          setSelectedTenant(fallbackTenantItem);
         }
+
         setBffStatus({
           supabase:
             diagRes?.supabase?.status ||
-            (talRes?.source === "supabase" ? "online" : "fallback"),
+            (talRes?.source?.startsWith("supabase") ? "online" : "fallback"),
           mamEngine: diagRes?.mamEngine?.status || "standby",
-          source: talRes?.source || "mock",
+          source: talRes?.source || "supabase",
         });
       } catch {
-        // Keep mock fallback
+        // Em caso de falha de rede, mantém arrays vazios
       }
     }
     hydrateFromBff();
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [authUser, isAdminMaster]);
 
   // Collapsible Sidebar Groups
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
@@ -1948,16 +2003,27 @@ export default function KantechApp() {
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        <div>
-                          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                            {vagas[0]?.nome_vaga} ({vagas[0]?.senioridade})
+                        {vagas[0] ? (
+                          <div>
+                            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                              {vagas[0].nome_vaga} ({vagas[0].senioridade})
+                            </div>
+                            <div className="text-xs text-slate-400 mt-0.5">
+                              {vagas[0].departamento} •{" "}
+                              {vagas[0].candidatos_associados?.length || 0} Candidatos
+                              Associados
+                            </div>
                           </div>
-                          <div className="text-xs text-slate-400 mt-0.5">
-                            {vagas[0]?.departamento} •{" "}
-                            {vagas[0]?.candidatos_associados.length} Candidatos
-                            Associados
+                        ) : (
+                          <div>
+                            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                              Nenhum processo seletivo criado
+                            </div>
+                            <div className="text-xs text-slate-400 mt-0.5">
+                              Cadastre sua primeira vaga para iniciar o matching KAN
+                            </div>
                           </div>
-                        </div>
+                        )}
 
                         <div className="flex items-center gap-3">
                           <div className="flex -space-x-2.5 overflow-hidden">
@@ -1976,10 +2042,14 @@ export default function KantechApp() {
                         </div>
 
                         <Button
-                          onClick={() => navigateTo("Processo seletivo")}
+                          onClick={() =>
+                            navigateTo(vagas[0] ? "Processo seletivo" : "Vagas")
+                          }
                           className="w-full bg-slate-950 hover:bg-[#18345B] dark:bg-[#2563EB] dark:hover:bg-[#1D4ED8] text-white font-semibold h-10 rounded-xl"
                         >
-                          Analisar Processo Seletivo
+                          {vagas[0]
+                            ? "Analisar Processo Seletivo"
+                            : "Criar Primeiro Processo Seletivo"}
                         </Button>
                       </CardContent>
                     </Card>

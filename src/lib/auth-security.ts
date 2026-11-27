@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import type { NextResponse } from "next/server";
+import type { NextRequest, NextResponse } from "next/server";
 
 export const SESSION_COOKIE_NAME = "kantech_session";
 export const IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutos de inatividade
@@ -231,4 +231,146 @@ export function recordFailedLoginAttempt(key: string): void {
 
 export function clearFailedLoginAttempts(key: string): void {
   failedAttemptsStore.delete(key);
+}
+
+/**
+ * URL oficial de upgrade de plano no site KantechRH
+ */
+export const UPGRADE_PLAN_URL = "https://www.kantechrh.com.br/#pricing";
+
+export interface PlanQuotaConfig {
+  tier: string;
+  label: string;
+  maxTalentosMes: number;
+  maxProcessosMes: number;
+  maxEquipesMes: number;
+  maxUsuarios: number;
+}
+
+export const PLAN_LIMITS: Record<string, PlanQuotaConfig> = {
+  free: {
+    tier: "free",
+    label: "FREE",
+    maxTalentosMes: 5,
+    maxProcessosMes: 1,
+    maxEquipesMes: 1,
+    maxUsuarios: 1,
+  },
+  start: {
+    tier: "start",
+    label: "START",
+    maxTalentosMes: 10,
+    maxProcessosMes: 3,
+    maxEquipesMes: 3,
+    maxUsuarios: 1,
+  },
+  intermediario: {
+    tier: "intermediario",
+    label: "INTERMEDIÁRIO",
+    maxTalentosMes: 50,
+    maxProcessosMes: 10,
+    maxEquipesMes: 10,
+    maxUsuarios: 3,
+  },
+  business: {
+    tier: "business",
+    label: "BUSINESS",
+    maxTalentosMes: 100,
+    maxProcessosMes: 30,
+    maxEquipesMes: 30,
+    maxUsuarios: 10,
+  },
+  pro: {
+    tier: "pro",
+    label: "PRO",
+    maxTalentosMes: 300,
+    maxProcessosMes: 50,
+    maxEquipesMes: 70,
+    maxUsuarios: 15,
+  },
+  alta_performance: {
+    tier: "alta_performance",
+    label: "ALTA PERFORMANCE",
+    maxTalentosMes: 700,
+    maxProcessosMes: 75,
+    maxEquipesMes: 100,
+    maxUsuarios: 15,
+  },
+};
+
+export function getPlanLimits(tier?: string | null): PlanQuotaConfig {
+  const norm = String(tier || "free")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "_");
+  return PLAN_LIMITS[norm] || PLAN_LIMITS.free;
+}
+
+export function getCurrentMonthStartIso(): string {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0)).toISOString();
+}
+
+export interface RequestTenantContext {
+  authenticated: boolean;
+  isAdminKan: boolean;
+  tenantId: string | null;
+  tenantTier: string;
+  empresa: string;
+  user: AuthUserSession | null;
+}
+
+/**
+ * Extrai o contexto Multi-Tenant diretamente do cookie HttpOnly assinado (`kantech_session`).
+ * Somente o usuário `adminkan` possui acesso global irrestrito à base total.
+ * Todos os demais usuários enxergam e manipulam exclusivamente os registros do seu próprio `tenant_id`.
+ */
+export function getRequestTenantContext(
+  req: NextRequest,
+  bodyTenantId?: string | null
+): RequestTenantContext {
+  const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const check = verifySessionToken(token);
+  const { searchParams } = new URL(req.url);
+  const queryTenantId = searchParams.get("tenant_id");
+
+  if (check.valid && check.payload?.user) {
+    const u = check.payload.user;
+    const isAdminKan =
+      String(u.usuario || "")
+        .trim()
+        .toLowerCase() === "adminkan";
+
+    const effectiveTenantId = isAdminKan
+      ? queryTenantId || bodyTenantId || u.tenant_id || null
+      : u.tenant_id || queryTenantId || bodyTenantId || null;
+
+    return {
+      authenticated: true,
+      isAdminKan,
+      tenantId: effectiveTenantId,
+      tenantTier: u.tenant_tier || "free",
+      empresa: u.empresa || u.tenant_name || "Workspace KantechRH",
+      user: u,
+    };
+  }
+
+  // Sem cookie de sessão válido: se informou tenant_id explícito na query/body (ex: chamada interna), isola por ele; nunca libera base global
+  const fallbackTenant =
+    queryTenantId && queryTenantId !== "00000000-0000-0000-0000-000000000000"
+      ? queryTenantId
+      : bodyTenantId && bodyTenantId !== "00000000-0000-0000-0000-000000000000"
+      ? bodyTenantId
+      : null;
+
+  return {
+    authenticated: false,
+    isAdminKan: false,
+    tenantId: fallbackTenant,
+    tenantTier: "free",
+    empresa: "Workspace KantechRH",
+    user: null,
+  };
 }

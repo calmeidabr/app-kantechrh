@@ -313,10 +313,8 @@ export function OrganogramaView({
   onInspectTalento,
   onAnalisarProcesso,
 }: OrganogramaViewProps) {
-  const [empresas, setEmpresas] = useState<EmpresaRecord[]>(INITIAL_EMPRESAS);
-  const [selectedEmpresa, setSelectedEmpresa] = useState<string>(
-    INITIAL_EMPRESAS[0].nome_empresa
-  );
+  const [empresas, setEmpresas] = useState<EmpresaRecord[]>([]);
+  const [selectedEmpresa, setSelectedEmpresa] = useState<string>("");
   const [showEmpresasPanel, setShowEmpresasPanel] = useState(false);
 
   // Toast feedback state for microinteractions
@@ -335,9 +333,7 @@ export function OrganogramaView({
   const [novaEmpresaResp, setNovaEmpresaResp] = useState("");
 
   // Hierarchy & Departments state
-  const [departamentos, setDepartamentos] = useState<DepartamentoNode[]>(
-    INITIAL_DEPARTAMENTOS
-  );
+  const [departamentos, setDepartamentos] = useState<DepartamentoNode[]>([]);
   const [selectedDeptId, setSelectedDeptId] = useState<string>("all");
   const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>({
     dept_root: true,
@@ -384,23 +380,23 @@ export function OrganogramaView({
   );
   const [vincularLider, setVincularLider] = useState(false);
 
-  // Load real Empresas & Hierarquia from Supabase on mount
+  // Load real Empresas & Hierarquia from Supabase on mount (isolated by tenant)
   useEffect(() => {
     let active = true;
-    fetch("/api/empresas")
+    fetch("/api/empresas", { credentials: "include", cache: "no-store" })
       .then((r) => r.json())
       .then((res) => {
         if (!active) return;
-        if (Array.isArray(res?.empresas) && res.empresas.length > 0) {
+        if (Array.isArray(res?.empresas)) {
           const mappedEmps: EmpresaRecord[] = res.empresas.map(
             (e: Record<string, unknown>, idx: number) => ({
               id: String(e.id || `emp-${idx}`),
-              nome_empresa: String(e.nome_empresa || "Mundo Kan"),
+              nome_empresa: String(e.nome_empresa || "Minha Empresa"),
               razao_social: String(e.razao_social || e.nome_empresa || ""),
-              cnpj: String(e.cnpj || "00.000.000/0001-00"),
+              cnpj: String(e.cnpj || ""),
               segmento: String(e.segmento || "Tecnologia"),
               responsavel_nome: String(e.responsavel_nome || "Administrador"),
-              email: String(e.email || "contato@mundokan.com.br"),
+              email: String(e.email || "cadastro@kantechrh.com.br"),
               status:
                 String(e.status || "Ativa") === "Inativa" ? "Inativa" : "Ativa",
               cor: EMP_COLORS[idx % EMP_COLORS.length],
@@ -413,7 +409,7 @@ export function OrganogramaView({
             setSelectedEmpresa(firstActive.nome_empresa);
           }
         }
-        if (Array.isArray(res?.hierarquia) && res.hierarquia.length > 0) {
+        if (Array.isArray(res?.hierarquia)) {
           const mappedDepts: DepartamentoNode[] = res.hierarquia.map(
             (h: Record<string, unknown>, idx: number) => ({
               id: String(h.departamento_id || `dept_${idx}`),
@@ -424,7 +420,7 @@ export function OrganogramaView({
                 String(h.parent_id) !== "Nenhum (Nível Mais Alto)"
                   ? String(h.parent_id)
                   : null,
-              empresa: String(h.empresa || "Mundo Kan"),
+              empresa: String(h.empresa || "Minha Empresa"),
               ordem: Number(h.ordem ?? idx),
             })
           );
@@ -432,7 +428,7 @@ export function OrganogramaView({
         }
       })
       .catch(() => {
-        // Keep initial defaults
+        // Keep empty defaults on network error
       });
     return () => {
       active = false;

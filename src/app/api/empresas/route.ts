@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { getRequestTenantContext } from "@/lib/auth-security";
 
 export const dynamic = "force-dynamic";
 
@@ -9,23 +10,34 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
+    const ctx = getRequestTenantContext(req);
     const { searchParams } = new URL(req.url);
     const empresaFiltro = searchParams.get("empresa");
-    const tenantId = searchParams.get("tenant_id");
-    const isAdminMaster = searchParams.get("admin") === "true";
+    const queryTenantId = searchParams.get("tenant_id");
+
+    if (!ctx.isAdminKan && !ctx.tenantId) {
+      return NextResponse.json({
+        source: "supabase-empty",
+        empresas: [],
+        hierarquia: [],
+      });
+    }
 
     const supabaseAdmin = getSupabaseAdmin();
 
     let empQuery = supabaseAdmin.from("empresas").select("*").order("nome_empresa");
     let hierQuery = supabaseAdmin.from("hierarquia_departamentos").select("*").order("ordem");
 
-    if (
-      tenantId &&
-      !isAdminMaster &&
-      tenantId !== "00000000-0000-0000-0000-000000000000"
+    if (!ctx.isAdminKan && ctx.tenantId) {
+      empQuery = empQuery.eq("tenant_id", ctx.tenantId);
+      hierQuery = hierQuery.eq("tenant_id", ctx.tenantId);
+    } else if (
+      ctx.isAdminKan &&
+      queryTenantId &&
+      queryTenantId !== "all"
     ) {
-      empQuery = empQuery.eq("tenant_id", tenantId);
-      hierQuery = hierQuery.eq("tenant_id", tenantId);
+      empQuery = empQuery.eq("tenant_id", queryTenantId);
+      hierQuery = hierQuery.eq("tenant_id", queryTenantId);
     }
 
     if (empresaFiltro) {
@@ -46,22 +58,43 @@ export async function GET(req: NextRequest) {
 
       return {
         id: String(row.id || row.nome_empresa),
-        nome_empresa: String(row.nome_empresa || "Mundo Kan"),
+        nome_empresa: String(row.nome_empresa || ctx.empresa || "Workspace"),
         razao_social: String(row.razao_social || row.nome_empresa || ""),
-        cnpj: String(row.cnpj || "00.000.000/0001-00"),
+        cnpj: String(row.cnpj || ""),
         segmento: String(row.segmento || "Tecnologia"),
         num_colaboradores: String(row.num_colaboradores || "50"),
         site: String(row.site || ""),
         telefone: String(row.telefone || ""),
-        email: String(row.email || ""),
-        responsavel_nome: String(row.responsavel_nome || "Administrador"),
-        responsavel_celular: String(row.responsavel_celular || ""),
-        responsavel_email: String(row.responsavel_email || ""),
+        email: String(row.email || ctx.user?.email || ""),
+        responsavel_nome: String(row.responsavel_nome || ctx.user?.nome_completo || "Administrador"),
+        responsavel_celular: String(row.responsavel_celular || ctx.user?.celular || ""),
+        responsavel_email: String(row.responsavel_email || ctx.user?.email || ""),
         status: (String(row.status || "Ativa") === "Inativa" ? "Inativa" : "Ativa") as "Ativa" | "Inativa",
         logo_url: logoUrl,
-        tenant_id: String(row.tenant_id || "00000000-0000-0000-0000-000000000000"),
+        tenant_id: String(row.tenant_id || ctx.tenantId || "00000000-0000-0000-0000-000000000000"),
       };
     });
+
+    // Se o tenant autenticado ainda não cadastrou registro em public.empresas, retorna a própria empresa do usuário
+    if (empresas.length === 0 && !ctx.isAdminKan && ctx.tenantId) {
+      empresas.push({
+        id: ctx.tenantId,
+        nome_empresa: ctx.empresa || "Minha Empresa",
+        razao_social: ctx.empresa || "Minha Empresa",
+        cnpj: "",
+        segmento: "Corporativo",
+        num_colaboradores: "10",
+        site: "",
+        telefone: ctx.user?.celular || "",
+        email: ctx.user?.email || "",
+        responsavel_nome: ctx.user?.nome_completo || "Administrador",
+        responsavel_celular: ctx.user?.celular || "",
+        responsavel_email: ctx.user?.email || "",
+        status: "Ativa",
+        logo_url: undefined,
+        tenant_id: ctx.tenantId,
+      });
+    }
 
     const hierarquia = (hierData || []).map((row: Record<string, unknown>) => ({
       id: row.id,
@@ -97,9 +130,12 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const supabaseAdmin = getSupabaseAdmin();
+    const ctx = getRequestTenantContext(req, body.tenant_id);
+    const effectiveTenantId =
+      ctx.tenantId || body.tenant_id || "00000000-0000-0000-0000-000000000000";
 
     if (body.type === "departamento") {
-      const { empresa, departamento_id, nome, parent_id, ordem, tenant_id } = body;
+      const { empresa, departamento_id, nome, parent_id, ordem } = body;
       if (!empresa || !departamento_id || !nome) {
         return NextResponse.json(
           { error: "Campos obrigatórios: empresa, departamento_id e nome." },
@@ -110,6 +146,7 @@ export async function POST(req: NextRequest) {
       const { data: existingDept } = await supabaseAdmin
         .from("hierarquia_departamentos")
         .select("id")
+        .eq("tenant_id", effectiveTenantId)
         .eq("departamento_id", departamento_id)
         .maybeSingle();
 
@@ -122,10 +159,9 @@ export async function POST(req: NextRequest) {
             ? null
             : parent_id,
         ordem: Number(ordem || 0),
+        tenant_id: effectiveTenantId,
         updated_at: new Date().toISOString(),
       };
-
-      if (tenant_id) deptPayload.tenant_id = tenant_id;
 
       const { data, error } = existingDept?.id
         ? await supabaseAdmin
@@ -184,10 +220,9 @@ export async function POST(req: NextRequest) {
       responsavel_celular: responsavel_celular || "",
       responsavel_email: responsavel_email || "",
       status: status || "Ativa",
+      tenant_id: effectiveTenantId,
       updated_at: new Date().toISOString(),
     };
-
-    if (tenant_id) empPayload.tenant_id = tenant_id;
 
     let savedEmp;
     let saveErr;
@@ -205,6 +240,7 @@ export async function POST(req: NextRequest) {
       const { data: existingEmp } = await supabaseAdmin
         .from("empresas")
         .select("id")
+        .eq("tenant_id", effectiveTenantId)
         .ilike("nome_empresa", nome_empresa)
         .maybeSingle();
 
